@@ -137,7 +137,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
-      <header style={{ maxWidth: 448, margin: '0 auto', padding: 'env(safe-area-inset-top, 20px) env(safe-area-inset-right, 18px) 8px env(safe-area-inset-left, 18px)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ maxWidth: 448, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 8px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Settings size={17} style={{ color: T.ink }} />
         </button>
@@ -161,7 +161,7 @@ export default function App() {
       )}
 
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'center', background: T.surface, borderTop: `1px solid ${T.line}` }}>
-        <div style={{ maxWidth: 448, width: '100%', display: 'flex', padding: '6px env(safe-area-inset-right, 4px) env(safe-area-inset-bottom, 6px) env(safe-area-inset-left, 4px)' }}>
+        <div style={{ maxWidth: 448, width: '100%', display: 'flex', padding: '6px max(4px, env(safe-area-inset-right, 0px)) max(6px, env(safe-area-inset-bottom, 0px)) max(4px, env(safe-area-inset-left, 0px))' }}>
           {tabs.map((tb) => {
             const Icon = tb.icon; const active = tab === tb.key
             return (
