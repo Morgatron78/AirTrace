@@ -179,7 +179,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
         @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap');
         .font-display { font-family: 'Plus Jakarta Sans', ui-sans-serif, system-ui; }`}</style>
 
-      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: 600, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 16px)) max(20px, env(safe-area-inset-right, 0px)) 0 max(20px, env(safe-area-inset-left, 0px))' }}>
+      <div className="no-print" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', maxWidth: 600, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(20px, env(safe-area-inset-right, 0px)) 0 max(20px, env(safe-area-inset-left, 0px))' }}>
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: '#0A0A0C' }}>
           <ChevronLeft size={16} /> Back
         </button>
