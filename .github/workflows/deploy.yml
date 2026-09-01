@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
   pages: write
   id-token: write
 
@@ -23,6 +23,16 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      # Bumps package.json's version (the source of __APP_VERSION__, shown
+      # on the splash screen) before building, so every deploy is
+      # identifiable at a glance. [skip ci] on the commit message stops
+      # this push from re-triggering this same workflow.
+      - name: Bump patch version
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore: release v%s [skip ci]"
+          git push --follow-tags
       - run: npm ci
       - run: npm run build
       - uses: actions/configure-pages@v5
