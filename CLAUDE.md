@@ -13,6 +13,16 @@ client-side (no upload, no backend), aiming to beat MyAir on depth and OSCAR
 on mobile usability. Built entirely through conversation with Claude; the
 user has no coding background and isn't writing code themselves.
 
+**Primary target platform: iOS (iPhone/iPad), installed to the Home
+Screen.** This isn't an edge case to handle alongside a "real" desktop
+target — it's the main case, and it's already the reason for several
+decisions made so far: the Home Screen install approach specifically
+(exempts the PWA from Safari's 7-day ITP eviction that regular tabs face),
+the Wake Lock caveat below, and reliance on `webkitdirectory` for folder
+import. No Mac is available for native testing — everything needs to work
+as an installed web PWA, not a native app wrapper. Development happens on a
+Windows PC; testing happens on the actual iPhone/iPad.
+
 **The core differentiator, and the actual point of the whole app**:
 correlating user-logged lifestyle tags (alcohol, late meal, etc.) against
 AHI. Neither MyAir nor OSCAR does this at all. If a design decision ever
