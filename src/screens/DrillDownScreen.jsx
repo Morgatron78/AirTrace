@@ -1,7 +1,7 @@
-import { Fragment, useMemo, useState, useRef, useEffect } from 'react'
+import { Fragment, useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
-  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge,
+  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -17,6 +17,7 @@ import { MiniMap } from '../components/charts/MiniMap'
 import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
+import { getDetail } from '../db/detail.js'
 
 function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) {
   const night = nights[idx]
@@ -46,91 +47,82 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   const [linkedZoom, setLinkedZoom] = useState(1)
   const [linkedPan, setLinkedPan] = useState(0)
 
-  // All channel data generated together from one event set and one
-  // resolution, so every channel — whether shown in the combined
-  // Synchronized view or its own chart — lines up and stays consistent.
-  const { events, detail, timeInApneaSec } = useMemo(() => {
-    const N2 = 240
-    const hrs = night.usage || 7
-    const mkEvents = (rate, type) => {
-      const count = Math.min(8, Math.max(0, Math.round(rate * hrs)))
-      // Real obstructive/hypopnea events run roughly 12-38s by clinical
-      // convention (10s is the scoring minimum). Fixed here, inside the
-      // same memo as the rest of the night's synthetic data, so it's
-      // generated once per night rather than drifting on every re-render.
-      return Array.from({ length: count }, () => ({ type, x: 0.08 + Math.random() * 0.84, durationSec: 12 + Math.random() * 26 }))
-    }
-    const evs = [
-      ...mkEvents(night.obstructive, 'Obstructive'),
-      ...mkEvents(night.central, 'Central'),
-      ...mkEvents(night.hypopnea, 'Hypopnea'),
-    ].sort((a, b) => a.x - b.x)
-    const timeInApneaSec = evs.reduce((s, e) => s + e.durationSec, 0)
+  // Real per-night waveform detail + events, loaded from IndexedDB (see
+  // src/edf/parseNight.js for what actually populates it, and CLAUDE.md
+  // for why it may not exist: pruned past the 90-day retention window,
+  // or this night predates any DATALOG import even though its summary
+  // is still available from STR.edf).
+  const [nightData, setNightData] = useState(null)
+  const [detailStatus, setDetailStatus] = useState('loading') // 'loading' | 'unavailable' | 'ready'
+  useEffect(() => {
+    let cancelled = false
+    setDetailStatus('loading')
+    setNightData(null)
+    getDetail(night.date).then((row) => {
+      if (cancelled) return
+      if (!row) { setDetailStatus('unavailable'); return }
+      setNightData(row)
+      setDetailStatus('ready')
+    })
+    return () => { cancelled = true }
+  }, [night.date])
+  // Safe empty fallbacks so CHANNEL_REGISTRY etc. below can be built
+  // unconditionally (keeps every hook in this component running every
+  // render, regardless of load state) — the actual detailStatus gate on
+  // what renders happens once, right before the JSX return.
+  const events = nightData?.events ?? []
+  const detail = nightData?.detail ?? { flow: [], pressure: [], leak: [], respRate: [], tidalVolume: [], minuteVent: [], snore: [], flowLimit: [] }
+  const timeInApneaSec = nightData?.timeInApneaSec ?? 0
 
-    const flow = [], pressure = [], leak = [], snore = [], flowLimit = [], tidalVolume = [], respRate = [], minuteVent = [], inspTime = [], expTime = []
-    let prevTV = 0.5, prevRR = 0.28
-    for (let i = 0; i < N2; i++) {
-      const near = evs.find((e) => Math.abs(e.x * N2 - i) < 3)
-      let f = 0.5 + Math.sin(i / 12) * 0.28
-      if (near) f *= 0.18
-      flow.push(f)
-      pressure.push(0.5 + Math.sin(i / 160) * 0.02) // fixed pressure — essentially flat
-      leak.push(Math.max(0, Math.min(1, 0.22 + (i / N2) * 0.3 + Math.sin(i / 14) * 0.06 + (Math.random() - 0.5) * 0.05)))
-      snore.push(Math.random() < 0.025 ? 0.15 + Math.random() * 0.5 : 0)
-      flowLimit.push(near ? Math.min(1, 0.2 + Math.random() * 0.55) : (Math.random() < 0.05 ? Math.random() * 0.2 : 0))
-      let tv = prevTV * 0.7 + 0.5 * 0.3 + (Math.random() - 0.5) * 0.3
-      if (near) tv *= 0.35
-      tv = Math.max(0.12, Math.min(1, tv))
-      prevTV = tv
-      tidalVolume.push(tv)
-      let rr = prevRR * 0.75 + 0.26 * 0.25 + (Math.random() - 0.5) * 0.16
-      rr += i < N2 * 0.15 ? 0.16 * (1 - i / (N2 * 0.15)) : 0
-      if (near) rr += 0.28
-      rr = Math.max(0.06, Math.min(1, rr))
-      prevRR = rr
-      respRate.push(rr)
-      minuteVent.push(Math.max(0.05, Math.min(1, near ? 0.3 + Math.random() * 0.6 : 0.24 + (Math.random() - 0.5) * 0.14)))
-      inspTime.push(Math.max(0.05, Math.min(1, 0.35 + Math.random() * 0.55)))
-      expTime.push(Math.max(0.05, Math.min(1, 0.3 + Math.random() * 0.55)))
-    }
-    return {
-      events: evs,
-      detail: { flow, pressure, leak, snore, flowLimit, tidalVolume, respRate, minuteVent, inspTime, expTime },
-      timeInApneaSec,
-    }
-  }, [idx])
+  // Real per-channel data arrives from src/edf/parseNight.js in physical
+  // units (L/s, cmH2O, L/min, ml, ...), but the chart rendering below
+  // (bandPath in chartHelpers.js) expects every value pre-normalized to a
+  // 0-1 fraction of a chosen display range — axisMin/axisMax are that
+  // chosen range for display (tick labels, stats), never applied in the
+  // render path itself. Flow is genuinely signed (confirmed real range
+  // -2..3 L/s) and normalizes the same way as every other channel — zero
+  // just lands at whatever fraction that implies (~0.4) rather than a
+  // specially-centered baseline; no chart rendering changes needed.
+  // Array.from (not values.map) deliberately — the parser's real channel
+  // data is a Float32Array, and bandPath below (unchanged, existing code)
+  // calls .map() with a callback that returns strings to build an SVG
+  // path; Array.prototype.map is fine with that, but a typed array's own
+  // .map() coerces each returned string back through Number(), which
+  // silently produces NaN for every point. Array.from always yields a
+  // plain Array regardless of the input type, so bandPath keeps working
+  // exactly as it always did.
+  const normalize = (values, min, max) => Array.from(values, (v) => Math.max(0, Math.min(1, (v - min) / (max - min))))
+  const PRESSURE_MIN = Math.max(0, EQUIPMENT.fixedPressure - 5)
+  const PRESSURE_MAX = EQUIPMENT.fixedPressure + 5
 
   // Every overlayable channel, in one place — the single source of truth
   // for label/color/mode/axis/description, used by the individual charts,
-  // the Synchronized view picker, and the fullscreen modal alike.
+  // the Synchronized view picker, and the fullscreen modal alike. No
+  // inspTime/expTime — confirmed this device has no real source for
+  // either (see CLAUDE.md's "Real file structure" section).
   const CHANNEL_REGISTRY = {
-    flow: { label: 'Flow', color: C.blue, mode: 'line', values: detail.flow, axisMax: 1, unit: '' },
-    pressure: { label: 'Pressure', color: C.purple, mode: 'line', values: detail.pressure, axisMax: 1, unit: '' },
-    leak: { label: 'Leak Rate', color: C.orange, mode: 'line', values: detail.leak, axisMax: 25, unit: ' L/min', unitLabel: 'litres per minute',
+    flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s' },
+    pressure: { label: 'Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O' },
+    leak: { label: 'Leak Rate', color: C.orange, mode: 'line', values: normalize(detail.leak, 0, 25), axisMax: 25, unit: ' L/min', unitLabel: 'litres per minute',
       sub: 'Air escaping around the mask seal rather than being delivered to you. Under about 24 L/min is generally considered an acceptable seal — a rising or spiking pattern usually means the mask needs adjusting or the cushion is due for replacement.' },
-    flowLimit: { label: 'Flow Limit', color: C.pink, mode: 'bar', values: detail.flowLimit, axisMax: 1, unit: '', decimals: 2, unitLabel: 'a 0-1 flattening index, not a physical unit',
+    flowLimit: { label: 'Flow Limit', color: C.pink, mode: 'bar', values: normalize(detail.flowLimit, 0, 1), axisMax: 1, unit: '', decimals: 2, unitLabel: 'a 0-1 flattening index, not a physical unit',
       sub: 'How flattened your breathing waveform is — a subtler marker than a full obstructive event, but a sign the airway is starting to narrow. Frequent flow limitation without full events can still fragment sleep.' },
-    snore: { label: 'Snore', color: SEV.good, mode: 'bar', values: detail.snore, axisMax: 0.5, unit: '', decimals: 2, unitLabel: 'a 0-0.5 intensity index, not a physical unit',
+    snore: { label: 'Snore', color: SEV.good, mode: 'bar', values: normalize(detail.snore, 0, 5), axisMax: 5, unit: '', decimals: 2, unitLabel: 'a 0-5 intensity index, not a physical unit',
       sub: "Vibration detected in the airflow signal, usually from partial airway narrowing. Occasional snoring isn't necessarily meaningful, but a consistent nightly pattern is worth mentioning at your next clinician visit." },
-    tidalVolume: { label: 'Tidal Volume', color: C.blue, mode: 'line', values: detail.tidalVolume, axisMax: 1500, unit: ' ml', decimals: 0, unitLabel: 'millilitres per breath',
+    tidalVolume: { label: 'Tidal Volume', color: C.blue, mode: 'line', values: normalize(detail.tidalVolume, 0, 1500), axisMax: 1500, unit: ' ml', decimals: 0, unitLabel: 'millilitres per breath',
       sub: "The amount of air moved in a single breath. Dips usually line up with obstructive or central events above — a breath that's cut short physically can't deliver a normal volume." },
-    respRate: { label: 'Resp. Rate', fullLabel: 'Respiratory Rate', color: C.orange, mode: 'line', values: detail.respRate, axisMax: 50, unit: ' br/min', decimals: 0, unitLabel: 'breaths per minute',
+    respRate: { label: 'Resp. Rate', fullLabel: 'Respiratory Rate', color: C.orange, mode: 'line', values: normalize(detail.respRate, 0, 50), axisMax: 50, unit: ' br/min', decimals: 0, unitLabel: 'breaths per minute',
       sub: "How many breaths you're taking per minute. It's often naturally elevated in the first stretch of the night as you settle, then should steady out — a rate that stays high or spikes repeatedly can point to disrupted sleep." },
-    minuteVent: { label: 'Minute Vent', color: C.pink, mode: 'line', values: detail.minuteVent, axisMax: 25, unit: ' L/min', unitLabel: 'litres per minute',
+    minuteVent: { label: 'Minute Vent', color: C.pink, mode: 'line', values: normalize(detail.minuteVent, 0, 30), axisMax: 30, unit: ' L/min', unitLabel: 'litres per minute',
       sub: "Total air moved per minute — tidal volume multiplied by breathing rate. It's the best single number for overall ventilation, since it captures both how deep and how fast you're breathing." },
-    inspTime: { label: 'Insp. Time', fullLabel: 'Inspiratory Time', color: SEV.good, mode: 'line', values: detail.inspTime, axisMax: 5, unit: 's', unitLabel: 'seconds',
-      sub: 'How long each in-breath lasts. This naturally varies breath to breath, but a big or sudden shift in rhythm alongside other channels can be a useful clue when something felt off that night.' },
-    expTime: { label: 'Exp. Time', fullLabel: 'Expiratory Time', color: C.blue, mode: 'line', values: detail.expTime, axisMax: 5, unit: 's', unitLabel: 'seconds',
-      sub: "How long each out-breath lasts. Normally a little longer than inspiratory time — if that ratio flips or swings a lot, it's worth cross-checking against the Flow trace for the same stretch." },
   }
   // Groups the picker chips by what they actually measure, so choosing
   // channels is about intent (raw signal vs. breathing quality vs.
-  // ventilation vs. timing) rather than one long undifferentiated list.
+  // ventilation) rather than one long undifferentiated list.
   const CHANNEL_GROUPS = [
     { label: 'Core', keys: ['flow', 'pressure', 'leak'] },
     { label: 'Breathing', keys: ['flowLimit', 'snore'] },
     { label: 'Ventilation', keys: ['tidalVolume', 'respRate', 'minuteVent'] },
-    { label: 'Timing', keys: ['inspTime', 'expTime'] },
   ]
   // Condensed Min/Med/95%/99.5% table — same per-channel data as the
   // waveform charts above, just readable at a glance instead of requiring
@@ -139,9 +131,12 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // per-night pMin/pMax/p95 already generated for Trends' Pressure tab.
   const statRows = [
     { label: 'Pressure', unit: ' cmH₂O', decimals: 1, min: night.pMin, med: EQUIPMENT.fixedPressure, p95: night.p95, p995: night.pMax },
-    (() => { const s = computeStats(detail.leak, CHANNEL_REGISTRY.leak.axisMax); return { label: 'Leak rate', unit: ' L/min', decimals: 1, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
-    (() => { const s = computeStats(detail.respRate, CHANNEL_REGISTRY.respRate.axisMax); return { label: 'Resp rate', unit: ' br/min', decimals: 1, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
-    (() => { const s = computeStats(detail.flowLimit, CHANNEL_REGISTRY.flowLimit.axisMax); return { label: 'Flow limit', unit: '', decimals: 2, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
+    // computeStats expects the normalized 0-1 fraction values (it reverses
+    // the normalization back to real units itself) — CHANNEL_REGISTRY's
+    // *.values, not the raw detail.* arrays, which are already real units.
+    (() => { const s = computeStats(CHANNEL_REGISTRY.leak.values, CHANNEL_REGISTRY.leak.axisMax); return { label: 'Leak rate', unit: ' L/min', decimals: 1, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
+    (() => { const s = computeStats(CHANNEL_REGISTRY.respRate.values, CHANNEL_REGISTRY.respRate.axisMax); return { label: 'Resp rate', unit: ' br/min', decimals: 1, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
+    (() => { const s = computeStats(CHANNEL_REGISTRY.flowLimit.values, CHANNEL_REGISTRY.flowLimit.axisMax); return { label: 'Flow limit', unit: '', decimals: 2, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
   ]
   const apneaPct = (timeInApneaSec / (night.usage * 3600)) * 100
   const fmtDuration = (totalSec) => {
@@ -298,7 +293,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
           return (
             <div key={selectedChannels[bi]}>
               <span className="font-display" style={{ position: 'absolute', top: `${(y0 / totalH) * 100}%`, left: 0, fontSize: 9, fontWeight: 600, color: T.muted }}>{b.axisMax}</span>
-              <span className="font-display" style={{ position: 'absolute', top: `${(y1 / totalH) * 100}%`, left: 0, transform: 'translateY(-100%)', fontSize: 9, fontWeight: 600, color: T.muted }}>0</span>
+              <span className="font-display" style={{ position: 'absolute', top: `${(y1 / totalH) * 100}%`, left: 0, transform: 'translateY(-100%)', fontSize: 9, fontWeight: 600, color: T.muted }}>{b.axisMin ?? 0}</span>
             </div>
           )
         })}
@@ -426,6 +421,22 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
 
       <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
 
+      {detailStatus !== 'ready' ? (
+        <div style={{ background: T.surface, borderRadius: 22, padding: 32, textAlign: 'center' }}>
+          {detailStatus === 'loading' ? (
+            <div className="font-display" style={{ fontSize: 13, fontWeight: 600, color: T.muted }}>Loading waveform detail…</div>
+          ) : (
+            <>
+              <div style={{ width: 56, height: 56, borderRadius: '50%', border: `2px dashed ${T.line}`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
+                <HardDrive size={22} style={{ color: T.muted }} strokeWidth={1.8} />
+              </div>
+              <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 6 }}>Waveform detail not available</div>
+              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>Detailed charts are only kept for the last 90 days — this night's own summary above is still accurate, just without the full waveform to drill into.</div>
+            </>
+          )}
+        </div>
+      ) : (
+      <>
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Synchronized view</span>
@@ -530,7 +541,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
             : {}
           return (
             <MiniChart key={key} label={ch.label} sub={ch.sub} fullLabel={ch.fullLabel} unitLabel={ch.unitLabel} values={ch.values} color={ch.color} mode={ch.mode}
-              axisMax={ch.axisMax} unit={ch.unit} decimals={ch.decimals ?? 1}
+              axisMax={ch.axisMax} axisMin={ch.axisMin ?? 0} unit={ch.unit} decimals={ch.decimals ?? 1}
               usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart(key)} events={events}
               {...linkProps} />
           )
@@ -606,7 +617,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
                   </>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>
-                    <BigChannelChart values={meta.values} color={meta.color} mode={meta.mode} axisMax={meta.axisMax} unit={meta.unit} decimals={meta.decimals ?? 1}
+                    <BigChannelChart values={meta.values} color={meta.color} mode={meta.mode} axisMax={meta.axisMax} axisMin={meta.axisMin ?? 0} unit={meta.unit} decimals={meta.decimals ?? 1}
                       usageHours={night.usage} startHour={night.startHour} events={events} sub={meta.sub} label={meta.label} fullLabel={meta.fullLabel} unitLabel={meta.unitLabel} />
                   </div>
                 )}
@@ -615,6 +626,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
           </div>
         )
       })()}
+      </>
+      )}
     </div>
   )
 }

@@ -8,7 +8,7 @@ import { hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, 
 // Standalone per-channel chart — real drill-down into one metric at a
 // time, distinct from the combined synchronized view. Has its own y-axis
 // scale, zoom/pan window, and expand-to-fullscreen.
-export function MiniChart({ label, sub, fullLabel, unitLabel, values, color, mode, unit, decimals = 1, axisMax, usageHours, startHour, onExpand, events,
+export function MiniChart({ label, sub, fullLabel, unitLabel, values, color, mode, unit, decimals = 1, axisMax, axisMin = 0, usageHours, startHour, onExpand, events,
   zoom: zoomProp, onZoomChange, panStart: panStartProp, onPanChange }) {
   const [localZoom, setLocalZoom] = useState(1)
   const [localPanStart, setLocalPanStart] = useState(0)
@@ -133,11 +133,11 @@ export function MiniChart({ label, sub, fullLabel, unitLabel, values, color, mod
           </>
         )}
       </div>
-      {showStats && <StatQuad stats={computeStats(visible, axisMax)} unit={unit} decimals={decimals} />}
+      {showStats && <StatQuad stats={computeStats(visible, axisMax - axisMin, axisMin)} unit={unit} decimals={decimals} />}
       <div style={{ display: 'flex', gap: 8, marginTop: 10 }}>
         <div style={{ position: 'relative', width: 20, height: h, flexShrink: 0 }}>
           <span className="font-display" style={{ position: 'absolute', top: 0, left: 0, fontSize: 10, fontWeight: 600, color: T.muted }}>{axisMax}</span>
-          <span className="font-display" style={{ position: 'absolute', bottom: -1, left: 0, fontSize: 10, fontWeight: 600, color: T.muted }}>0</span>
+          <span className="font-display" style={{ position: 'absolute', bottom: -1, left: 0, fontSize: 10, fontWeight: 600, color: T.muted }}>{axisMin}</span>
         </div>
         <div {...(selectMode ? brushHandlers : (isZoomedIn ? panHandlers : {}))} style={{ position: 'relative', flex: 1, touchAction: 'pan-y', cursor: selectMode ? 'crosshair' : isZoomedIn ? 'grab' : 'default', outline: selectMode ? `2px dashed ${color}` : 'none', outlineOffset: 2, borderRadius: 4 }}>
           <svg width="100%" height={h} viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" style={{ display: 'block' }}>

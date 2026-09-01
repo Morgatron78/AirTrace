@@ -6,7 +6,9 @@ import { formatClock } from '../../utils/dates'
 // redefined, and therefore remounted with state reset, on every render).
 
 export const EVENT_COLOR = { Obstructive: C.red, Central: C.orange, Hypopnea: C.blue }
-export const DEFAULT_CHANNEL_ORDER = ['leak', 'flowLimit', 'snore', 'tidalVolume', 'respRate', 'minuteVent', 'inspTime', 'expTime']
+// No inspTime/expTime — confirmed this device has no real source for
+// either channel (see CLAUDE.md's "Real file structure" section).
+export const DEFAULT_CHANNEL_ORDER = ['leak', 'flowLimit', 'snore', 'tidalVolume', 'respRate', 'minuteVent']
 
 // Real wall-clock hour markers (matches how a real overnight chart reads —
 // "11:00 PM, 12:00 AM..." — rather than elapsed time from session start).
@@ -73,11 +75,17 @@ export function jumpToEvent(origX, total, winLenFrac, targetZoomValue, setZoom, 
 // are only used now to define "fully zoomed in" for tap-an-event-to-jump.
 export const ZOOM_PRESETS = [1, 0.4, 0.18]
 
-export function computeStats(values, scale) {
+// values are 0-1 fractions (see bandPath below); scale/offset reverse
+// that back to the channel's real display units. offset defaults to 0
+// (most channels' real range starts at 0) — Flow and Pressure normalize
+// against a non-zero real minimum, so they pass their own offset to get
+// correct Min/Median/Max numbers back, not just a correct chart shape.
+export function computeStats(values, scale, offset = 0) {
   const sorted = [...values].sort((a, b) => a - b)
   const n = sorted.length
   const pick = (p) => sorted[Math.min(n - 1, Math.floor(p * n))]
-  return { min: sorted[0] * scale, median: pick(0.5) * scale, p95: pick(0.95) * scale, p995: pick(0.995) * scale, max: sorted[n - 1] * scale }
+  const toReal = (v) => offset + v * scale
+  return { min: toReal(sorted[0]), median: toReal(pick(0.5)), p95: toReal(pick(0.95)), p995: toReal(pick(0.995)), max: toReal(sorted[n - 1]) }
 }
 
 export function hexA(hex, alpha) {

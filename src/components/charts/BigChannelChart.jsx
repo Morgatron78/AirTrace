@@ -8,7 +8,7 @@ import { hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, 
 // Fullscreen version of a single channel — has its own zoom/pan too, now
 // that it's a stable top-level component rather than being redefined (and
 // therefore remounted) every time the parent screen re-renders.
-export function BigChannelChart({ values, color, mode, axisMax, unit, decimals = 1, usageHours, startHour, events, sub, label, fullLabel, unitLabel }) {
+export function BigChannelChart({ values, color, mode, axisMax, axisMin = 0, unit, decimals = 1, usageHours, startHour, events, sub, label, fullLabel, unitLabel }) {
   const [zoom, setZoom] = useState(1)
   const [panStart, setPanStart] = useState(0)
   const [showStats, setShowStats] = useState(false)
@@ -120,14 +120,14 @@ export function BigChannelChart({ values, color, mode, axisMax, unit, decimals =
       </div>
       {showStats && (
         <div style={{ flexShrink: 0, maxWidth: 360, marginTop: 8 }}>
-          <StatQuad stats={computeStats(visible, axisMax != null ? axisMax : 1)} unit={unit} decimals={decimals} />
+          <StatQuad stats={computeStats(visible, axisMax != null ? axisMax - axisMin : 1, axisMin)} unit={unit} decimals={decimals} />
         </div>
       )}
       <div style={{ display: 'flex', gap: 8, flex: 1, minHeight: 0, marginTop: 8 }}>
         {axisMax != null && (
           <div style={{ position: 'relative', width: 26, flexShrink: 0 }}>
             <span className="font-display" style={{ position: 'absolute', top: 0, left: 0, fontSize: 12, fontWeight: 600, color: T.muted }}>{axisMax}</span>
-            <span className="font-display" style={{ position: 'absolute', bottom: 4, left: 0, fontSize: 12, fontWeight: 600, color: T.muted }}>0</span>
+            <span className="font-display" style={{ position: 'absolute', bottom: 4, left: 0, fontSize: 12, fontWeight: 600, color: T.muted }}>{axisMin}</span>
           </div>
         )}
         <div {...(selectMode ? brushHandlers : (isZoomedIn ? panHandlers : {}))} style={{ position: 'relative', flex: 1, touchAction: 'pan-y', cursor: selectMode ? 'crosshair' : isZoomedIn ? 'grab' : 'default', outline: selectMode ? `2px dashed ${color}` : 'none', outlineOffset: 2, borderRadius: 4 }}>

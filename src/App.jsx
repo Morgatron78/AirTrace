@@ -2,8 +2,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upload } from 'lucide-react'
 import { T, C } from './constants/theme'
 import { DEFAULT_TARGETS } from './constants/equipment'
-import { toDateStr } from './utils/dates'
-import { useMockData } from './utils/mockData'
+import { useStoredNights } from './db/useStoredNights.js'
 import { SplashScreen } from './screens/SplashScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { TrendsScreen } from './screens/TrendsScreen'
@@ -15,9 +14,10 @@ import { ClinicianReportScreen } from './screens/ClinicianReportScreen'
 import { ImportScreen } from './screens/ImportScreen'
 import { SettingsScreen } from './screens/SettingsScreen'
 import { TagEntryScreen } from './screens/TagEntryScreen'
+import { NavCard } from './components/NavCard'
 
 export default function App() {
-  const rawNights = useMockData()
+  const { status, rawNights, tagLog, tagStartDate, saveTagEntry: persistTagEntry, refresh } = useStoredNights()
   const [showReport, setShowReport] = useState(false)
   const [targets, setTargets] = useState(DEFAULT_TARGETS)
   const [splashStage, setSplashStage] = useState('visible') // visible -> fading -> gone
@@ -33,39 +33,17 @@ export default function App() {
     headgearWashed: '2026-08-14',
     filterChanged: '2026-07-02',
   })
-  // Tags are keyed by calendar date, entirely separate from night/import
-  // data — import (or, here, the mock generator) never owns or creates a
-  // tag, it's just merged in below by date whenever both exist. Mock-only
-  // seed: simulates "the user completed their first import 9 days ago"
-  // (tagStartDate) with a few days already logged, and the most recent 2
-  // nights left unreviewed so the Today prompt/nag has something real to
-  // show. In the real build tagStartDate is set exactly once, the moment
-  // the first import actually completes — nothing recomputed like this.
-  const [tagStartDate] = useState(() => {
-    const d = new Date()
-    d.setDate(d.getDate() - 9)
-    return toDateStr(d)
-  })
-  const [tagLog, setTagLog] = useState(() => {
-    const seed = {}
-    const mk = (daysAgo) => { const d = new Date(); d.setDate(d.getDate() - daysAgo); return toDateStr(d) }
-    seed[mk(9)] = { reviewed: true, alcohol: 'light', lateMeal: false, awayFromHome: false, highStress: false, illness: false }
-    seed[mk(7)] = { reviewed: true, alcohol: null, lateMeal: false, awayFromHome: false, highStress: false, illness: false }
-    seed[mk(6)] = { reviewed: true, alcohol: null, lateMeal: true, awayFromHome: false, highStress: true, illness: false }
-    seed[mk(4)] = { reviewed: true, alcohol: null, lateMeal: false, awayFromHome: true, highStress: false, illness: false }
-    // days -3 through -1 deliberately left unreviewed — this is the gap
-    // the Today prompt/nag is meant to catch.
-    return seed
-  })
-  // Merges the raw (imported/mock) nights with the tag log by date. Any
-  // night before tagStartDate is exempt from review-state tracking
-  // entirely — first-import history can span a year or more, so treating
-  // all of it as "unreviewed" would either nag uselessly for hundreds of
-  // nights at once, or pretend accurate same-day recall is possible for
-  // data that old. Exempt nights just carry whatever their own data has
-  // (the mock's pre-existing random tags) with no status attached.
+  // Merges the raw (imported, IndexedDB-backed) nights with the tag log by
+  // date. Any night before tagStartDate is exempt from review-state
+  // tracking entirely — first-import history can span a year or more, so
+  // treating all of it as "unreviewed" would either nag uselessly for
+  // hundreds of nights at once, or pretend accurate same-day recall is
+  // possible for data that old. Exempt nights just carry whatever their
+  // own data has (their device-recorded tags, if any) with no status
+  // attached. No tagStartDate yet (nothing imported) means every night is
+  // exempt — there's nothing to track review state against.
   const nights = useMemo(() => rawNights.map((n) => {
-    const exempt = n.date < tagStartDate
+    const exempt = !tagStartDate || n.date < tagStartDate
     const entry = tagLog[n.date]
     const status = exempt ? 'exempt' : entry ? 'reviewed' : 'unreviewed'
     // An explicit edit always takes effect, even on an exempt night — the
@@ -78,7 +56,7 @@ export default function App() {
       ...(entry.awayFromHome ? ['awayFromHome'] : []),
       ...(entry.highStress ? ['highStress'] : []),
       ...(entry.illness ? ['illness'] : []),
-    ] : exempt ? n.tags : []
+    ] : []
     // Late start is auto-detected from the machine's own data (session
     // start vs. Target bedtime), independent of tagStartDate/review status
     // entirely — there's nothing to review for a number the device
@@ -90,20 +68,23 @@ export default function App() {
   // computed independent of rawNights entirely, since the whole point is
   // catching up on a date even if that night hasn't been imported yet.
   const untaggedDates = useMemo(() => {
+    if (!tagStartDate) return []
     const out = []
     const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0, 0, 0, 0)
     for (const d = new Date(`${tagStartDate}T00:00:00`); d <= yesterday; d.setDate(d.getDate() + 1)) {
-      const ds = toDateStr(d)
+      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
       if (!tagLog[ds]) out.push(ds)
     }
     return out
   }, [tagLog, tagStartDate])
   const [tagEntryDate, setTagEntryDate] = useState(null)
-  const saveTagEntry = (entry) => { setTagLog((log) => ({ ...log, [tagEntryDate]: entry })); setTagEntryDate(null) }
+  const saveTagEntry = (entry) => { persistTagEntry(tagEntryDate, entry); setTagEntryDate(null) }
   const [showImport, setShowImport] = useState(false)
+  const closeImport = () => { setShowImport(false); refresh() }
   const [showSettings, setShowSettings] = useState(false)
   const [tab, setTab] = useState('today')
-  const [nightIdx, setNightIdx] = useState(nights.length - 1)
+  const [nightIdx, setNightIdx] = useState(Math.max(0, nights.length - 1))
+  useEffect(() => { setNightIdx(Math.max(0, nights.length - 1)) }, [nights.length])
   const goToNight = (i) => { setNightIdx(i); setTab('night') }
   const tabs = [
     { key: 'today', label: 'Today', icon: Home },
@@ -114,25 +95,36 @@ export default function App() {
     { key: 'equipment', label: 'Equipment', icon: LayoutGrid },
   ]
   // Derived from the actual last night's date rather than hardcoded — the
-  // mock data itself is anchored to the real current date, so a fixed
-  // string here would silently drift out of sync with it (and already had).
+  // real data is anchored to whatever the device actually recorded, so a
+  // fixed string here would silently drift out of sync with it.
   const lastNight = nights[nights.length - 1]
   const todayTitle = lastNight
     ? new Date(`${lastNight.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' })
     : ''
   const titles = { today: todayTitle, trends: 'Trends', stats: 'Stats', night: 'Night detail', insights: 'Insights', equipment: 'Equipment' }
 
-  if (splashStage !== 'gone') {
+  if (splashStage !== 'gone' || status === 'loading') {
     return <SplashScreen fadingOut={splashStage === 'fading'} />
   }
   if (showReport) {
     return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} />
   }
   if (showImport) {
-    return <ImportScreen onBack={() => setShowImport(false)} />
+    return <ImportScreen onBack={closeImport} />
   }
   if (showSettings) {
     return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={setTargets} />
+  }
+  if (status === 'empty') {
+    return (
+      <div style={{ minHeight: '100vh', width: '100%', background: T.bg, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 18px', boxSizing: 'border-box' }}>
+        <div style={{ maxWidth: 448, margin: '0 auto', width: '100%' }}>
+          <NavCard icon={Upload} dot={`linear-gradient(135deg,${C.blue},${C.purple})`}
+            title="Import your CPAP data" subtitle="Plug in your SD card to get started"
+            onClick={() => setShowImport(true)} />
+        </div>
+      </div>
+    )
   }
 
   return (

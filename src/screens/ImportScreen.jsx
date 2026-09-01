@@ -3,6 +3,11 @@ import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDri
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
+import { groupImportFiles } from '../edf/groupImportFiles.js'
+import { upsertSummaries } from '../db/nights.js'
+import { upsertDetail, pruneOlderThan, getExistingDetailDates } from '../db/detail.js'
+import { getMeta, setMeta } from '../db/meta.js'
+import { toDateStr } from '../utils/dates.js'
 
 // Ordered import stages — index also drives the checklist's done/current/pending
 // states, so the two can never drift out of sync with each other.
@@ -13,6 +18,8 @@ const IMPORT_STAGE_LABEL = {
   waveform: 'Parsing waveform detail',
   pruning: 'Pruning data older than 90 days',
 }
+const RETENTION_DAYS = 90
+
 function ImportStageRow({ label, status }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
@@ -32,52 +39,22 @@ export function ImportScreen({ onBack }) {
   // idle -> reading -> summaries -> waveform -> pruning -> done -> (back to idle)
   const [stage, setStage] = useState('idle')
   const [waveformDone, setWaveformDone] = useState(0)
-  const waveformTotal = 21 // a 3-week gap since the last import — every one of those nights is still well inside the 90-day window, so nothing was missed, just batched
-  const prunedCount = 21 // same 3-week gap means ~3 weeks' worth of nights aged out the other end of the window this run
+  const [waveformTotal, setWaveformTotal] = useState(0)
+  const [error, setError] = useState(null)
   const startedAtRef = useRef(null)
-  const [lastImport, setLastImport] = useState({ date: '29 Aug 2026', nightsAdded: 1, pruned: 1, duration: '4s' })
-  const [history, setHistory] = useState([
-    { date: '29 Aug 2026', nights: '1 night' },
-    { date: '22 Aug 2026', nights: '7 nights' },
-    { date: '1 Aug 2026', nights: '30 nights (first import)' },
-  ])
+  const workerRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const [lastImport, setLastImport] = useState(null)
+  const [history, setHistory] = useState([])
 
+  // Real prior-import state, loaded once from IndexedDB rather than the
+  // hardcoded mock seed this screen used to ship with.
   useEffect(() => {
-    if (stage === 'reading') {
-      const t = setTimeout(() => setStage('summaries'), 1400)
-      return () => clearTimeout(t)
-    }
-    if (stage === 'summaries') {
-      const t = setTimeout(() => setStage('waveform'), 900)
-      return () => clearTimeout(t)
-    }
-    if (stage === 'waveform') {
-      if (waveformDone >= waveformTotal) {
-        const t = setTimeout(() => setStage('pruning'), 400)
-        return () => clearTimeout(t)
-      }
-      const t = setTimeout(() => setWaveformDone((n) => n + 1), 90)
-      return () => clearTimeout(t)
-    }
-    if (stage === 'pruning') {
-      const t = setTimeout(() => {
-        // The completion card and the persistent "Last import" card were
-        // previously two disconnected sources of truth — this one just
-        // finished importing waveformTotal nights, but the card below it
-        // kept showing a hardcoded "1 night" regardless. Recording the
-        // real numbers here (and the real elapsed time) keeps both in
-        // sync, and history keeps a running log instead of a static list.
-        const elapsedMs = startedAtRef.current ? Date.now() - startedAtRef.current : 0
-        const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)
-        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
-        const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-        setLastImport({ date: dateStr, nightsAdded: waveformTotal, pruned: prunedCount, duration: durationStr })
-        setHistory((h) => [{ date: dateStr, nights: `${waveformTotal} nights` }, ...h])
-        setStage('done')
-      }, 900)
-      return () => clearTimeout(t)
-    }
-  }, [stage, waveformDone])
+    getMeta('lastImport').then((v) => v && setLastImport(v))
+    getMeta('importHistory').then((v) => v && setHistory(v))
+  }, [])
+
+  useEffect(() => () => workerRef.current?.terminate(), [])
 
   const isActive = stage !== 'idle' && stage !== 'done'
 
@@ -116,13 +93,85 @@ export function ImportScreen({ onBack }) {
     }
   }, [isActive])
 
-  const startImport = () => { setWaveformDone(0); startedAtRef.current = Date.now(); setStage('reading') }
-  const cancelImport = () => { setStage('idle'); setWaveformDone(0) }
+  const chooseFolder = () => { setError(null); fileInputRef.current?.click() }
+
+  const onFilesSelected = async (e) => {
+    const fileList = e.target.files
+    e.target.value = '' // allow re-selecting the same folder later
+    if (!fileList || fileList.length === 0) return
+
+    const { strFile, nightFolders } = groupImportFiles(fileList)
+    if (!strFile) {
+      setError("Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together).")
+      return
+    }
+
+    startedAtRef.current = Date.now()
+    setWaveformDone(0)
+    setWaveformTotal(0)
+    setStage('reading')
+
+    const skipDates = [...await getExistingDetailDates()]
+    const worker = new Worker(new URL('../edf/importWorker.js', import.meta.url), { type: 'module' })
+    workerRef.current = worker
+
+    worker.onmessage = async (evt) => {
+      const msg = evt.data
+      if (msg.type === 'progress') {
+        setStage(msg.stage)
+        setWaveformDone(msg.waveformDone)
+        setWaveformTotal(msg.waveformTotal)
+        return
+      }
+      if (msg.type === 'error') {
+        setError(msg.message)
+        setStage('idle')
+        worker.terminate()
+        return
+      }
+      if (msg.type === 'done') {
+        setStage('pruning')
+        await upsertSummaries(msg.summaries)
+        await upsertDetail(msg.details)
+        const pruned = await pruneOlderThan(RETENTION_DAYS)
+
+        // Tagging start point per CLAUDE.md: set exactly once, the moment
+        // the *first ever* import completes — never recomputed after that,
+        // regardless of how many more imports happen later.
+        const existingTagStart = await getMeta('tagStartDate')
+        if (!existingTagStart) await setMeta('tagStartDate', toDateStr(new Date()))
+
+        const elapsedMs = startedAtRef.current ? Date.now() - startedAtRef.current : 0
+        const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)
+        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
+        const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+        const record = { date: dateStr, nightsAdded: msg.details.length, pruned, duration: durationStr }
+        const newHistory = [{ date: dateStr, nights: `${msg.details.length} night${msg.details.length === 1 ? '' : 's'}` }, ...history]
+
+        setLastImport(record)
+        setHistory(newHistory)
+        await setMeta('lastImport', record)
+        await setMeta('importHistory', newHistory)
+
+        if (msg.errors.length) setError(`${msg.errors.length} night(s) failed to parse and were skipped: ${msg.errors.map((e) => e.date).join(', ')}`)
+        worker.terminate()
+        setStage('done')
+      }
+    }
+    worker.postMessage({ strFile, nightFolders, skipDates })
+  }
+
+  const cancelImport = () => {
+    workerRef.current?.terminate()
+    setStage('idle')
+    setWaveformDone(0)
+  }
   const handleBack = () => {
     // An accidental tap here mid-import would otherwise silently abandon
     // it with no warning — cheap to guard against given a real import
     // can run well over a minute, not the few seconds this mockup fakes.
     if (isActive && !window.confirm('Import still in progress — leave anyway?')) return
+    workerRef.current?.terminate()
     onBack()
   }
   const stageIdx = stage === 'done' ? IMPORT_STAGES.length : IMPORT_STAGES.indexOf(stage)
@@ -152,9 +201,11 @@ export function ImportScreen({ onBack }) {
             </div>
             <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink, marginBottom: 6 }}>Import from SD card</div>
             <div style={{ fontSize: 13, color: T.muted, marginBottom: 18, lineHeight: 1.5 }}>Plug in your card reader, then select the card's root folder — the one containing STR.edf and DATALOG together.</div>
-            <button onClick={startImport} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF' }} className="font-display">
+            <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={onFilesSelected} style={{ display: 'none' }} />
+            <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF' }} className="font-display">
               <span style={{ fontSize: 14, fontWeight: 700 }}>Choose folder</span>
             </button>
+            {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
             <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>First import can take up to 20 minutes — it's reading full nightly summaries plus parsing 90 days of detailed waveform data, all in the browser. Later imports only process what's new, so they're much faster.</div>
           </div>
         )}
@@ -168,7 +219,7 @@ export function ImportScreen({ onBack }) {
               <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{IMPORT_STAGE_LABEL[stage]}</div>
               <div style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{stageDetail}</div>
             </div>
-            {stage === 'waveform' && (
+            {stage === 'waveform' && waveformTotal > 0 && (
               <div style={{ marginTop: 16, height: 6, borderRadius: 3, background: T.bg, overflow: 'hidden' }}>
                 <div style={{ width: `${(waveformDone / waveformTotal) * 100}%`, height: '100%', background: C.blue, borderRadius: 3, transition: 'width 0.15s linear' }} />
               </div>
@@ -188,7 +239,7 @@ export function ImportScreen({ onBack }) {
           </div>
         )}
 
-        {stage === 'done' && (
+        {stage === 'done' && lastImport && (
           <div style={{ background: T.surface, borderRadius: 22, padding: 24, textAlign: 'center' }}>
             <div style={{ width: 56, height: 56, borderRadius: '50%', background: SEV.good, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
               <Check size={24} style={{ color: '#FFFFFF' }} strokeWidth={3} />
@@ -200,7 +251,8 @@ export function ImportScreen({ onBack }) {
               <StatRow icon={Package} iconColor={T.muted} label="Waveform pruned" value={`${lastImport.pruned} nights`} />
               <StatRow icon={Clock} iconColor={C.orange} label="Duration" value={lastImport.duration} last />
             </div>
-            <button onClick={() => setStage('idle')} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: T.bg, marginTop: 16 }} className="font-display">
+            {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4, textAlign: 'left' }}>{error}</div>}
+            <button onClick={() => { setError(null); setStage('idle') }} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: T.bg, marginTop: 16 }} className="font-display">
               <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>Done</span>
             </button>
           </div>
@@ -214,7 +266,7 @@ export function ImportScreen({ onBack }) {
             description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Anything older than 90 days is pruned automatically on each import; the summary for that night stays put, just without the full waveform to drill into." />
         </div>
 
-        {!isActive && (
+        {!isActive && lastImport && (
           <>
             <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
               <CardTitle>Last import</CardTitle>
@@ -225,12 +277,14 @@ export function ImportScreen({ onBack }) {
               <StatRow icon={Clock} iconColor={C.orange} label="Duration" value={lastImport.duration} last />
             </div>
 
-            <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-              <CardTitle>Import history</CardTitle>
-              {history.map((h, i) => (
-                <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={i === history.length - 1} />
-              ))}
-            </div>
+            {history.length > 0 && (
+              <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+                <CardTitle>Import history</CardTitle>
+                {history.map((h, i) => (
+                  <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={i === history.length - 1} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </main>
