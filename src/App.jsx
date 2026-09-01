@@ -137,7 +137,7 @@ export default function App() {
 
   return (
     <div style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
-      <header style={{ maxWidth: 448, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 8px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <header style={{ maxWidth: 448, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 16px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Settings size={17} style={{ color: T.ink }} />
         </button>
