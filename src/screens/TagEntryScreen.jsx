@@ -43,14 +43,14 @@ export function TagEntryScreen({ date, initialEntry, onSave, onClose }) {
   const saveNothing = () => onSave({ reviewed: true, alcohol: null, lateMeal: false, awayFromHome: false, highStress: false, illness: false })
   return (
     <div style={{ position: 'fixed', inset: 0, background: T.bg, zIndex: 60, display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui" }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'max(20px, env(safe-area-inset-top)) max(18px, env(safe-area-inset-right)) 8px max(18px, env(safe-area-inset-left))', maxWidth: 448, margin: '0 auto', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'env(safe-area-inset-top, 20px) env(safe-area-inset-right, 18px) 8px env(safe-area-inset-left, 18px)', maxWidth: 448, margin: '0 auto', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
         <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <X size={17} style={{ color: T.ink }} />
         </button>
         <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: T.ink }}>Tag {dateLabel}</div>
         <div style={{ width: 36 }} />
       </div>
-      <main style={{ flex: 1, overflow: 'auto', maxWidth: 448, margin: '0 auto', width: '100%', padding: '16px max(18px, env(safe-area-inset-right)) max(24px, env(safe-area-inset-bottom)) max(18px, env(safe-area-inset-left))', boxSizing: 'border-box' }}>
+      <main style={{ flex: 1, overflow: 'auto', maxWidth: 448, margin: '0 auto', width: '100%', padding: '16px env(safe-area-inset-right, 18px) env(safe-area-inset-bottom, 24px) env(safe-area-inset-left, 18px)', boxSizing: 'border-box' }}>
         <div style={{ fontSize: 13, color: T.muted, marginBottom: 18, lineHeight: 1.4 }}>
           What happened the night of {dateLabel}? This is what actually lets Stats and Insights tell you what's affecting your numbers.
         </div>
