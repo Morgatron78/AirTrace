@@ -567,7 +567,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
       {expandedChart && (() => {
         const meta = expandedChart === 'sync' ? null : CHANNEL_REGISTRY[expandedChart]
         return (
-          <div style={{ position: 'fixed', inset: 0, background: T.bg, zIndex: 50, padding: '20px 16px', display: 'flex', flexDirection: 'column' }}>
+          <div style={{ position: 'fixed', inset: 0, background: T.bg, zIndex: 50, padding: 'calc(20px + env(safe-area-inset-top)) calc(16px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom)) calc(16px + env(safe-area-inset-left))', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>
                 {night.label} · {expandedChart === 'sync' ? 'Synchronized view' : (meta.fullLabel || meta.label)}

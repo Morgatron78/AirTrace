@@ -136,8 +136,8 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
-      <header style={{ maxWidth: 448, margin: '0 auto', padding: '20px 18px 8px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+    <div style={{ minHeight: '100vh', width: '100%', paddingBottom: 'calc(96px + env(safe-area-inset-bottom))', background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
+      <header style={{ maxWidth: 448, margin: '0 auto', padding: 'calc(20px + env(safe-area-inset-top)) calc(18px + env(safe-area-inset-right)) 8px calc(18px + env(safe-area-inset-left))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Settings size={17} style={{ color: T.ink }} />
         </button>
@@ -161,7 +161,7 @@ export default function App() {
       )}
 
       <nav style={{ position: 'fixed', bottom: 0, left: 0, right: 0, display: 'flex', justifyContent: 'center', background: T.surface, borderTop: `1px solid ${T.line}` }}>
-        <div style={{ maxWidth: 448, width: '100%', display: 'flex', padding: '8px 4px' }}>
+        <div style={{ maxWidth: 448, width: '100%', display: 'flex', padding: '8px calc(4px + env(safe-area-inset-right)) calc(8px + env(safe-area-inset-bottom)) calc(4px + env(safe-area-inset-left))' }}>
           {tabs.map((tb) => {
             const Icon = tb.icon; const active = tab === tb.key
             return (
