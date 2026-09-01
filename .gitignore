@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Real SD card data (STR.edf, DATALOG/, SETTINGS/) used for building/testing
+# the EDF parser against real hardware output — this is the user's actual
+# CPAP therapy history and this repo is public, so it must never be
+# committed.
+Sample_CPAP_Data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

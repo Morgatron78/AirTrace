@@ -50,16 +50,94 @@ currently useful.
 ## Real hardware facts (confirmed via actual testing, not assumed)
 
 - Device: ResMed AirSense 10 Elite, fixed pressure (not auto-titrating).
-- SD card root has `STR.edf` (nightly summaries, kept indefinitely) plus a
-  `DATALOG` folder (~5,442 files/year) containing per-night waveform detail
-  in dated `YYYYMMDD` subfolders, files named `*BRP.edf` / `*EVE.edf` /
-  `*PLD.edf`.
+- SD card root has `STR.edf` (nightly summaries, kept indefinitely), a
+  `DATALOG` folder (~5,442 files/year) containing per-night detail in dated
+  `YYYYMMDD` subfolders, and a `SETTINGS` folder (cryptic `.tgt`/`.log`
+  device-internal config and service logs — inspected, nothing in it is
+  useful for this app; not worth parsing).
+- A real card's contents live locally at `Sample_CPAP_Data/` in this repo
+  (gitignored — **never commit this**, it's the user's actual therapy
+  history and this repo is public). Structured to mirror the real SD card:
+  `STR.edf` at the root, `DATALOG/YYYYMMDD/...` per night. Only the last
+  ~4 nights of DATALOG are present, not the full card.
 - `webkitdirectory` import in Safari works but takes 60-90s+ even for a
   browse — first real import (parsing everything) is estimated at up to 20
   minutes, unverified against real hardware yet.
 - A competing tool (SleepHQ) took 1.5 hours and failed server-side on the
   same card — this is the direct justification for going local-first rather
   than cloud-upload.
+
+### Real file structure (confirmed by reading raw bytes of the actual card)
+
+Each `DATALOG/YYYYMMDD/` night has 5 file pairs (CLAUDE.md previously only
+knew about 3 — `*CSL.edf` and `*SAD.edf` were undocumented until inspected),
+each with an `.crc` sidecar (8 bytes, a stored checksum — separate from the
+`Crc16` pseudo-channel each `.edf` also carries internally):
+
+| File | Real signals | Rate |
+|---|---|---|
+| `*BRP.edf` | `Flow.40ms`, `Press.40ms` | 25 Hz — confirms the assumption below about waveform charts |
+| `*PLD.edf` | `MaskPress`, `Press`, `EprPress`, `Leak`, `RespRate`, `TidVol`, `MinVent`, `Snore`, `FlowLim` (`.2s` suffix on each) | 0.5 Hz (one sample/2s) |
+| `*EVE.edf` | Apnea/hypopnea event annotations — `"Central Apnea"`, `"Obstructive Apnea"`, `"Hypopnea"` all confirmed as the exact real annotation text | per-event |
+| `*CSL.edf` | Cheyne-Stokes respiration event annotations — same annotation format as `*EVE.edf`, separate file/category. Empty (no events) is normal on a night with no CSR. | per-event |
+| `*SAD.edf` | `Pulse.1s`, `SpO2.1s` — real channels, but **not used anywhere in this app's design**; only populated if a pulse oximeter accessory is paired. | 1 Hz |
+
+Two real constraints this surfaced that the mockup's design didn't know
+about:
+- **This device does not record Insp/Exp Time at all** — those two
+  mockup waveform channels have no real source. Either drop them from the
+  real build, or infer them from `Flow` zero-crossings (nontrivial DSP,
+  probably not worth it).
+- `STR.edf` has an `UAI` (unclassified apnea index) channel alongside
+  `AI`/`OAI`/`CAI`/`HI` — a fourth event category the mockup's
+  obstructive/central/hypopnea model doesn't account for. Needs a decision
+  before the real parser ships: fold into one of the three, or add a
+  fourth bucket.
+
+`STR.edf` itself is structured very differently from the per-night
+waveform files: it's **one data record per day** (EDF record duration =
+86400s), not a per-second/per-sample recording — a real sample had 524
+daily records, ~1.4 years of history in one compact file. Of its 76
+signals, the directly useful ones: `AHI`, `HI` (hypopnea), `AI`, `OAI`
+(obstructive), `CAI` (central), `UAI` (see above), `MaskOn`/`MaskOff` (10
+slots/day — up to 10 sessions), `Duration`/`OnDuration`, `PatientHours`,
+`Leak.50`/`.95`/`.70`/`.Max`, `MaskPress.50`/`.95`/`.Max`, `CSR`. The rest
+are machine-settings snapshots (`S.*`) and fault flags, not clinical data.
+
+Confirmed directly from raw annotation bytes: the **first TAL in every
+data record of an annotation file (`*EVE.edf`/`*CSL.edf`) is a housekeeping
+marker with no event text** (e.g. `+0~0|Recording starts|` on record 0) —
+skip it, don't treat it as a real (and therefore zero-duration-defaulted)
+event.
+
+Two more findings from decoding actual `STR.edf` data records (not just
+its header), both easy to get wrong and both confirmed against real values:
+
+- **`Date` is days since the Unix epoch (1970-01-01), as a plain integer**
+  — `new Date(dateValue * 86400000)` decodes it directly. Record 0's Date
+  matched the file header's own start date exactly; the last record in a
+  real sample decoded to today's date with every other field as `-1`
+  (AHI, PatientHours, MaskEvents, all 10 MaskOn/MaskOff slots) — `-1`
+  across the board is the "no data yet for this day" sentinel, not a
+  parsing error.
+- **`MaskOn`/`MaskOff` are minutes since *noon* of that record's `Date`,
+  not midnight** — confirmed by decoding real values that only produce
+  plausible session times (e.g. a session running ~00:20–07:01) under a
+  noon epoch; a midnight epoch produces nonsense (a session "starting" at
+  12:20pm). This is the standard CPAP-industry convention of anchoring a
+  whole overnight session to the day it started, so one night's sleep
+  never gets split across two calendar-day records. Each array holds up
+  to 10 on/off slots at matching indices — a day can have several brief
+  mask contacts (seconds-long, e.g. a fit check) alongside the real
+  session, all as separate slots; `MaskEvents` is the count of populated
+  slots × 2 (on + off), not a clinical event count.
+- **`PatientHours` is a lifetime cumulative counter, not a daily value**
+  — confirmed by real records increasing monotonically by single-digit
+  amounts per day (0 → 6 → 15 → … → 2989 → 2994) rather than resetting.
+  Daily usage must come from summing that day's own `MaskOn`/`MaskOff`
+  session durations, not from this field (and not from diffing
+  consecutive records, which breaks on the very first imported record and
+  on any gap).
 
 ## EDF parsing — start from a real reference, not from spec alone
 
