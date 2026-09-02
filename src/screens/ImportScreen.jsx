@@ -98,11 +98,23 @@ export function ImportScreen({ onBack }) {
   const onFilesSelected = async (e) => {
     const fileList = e.target.files
     e.target.value = '' // allow re-selecting the same folder later
-    if (!fileList || fileList.length === 0) return
+
+    // Diagnostic only: iOS Safari's webkitdirectory has known cases where
+    // it silently returns zero files (or a shallow, non-recursive list)
+    // when the source is an external file provider — like an SD card
+    // reader — rather than on-device storage. Previously this returned
+    // silently with no feedback at all, which is indistinguishable from
+    // "still working" to the user. Surfacing the raw count + a sample of
+    // paths turns that into something diagnosable instead of a guess.
+    if (!fileList || fileList.length === 0) {
+      setError('The folder picker returned 0 files. This can happen on iOS when reading from an external SD card reader rather than on-device storage — please let Claude know this happened so it can be investigated further.')
+      return
+    }
 
     const { strFile, nightFolders } = groupImportFiles(fileList)
     if (!strFile) {
-      setError("Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together).")
+      const sample = Array.from(fileList).slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
+      setError(`Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together). Picker returned ${fileList.length} file(s). Sample paths: ${sample || '(none)'}`)
       return
     }
 
