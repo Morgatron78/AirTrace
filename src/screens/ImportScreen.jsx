@@ -46,6 +46,16 @@ export function ImportScreen({ onBack }) {
   const fileInputRef = useRef(null)
   const [lastImport, setLastImport] = useState(null)
   const [history, setHistory] = useState([])
+  // True from the moment the OS file picker hands focus back to the page
+  // until our own onChange actually fires. On a large card the native
+  // picker can take 45s+ to enumerate everything after you've already
+  // picked the folder and closed its UI — there's no JS event for that
+  // enumeration itself, but the window regaining focus when the picker's
+  // UI closes reliably happens before onChange does, so it's usable as an
+  // early "something is happening" signal. The Choose folder button stays
+  // visible and re-clickable throughout (not swapped out) so a cancelled
+  // picker never leaves the screen stuck with no way forward.
+  const [picking, setPicking] = useState(false)
 
   // Real prior-import state, loaded once from IndexedDB rather than the
   // hardcoded mock seed this screen used to ship with.
@@ -93,9 +103,15 @@ export function ImportScreen({ onBack }) {
     }
   }, [isActive])
 
-  const chooseFolder = () => { setError(null); fileInputRef.current?.click() }
+  const chooseFolder = () => {
+    setError(null)
+    const onFocus = () => setPicking(true)
+    window.addEventListener('focus', onFocus, { once: true })
+    fileInputRef.current?.click()
+  }
 
   const onFilesSelected = async (e) => {
+    setPicking(false)
     // Snapshot into a real array BEFORE touching e.target.value — on iOS
     // Safari, clearing the input's value right after reading .files was
     // silently emptying the FileList out from under us (confirmed via a
@@ -247,8 +263,14 @@ export function ImportScreen({ onBack }) {
             <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF' }} className="font-display">
               <span style={{ fontSize: 14, fontWeight: 700 }}>Choose folder</span>
             </button>
+            {picking && (
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14 }}>
+                <RefreshCw size={13} className="spin" style={{ color: T.muted }} strokeWidth={2.5} />
+                <span style={{ fontSize: 12.5, color: T.muted }}>Reading folder from card — this can take a minute or more on a large card, please wait…</span>
+              </div>
+            )}
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
-            <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>First import can take up to 20 minutes — it's reading full nightly summaries plus parsing 90 days of detailed waveform data, all in the browser. Later imports only process what's new, so they're much faster.</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>First import can take up to 20 minutes total. After you select a folder, it can take a minute or more before anything appears here while it's read from the card — that's normal, not stuck. Later imports only process what's new, so they're much faster.</div>
           </div>
         )}
 
