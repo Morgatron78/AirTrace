@@ -71,12 +71,24 @@ export function isConcern(kind, night, targets) {
   return false
 }
 
+// myAir gives 4 free "streak freezes" per calendar month — a night that
+// misses the usage goal doesn't reset the streak (it's just skipped, not
+// counted) as long as a freeze is still available for the month it falls
+// in. Applies from the very first night scanned (last night itself can
+// be freeze-protected, not just an already-running streak), and budgets
+// reset per calendar month, not a rolling 30-day window — myAir's own
+// wording is "4 free freezes a month."
+const STREAK_FREEZES_PER_MONTH = 4
 export function computeStreak(nights, targets) {
   let streak = 0
+  const freezesUsedByMonth = {} // 'YYYY-MM' -> count already spent
   for (let i = nights.length - 1; i >= 0; i--) {
-    if (nights[i].noUsage) break
-    if (nights[i].usage >= targets.usage) streak++
-    else break
+    const n = nights[i]
+    if (!n.noUsage && n.usage >= targets.usage) { streak++; continue }
+    const month = n.date.slice(0, 7)
+    const used = freezesUsedByMonth[month] || 0
+    if (used < STREAK_FREEZES_PER_MONTH) { freezesUsedByMonth[month] = used + 1; continue }
+    break
   }
   return streak
 }
