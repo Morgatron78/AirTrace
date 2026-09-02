@@ -165,7 +165,7 @@ export function ImportScreen({ onBack }) {
         await setMeta('lastImport', record)
         await setMeta('importHistory', newHistory)
 
-        if (msg.errors.length) setError(`${msg.errors.length} night(s) failed to parse and were skipped: ${msg.errors.map((e) => e.date).join(', ')}`)
+        if (msg.errors.length) setError(`${msg.errors.length} night(s) failed to parse and were skipped: ${msg.errors.map((e) => `${e.date} (${e.message})`).join('; ')}`)
         worker.terminate()
         setStage('done')
       }
