@@ -101,6 +101,14 @@ export function computeStats(values, scale, offset = 0) {
   return { min: toReal(sorted[0]), median: toReal(pick(0.5)), p95: toReal(pick(0.95)), p995: toReal(pick(0.995)), max: toReal(sorted[n - 1]) }
 }
 
+// Shared short-duration formatter for event popovers (EventsChart) — same
+// shape as DrillDownScreen's own local fmtDuration for "Time in apnea",
+// factored out here since EventsChart needs the identical per-event format.
+export function formatEventDuration(sec) {
+  const m = Math.floor(sec / 60), s = Math.round(sec % 60)
+  return m > 0 ? `${m}m ${s}s` : `${s}s`
+}
+
 export function hexA(hex, alpha) {
   const h = hex.replace('#', '')
   const r = parseInt(h.substring(0, 2), 16), g = parseInt(h.substring(2, 4), 16), b = parseInt(h.substring(4, 6), 16)

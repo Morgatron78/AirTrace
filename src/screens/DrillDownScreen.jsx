@@ -16,6 +16,7 @@ import { LeakIcon } from '../components/icons/LeakIcon'
 import { MiniMap } from '../components/charts/MiniMap'
 import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
+import { EventsChart } from '../components/charts/EventsChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
 import { formatDuration } from '../utils/dates'
@@ -542,6 +543,13 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
         <LegendRow />
       </div>
 
+      {/* Standalone events-only lane — the overlay dots above (tied to
+          whichever channels happen to be selected, and only shown at all
+          when Flow is one of them) are easy to lose on a busy night; this
+          always shows every event, deliberately starting at its own
+          zoomed-out view rather than following Synchronized view's zoom. */}
+      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} />
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Individual channels</span>
         <div style={{ display: 'flex', gap: 8 }}>
@@ -634,12 +642,12 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
       </div>
 
       {expandedChart && (() => {
-        const meta = expandedChart === 'sync' ? null : CHANNEL_REGISTRY[expandedChart]
+        const meta = expandedChart === 'sync' || expandedChart === 'events' ? null : CHANNEL_REGISTRY[expandedChart]
         return (
           <div style={{ position: 'fixed', inset: 0, background: T.bg, zIndex: 50, padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))', display: 'flex', flexDirection: 'column' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
               <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>
-                {night.label} · {expandedChart === 'sync' ? 'Synchronized view' : (meta.fullLabel || meta.label)}
+                {night.label} · {expandedChart === 'sync' ? 'Synchronized view' : expandedChart === 'events' ? 'Events' : (meta.fullLabel || meta.label)}
               </div>
               <div style={{ display: 'flex', gap: 6 }}>
                 {expandedChart === 'sync' && (
@@ -673,6 +681,10 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
                     </div>
                     <div style={{ flexShrink: 0 }}><LegendRow /></div>
                   </>
+                ) : expandedChart === 'events' ? (
+                  <div style={{ flex: 1, minHeight: 0 }}>
+                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big />
+                  </div>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>
                     <BigChannelChart values={meta.values} color={meta.color} mode={meta.mode} axisMax={meta.axisMax} axisMin={meta.axisMin ?? 0} unit={meta.unit} decimals={meta.decimals ?? 1}
