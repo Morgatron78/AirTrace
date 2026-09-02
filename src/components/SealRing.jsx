@@ -38,7 +38,10 @@ export function SealRing({ nights, size = 158 }) {
           })()}
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span className="font-display" style={{ fontSize: size * 0.28, fontWeight: 800, color: T.ink, lineHeight: 1 }}>{goodPct}%</span>
+          {/* % rendered at half the number's size, not the same size as
+              the digits — at 100% the full-size glyph pushed the text
+              wide enough to overflow the ring. */}
+          <span className="font-display" style={{ fontSize: size * 0.28, fontWeight: 800, color: T.ink, lineHeight: 1 }}>{goodPct}<span style={{ fontSize: '0.5em' }}>%</span></span>
           <span style={{ fontSize: size * 0.065, fontWeight: 600, color: T.muted, marginTop: 4, maxWidth: size * 0.65, textAlign: 'center', lineHeight: 1.3 }}>Nights, good seal</span>
         </div>
       </button>
