@@ -50,22 +50,42 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
       <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
-        {recentWindow.map((n) => {
+        {recentWindow.map((n, i) => {
           const ni = nights.indexOf(n)
           const active = ni === idx
+          // A 90-chip strip scrolls through 3 months of same-numbered days
+          // (the 15th of June looks identical to the 15th of July) with
+          // nothing to tell them apart while scrolling — a slim vertical
+          // month label right where the month actually changes fixes that
+          // without needing to track scroll position at all.
+          const prevMonth = i > 0 ? recentWindow[i - 1].date.slice(0, 7) : null
+          const thisMonth = n.date.slice(0, 7)
+          const showMonthLabel = thisMonth !== prevMonth
           return (
-            <button key={ni} ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
-              <div style={{
-                height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-                background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
-                border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
-                outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
-                boxSizing: 'border-box', opacity: active ? 1 : 0.4,
-              }}>
-                <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
-                <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
-              </div>
-            </button>
+            <Fragment key={ni}>
+              {showMonthLabel && (
+                <div style={{ flexShrink: 0, width: 16, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <span className="font-display" style={{
+                    fontSize: 9, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em',
+                    writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap',
+                  }}>
+                    {new Date(`${n.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short' })}
+                  </span>
+                </div>
+              )}
+              <button ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
+                <div style={{
+                  height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                  background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
+                  border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
+                  outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
+                  boxSizing: 'border-box', opacity: active ? 1 : 0.4,
+                }}>
+                  <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
+                  <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
+                </div>
+              </button>
+            </Fragment>
           )
         })}
       </div>
