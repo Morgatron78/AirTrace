@@ -14,14 +14,15 @@ import { formatClock } from '../../utils/dates'
 // (text-transform: capitalize) rather than relying on this object's own
 // key casing.
 export const EVENT_COLOR = { obstructive: C.red, central: C.orange, hypopnea: C.blue }
-// No inspTime/expTime — confirmed this device has no real source for
-// either channel (see CLAUDE.md's "Real file structure" section). All 9
-// real channels are listed here, same order as the Synchronized view's
-// own Core/Breathing/Ventilation groups — Flow and Pressure used to be
-// left out (covered by Synchronized view instead), but that meant the
-// two sections' channel pickers didn't actually match, which read as
-// inconsistent rather than intentional.
-export const DEFAULT_CHANNEL_ORDER = ['flow', 'pressure', 'therapyPressure', 'leak', 'flowLimit', 'snore', 'tidalVolume', 'respRate', 'minuteVent']
+// inspTime/expTime aren't recorded signals — this device has no real
+// source for either (see CLAUDE.md's "Real file structure" section) —
+// they're derived from Flow's own zero-crossings instead (see
+// edf/deriveBreathTimes.js). All 11 channels are listed here, same order
+// as the Synchronized view's own Core/Breathing/Ventilation groups —
+// Flow and Pressure used to be left out (covered by Synchronized view
+// instead), but that meant the two sections' channel pickers didn't
+// actually match, which read as inconsistent rather than intentional.
+export const DEFAULT_CHANNEL_ORDER = ['flow', 'pressure', 'therapyPressure', 'leak', 'flowLimit', 'snore', 'inspTime', 'expTime', 'tidalVolume', 'respRate', 'minuteVent']
 
 // "Nice" round step sizes to choose between, in minutes — small enough to
 // give real precision once zoomed in tight, but never an odd number like

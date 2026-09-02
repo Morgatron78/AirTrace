@@ -162,6 +162,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
     minuteVent: rawDetail?.minuteVent ?? [],
     snore: rawDetail?.snore ?? [],
     flowLimit: rawDetail?.flowLimit ?? [],
+    inspTime: rawDetail?.inspTime ?? [],
+    expTime: rawDetail?.expTime ?? [],
   }
   const timeInApneaSec = nightData?.timeInApneaSec ?? 0
 
@@ -219,6 +221,14 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
       sub: "The amount of air moved in a single breath. Dips usually line up with obstructive or central events above — a breath that's cut short physically can't deliver a normal volume." },
     respRate: { label: 'Resp. Rate', fullLabel: 'Respiratory Rate', color: C.orange, mode: 'line', values: normalize(detail.respRate, 0, 50), axisMax: 50, unit: ' br/min', decimals: 0, unitLabel: 'breaths per minute',
       sub: "How many breaths you're taking per minute. It's often naturally elevated in the first stretch of the night as you settle, then should steady out — a rate that stays high or spikes repeatedly can point to disrupted sleep." },
+    // This device has no real source for either channel — derived from
+    // Flow's own zero-crossings (see edf/deriveBreathTimes.js), not read
+    // from a recorded signal like every other channel here. Framed as an
+    // estimate in the description text below for that reason.
+    inspTime: { label: 'Insp. Time', fullLabel: 'Inspiration Time', color: C.blue, mode: 'line', values: normalize(detail.inspTime, 0, 6), axisMax: 6, unit: ' s', unitLabel: 'seconds per breath, estimated',
+      sub: "How long each inhale takes — estimated from Flow's own zero-crossings, since this device doesn't record it directly, so treat it as a close estimate rather than an exact clinical measurement. A shortened or choppy inspiration often lines up with an obstructive event above." },
+    expTime: { label: 'Exp. Time', fullLabel: 'Expiration Time', color: C.orange, mode: 'line', values: normalize(detail.expTime, 0, 6), axisMax: 6, unit: ' s', unitLabel: 'seconds per breath, estimated',
+      sub: "How long each exhale takes, estimated the same way as Insp. Time. A stretched-out expiration can be EPR doing its job (if enabled), or just your own breathing settling as you fall into deeper sleep." },
     minuteVent: { label: 'Minute Vent', color: C.pink, mode: 'line', values: normalize(detail.minuteVent, 0, 30), axisMax: 30, unit: ' L/min', unitLabel: 'litres per minute',
       sub: "Total air moved per minute — tidal volume multiplied by breathing rate. It's the best single number for overall ventilation, since it captures both how deep and how fast you're breathing." },
   }
@@ -227,7 +237,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // ventilation) rather than one long undifferentiated list.
   const CHANNEL_GROUPS = [
     { label: 'Core', keys: ['flow', 'pressure', 'therapyPressure', 'leak'] },
-    { label: 'Breathing', keys: ['flowLimit', 'snore'] },
+    { label: 'Breathing', keys: ['flowLimit', 'snore', 'inspTime', 'expTime'] },
     { label: 'Ventilation', keys: ['tidalVolume', 'respRate', 'minuteVent'] },
   ]
   // Condensed Min/Med/95%/99.5% table — same per-channel data as the

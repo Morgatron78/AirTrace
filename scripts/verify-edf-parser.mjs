@@ -91,7 +91,31 @@ for (const dayFolder of nightDirs) {
     `flow=${night.detail.flow.length} pressure=${night.detail.pressure.length} therapyPressure=${night.detail.therapyPressure.length} ` +
     `leak=${night.detail.leak.length} respRate=${night.detail.respRate.length} ` +
     `tidalVolume=${night.detail.tidalVolume.length} minuteVent=${night.detail.minuteVent.length} ` +
-    `snore=${night.detail.snore.length} flowLimit=${night.detail.flowLimit.length}`)
+    `snore=${night.detail.snore.length} flowLimit=${night.detail.flowLimit.length} ` +
+    `inspTime=${night.detail.inspTime.length} expTime=${night.detail.expTime.length}`)
+
+  // Sanity-check the derived breath times against real physiology — not
+  // an exact-value check (there's no recorded ground truth to compare
+  // against, that's the whole reason this is derived), just "did the
+  // zero-crossing detector produce plausible numbers or obvious garbage
+  // (all-zero, negative, or absurdly long)".
+  const nonZeroInsp = [...night.detail.inspTime].filter((v) => v > 0)
+  const nonZeroExp = [...night.detail.expTime].filter((v) => v > 0)
+  if (nonZeroInsp.length === 0 || nonZeroExp.length === 0) {
+    fail(`insp/exp time: no non-zero values at all — deriveBreathPhaseTimes likely never found a real crossing`)
+  } else {
+    const avg = (arr) => arr.reduce((s, v) => s + v, 0) / arr.length
+    const avgInsp = avg(nonZeroInsp), avgExp = avg(nonZeroExp)
+    const maxInsp = Math.max(...nonZeroInsp), maxExp = Math.max(...nonZeroExp)
+    // A real adult breath's insp/exp phases are each roughly 1-6s; wildly
+    // outside that range (e.g. 30s+) points at a deadband/crossing bug
+    // rather than a real long breath.
+    if (avgInsp < 0.3 || avgInsp > 10 || avgExp < 0.3 || avgExp > 10 || maxInsp > 30 || maxExp > 30) {
+      fail(`insp/exp time: implausible durations — avg insp ${avgInsp.toFixed(2)}s, avg exp ${avgExp.toFixed(2)}s, max insp ${maxInsp.toFixed(2)}s, max exp ${maxExp.toFixed(2)}s`)
+    } else {
+      ok(`insp/exp time: avg insp ${avgInsp.toFixed(2)}s, avg exp ${avgExp.toFixed(2)}s, max insp ${maxInsp.toFixed(2)}s, max exp ${maxExp.toFixed(2)}s (plausible)`)
+    }
+  }
 
   const counts = { obstructive: 0, central: 0, hypopnea: 0 }
   for (const e of night.events) counts[e.type] = (counts[e.type] || 0) + 1

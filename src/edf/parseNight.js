@@ -8,6 +8,7 @@
 import { parseEdfHeader, readSignal, readRecordRawBytes, findSignalIndex } from './edfBinary.js'
 import { parseTALs } from './edfAnnotations.js'
 import { toEvent } from './resmedQuirks.js'
+import { deriveBreathPhaseTimes } from './deriveBreathTimes.js'
 
 function readNamedSignal(arrayBuffer, header, label) {
   const idx = findSignalIndex(header, label)
@@ -79,8 +80,15 @@ export function parseNight(files) {
     .sort((a, b) => a.startSec - b.startSec)
   const timeInApneaSec = events.reduce((s, e) => s + e.durationSec, 0)
 
+  // Derived, not a recorded signal — see deriveBreathTimes.js. Output on
+  // the same per-night sample grid as every PLD-derived channel (leak's
+  // own length), computed from Flow's real sample rate rather than
+  // assuming 25Hz, in case a future device/file has a different one.
+  const flowSampleRateHz = brpHeader.signals[findSignalIndex(brpHeader, 'Flow.40ms')].samplesPerRecord / brpHeader.recordDurationSec
+  const { inspTime, expTime } = deriveBreathPhaseTimes(flow, flowSampleRateHz, totalNightSec, leak.length)
+
   return {
-    detail: { flow, pressure, therapyPressure, leak, respRate, tidalVolume, minuteVent, snore, flowLimit },
+    detail: { flow, pressure, therapyPressure, leak, respRate, tidalVolume, minuteVent, snore, flowLimit, inspTime, expTime },
     events,
     timeInApneaSec,
     totalNightSec,
