@@ -265,7 +265,7 @@ export function ImportScreen({ onBack }) {
               <span style={{ fontSize: 14, fontWeight: 700 }}>{picking ? 'Reading card…' : 'Choose folder'}</span>
             </button>
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
-            <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>First import can take up to 20 minutes total. After you select a folder, it can take a minute or more before anything appears here while it's read from the card — that's normal, not stuck. Later imports only process what's new, so they're much faster.</div>
+            <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>Selecting a large card can take a minute or more before anything happens — that's your phone reading the card, not the app stuck. Importing itself is quick once it starts, and later imports only process what's new.</div>
           </div>
         )}
 
