@@ -5,7 +5,15 @@ import { formatClock } from '../../utils/dates'
 // re-renders of the parent screen — a nested component would be
 // redefined, and therefore remounted with state reset, on every render).
 
-export const EVENT_COLOR = { Obstructive: C.red, Central: C.orange, Hypopnea: C.blue }
+// Keys are lowercase to match the real `type` field resmedQuirks.js
+// produces ('obstructive'/'central'/'hypopnea', confirmed against real
+// device output) — a capitalized-key version of this previously meant
+// every EVENT_COLOR[e.type] lookup silently returned undefined, so event
+// dots rendered with no fill color at all. Display text that wants
+// capitalized labels (the chart legend) should style that in CSS
+// (text-transform: capitalize) rather than relying on this object's own
+// key casing.
+export const EVENT_COLOR = { obstructive: C.red, central: C.orange, hypopnea: C.blue }
 // No inspTime/expTime — confirmed this device has no real source for
 // either channel (see CLAUDE.md's "Real file structure" section).
 export const DEFAULT_CHANNEL_ORDER = ['leak', 'flowLimit', 'snore', 'tidalVolume', 'respRate', 'minuteVent']

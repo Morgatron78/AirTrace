@@ -362,7 +362,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
         </span>
       ))}
       {selectedChannels.includes('flow') && Object.entries(EVENT_COLOR).map(([label, c]) => (
-        <span key={`ev-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted }}>
+        <span key={`ev-${label}`} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted, textTransform: 'capitalize' }}>
           <span style={{ width: 8, height: 8, borderRadius: 4, background: c }} />{label}
         </span>
       ))}
