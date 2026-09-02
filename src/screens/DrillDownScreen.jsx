@@ -533,8 +533,18 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${night.leak} L/min`}
           description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal; consistently higher is worth checking your mask fit." />
-        <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea" value={`${fmtDuration(timeInApneaSec)} (${apneaPct.toFixed(2)}%)`} last
-          description="Total time spent within a scored obstructive, central, or hypopnea event tonight — a duration-based view alongside AHI's per-hour event count." />
+        {/* detailStatus-gated, not just timeInApneaSec's own ?? 0 fallback —
+            "0s" otherwise reads as a genuinely clean night, indistinguishable
+            from "we don't have per-event detail for this one at all" (pruned
+            past the 90-day retention window, or never captured on a past
+            import). The AHI ring above is unaffected either way — it comes
+            straight from STR.edf's own permanent per-night summary, entirely
+            independent of whether detail happens to still be stored. */}
+        <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
+          value={detailStatus === 'ready' ? `${fmtDuration(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
+          description={detailStatus === 'ready'
+            ? "Total time spent within a scored obstructive, central, or hypopnea event tonight — a duration-based view alongside AHI's per-hour event count."
+            : "Per-event detail isn't stored for this night — waveform detail is only kept for the last 90 days, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
       </div>
 
       <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
