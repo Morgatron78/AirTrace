@@ -177,9 +177,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
     const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60)
     return m > 0 ? `${m}m ${s}s` : `${s}s`
   }
-  // The subset shown as individual cards below the Synchronized view —
-  // Flow and Pressure are covered there instead (Pressure is flat/fixed,
-  // Flow is redundant with the events already plotted on it).
+  // The individual cards below the Synchronized view — same 8 channels
+  // that view's own picker offers, reorderable independently of it.
   const [channelOrder, setChannelOrder] = useState(DEFAULT_CHANNEL_ORDER)
   const [reorderMode, setReorderMode] = useState(false)
   const [selectedChannels, setSelectedChannels] = useState(['flow', 'leak', 'flowLimit'])
