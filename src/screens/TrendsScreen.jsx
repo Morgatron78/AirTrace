@@ -176,7 +176,14 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           <FlatBarChart data={data}
             dataKey={metric === 'ahi' && eventType ? eventType : metric}
             color={metric === 'ahi' && eventType ? AHI_BREAKDOWN.find((s) => s.key === eventType).color : active.color}
-            max={metric === 'ahi' && eventType ? undefined : active.max}
+            // Events uses FlatBarChart's own dynamic max (actual peak + 15%
+            // headroom) rather than a fixed scale — a fixed max of 10 made
+            // every bar tiny for anyone whose AHI runs consistently low, the
+            // exact opposite of what a trend chart should do. Every other
+            // metric keeps its fixed max: those have a real fixed ceiling
+            // (score is 0-100 by definition, usage tops out near a realistic
+            // night's length, etc.), so a fixed scale is the right call there.
+            max={metric === 'ahi' ? undefined : active.max}
             labelEvery={labelEvery}
             onBarClick={handleChartBarClick} selectedIdx={chartDetailIdx}
             stack={metric === 'ahi' && chartDetailIdx != null && !eventType ? AHI_BREAKDOWN : undefined}
