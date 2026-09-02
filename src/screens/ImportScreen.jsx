@@ -118,6 +118,14 @@ export function ImportScreen({ onBack }) {
       return
     }
 
+    // Only ever parse full waveform detail for nights inside the retention
+    // window — anything older gets pruned right after import anyway, so
+    // parsing it first just to throw it away wastes time and (worse, on a
+    // large multi-year card) memory. Nightly summaries still cover the
+    // full history regardless, from STR.edf alone.
+    const cutoff = toDateStr(new Date(Date.now() - RETENTION_DAYS * 86400000))
+    const inWindowFolders = nightFolders.filter((n) => n.date >= cutoff)
+
     startedAtRef.current = Date.now()
     setWaveformDone(0)
     setWaveformTotal(0)
@@ -127,12 +135,27 @@ export function ImportScreen({ onBack }) {
     const worker = new Worker(new URL('../edf/importWorker.js', import.meta.url), { type: 'module' })
     workerRef.current = worker
 
+    let summaries = null
+
     worker.onmessage = async (evt) => {
       const msg = evt.data
       if (msg.type === 'progress') {
         setStage(msg.stage)
         setWaveformDone(msg.waveformDone)
         setWaveformTotal(msg.waveformTotal)
+        return
+      }
+      if (msg.type === 'summaries') {
+        summaries = msg.summaries
+        return
+      }
+      if (msg.type === 'nightResult') {
+        // Persisted one night at a time as it arrives, instead of held in
+        // memory for the whole import — this is what actually fixes the
+        // memory-pressure crash, not just the retention-window filter above
+        // (a first import can still be dozens of nights even within 90
+        // days).
+        await upsertDetail([{ date: msg.date, ...msg.night }])
         return
       }
       if (msg.type === 'error') {
@@ -143,8 +166,7 @@ export function ImportScreen({ onBack }) {
       }
       if (msg.type === 'done') {
         setStage('pruning')
-        await upsertSummaries(msg.summaries)
-        await upsertDetail(msg.details)
+        await upsertSummaries(summaries)
         const pruned = await pruneOlderThan(RETENTION_DAYS)
 
         // Tagging start point per CLAUDE.md: set exactly once, the moment
@@ -157,8 +179,8 @@ export function ImportScreen({ onBack }) {
         const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)
         const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
         const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-        const record = { date: dateStr, nightsAdded: msg.details.length, pruned, duration: durationStr }
-        const newHistory = [{ date: dateStr, nights: `${msg.details.length} night${msg.details.length === 1 ? '' : 's'}` }, ...history]
+        const record = { date: dateStr, nightsAdded: msg.addedCount, pruned, duration: durationStr }
+        const newHistory = [{ date: dateStr, nights: `${msg.addedCount} night${msg.addedCount === 1 ? '' : 's'}` }, ...history]
 
         setLastImport(record)
         setHistory(newHistory)
@@ -170,7 +192,7 @@ export function ImportScreen({ onBack }) {
         setStage('done')
       }
     }
-    worker.postMessage({ strFile, nightFolders, skipDates })
+    worker.postMessage({ strFile, nightFolders: inWindowFolders, skipDates })
   }
 
   const cancelImport = () => {
