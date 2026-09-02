@@ -30,7 +30,7 @@ export function parseEdfHeader(arrayBuffer) {
   const startTime = str(176, 8) // HH.MM.SS
   const headerBytes = parseInt(str(184, 8), 10)
   const reserved44 = str(192, 44) // "EDF+C" / "EDF+D" on annotation-bearing files, blank on plain EDF
-  const numDataRecords = parseInt(str(236, 8), 10)
+  let numDataRecords = parseInt(str(236, 8), 10)
   const recordDurationSec = parseFloat(str(244, 8))
   const numSignals = parseInt(str(252, 4), 10)
 
@@ -52,6 +52,16 @@ export function parseEdfHeader(arrayBuffer) {
   }
 
   const recordBytes = signals.reduce((s, sig) => s + sig.samplesPerRecord * 2, 0)
+
+  // -1 is the EDF+ spec's documented sentinel for "record count unknown at
+  // write time" — written by a device that never went back to patch in the
+  // real count, e.g. a brief session interrupted before it finalized (seen
+  // on a real ResMed card: a few-second mask-contact file after the main
+  // night's session). Derive the true count from the file's actual size
+  // instead of trusting the header in that case.
+  if (numDataRecords < 0) {
+    numDataRecords = Math.floor((arrayBuffer.byteLength - headerBytes) / recordBytes)
+  }
 
   return {
     startDate, startTime, headerBytes, isEdfPlus: reserved44.startsWith('EDF+'),
