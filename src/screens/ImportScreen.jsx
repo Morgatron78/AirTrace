@@ -260,15 +260,10 @@ export function ImportScreen({ onBack }) {
                 input. */}
             <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={onFilesSelected}
               style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
-            <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF' }} className="font-display">
-              <span style={{ fontSize: 14, fontWeight: 700 }}>Choose folder</span>
+            <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} className="font-display">
+              {picking && <RefreshCw size={15} className="spin" style={{ color: '#FFFFFF' }} strokeWidth={2.5} />}
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{picking ? 'Reading card…' : 'Choose folder'}</span>
             </button>
-            {picking && (
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, marginTop: 14 }}>
-                <RefreshCw size={13} className="spin" style={{ color: T.muted }} strokeWidth={2.5} />
-                <span style={{ fontSize: 12.5, color: T.muted }}>Reading folder from card — this can take a minute or more on a large card, please wait…</span>
-              </div>
-            )}
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
             <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>First import can take up to 20 minutes total. After you select a folder, it can take a minute or more before anything appears here while it's read from the card — that's normal, not stuck. Later imports only process what's new, so they're much faster.</div>
           </div>
