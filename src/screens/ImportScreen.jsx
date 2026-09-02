@@ -5,7 +5,7 @@ import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
 import { groupImportFiles } from '../edf/groupImportFiles.js'
 import { upsertSummaries } from '../db/nights.js'
-import { upsertDetail, pruneOlderThan, getExistingDetailDates } from '../db/detail.js'
+import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { toDateStr } from '../utils/dates.js'
 
@@ -147,7 +147,15 @@ export function ImportScreen({ onBack }) {
     setWaveformTotal(0)
     setStage('reading')
 
-    const skipDates = [...await getExistingDetailDates()]
+    // If the last import predates a parseNight.js field addition (see
+    // DETAIL_SCHEMA_VERSION's own comment in db/detail.js), every
+    // already-stored night gets re-parsed once instead of skipped — the
+    // one-time catch-up that backfills the new field into existing
+    // history, rather than leaving it silently missing until a manual
+    // IndexedDB wipe. Normal fast incremental behavior resumes right
+    // after, once the meta version below is updated to match.
+    const storedSchemaVersion = await getMeta('detailSchemaVersion')
+    const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
     const worker = new Worker(new URL('../edf/importWorker.js', import.meta.url), { type: 'module' })
     workerRef.current = worker
 
@@ -190,6 +198,7 @@ export function ImportScreen({ onBack }) {
         // regardless of how many more imports happen later.
         const existingTagStart = await getMeta('tagStartDate')
         if (!existingTagStart) await setMeta('tagStartDate', toDateStr(new Date()))
+        await setMeta('detailSchemaVersion', DETAIL_SCHEMA_VERSION)
 
         const elapsedMs = startedAtRef.current ? Date.now() - startedAtRef.current : 0
         const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)

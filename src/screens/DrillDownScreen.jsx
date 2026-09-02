@@ -139,7 +139,29 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // render, regardless of load state) — the actual detailStatus gate on
   // what renders happens once, right before the JSX return.
   const events = nightData?.events ?? []
-  const detail = nightData?.detail ?? { flow: [], pressure: [], therapyPressure: [], leak: [], respRate: [], tidalVolume: [], minuteVent: [], snore: [], flowLimit: [] }
+  // Per-field fallback, not just "the whole detail object or nothing" —
+  // a night stored by an older build of parseNight.js (before some
+  // channel existed) still has a real `detail` object, just missing that
+  // one key. A single `nightData?.detail ?? {...}` only helps while
+  // nightData itself is null (the loading state); once a stale-but-real
+  // row loads, a missing field here is what actually crashed Night View
+  // in production — CHANNEL_REGISTRY's normalize() calling Array.from on
+  // undefined. ImportScreen's DETAIL_SCHEMA_VERSION bump (see db/detail.js)
+  // fixes this at the source on the next import; this stays as a
+  // permanent second line of defense for whatever's still in IndexedDB
+  // between now and then, and for any future field this same way.
+  const rawDetail = nightData?.detail
+  const detail = {
+    flow: rawDetail?.flow ?? [],
+    pressure: rawDetail?.pressure ?? [],
+    therapyPressure: rawDetail?.therapyPressure ?? [],
+    leak: rawDetail?.leak ?? [],
+    respRate: rawDetail?.respRate ?? [],
+    tidalVolume: rawDetail?.tidalVolume ?? [],
+    minuteVent: rawDetail?.minuteVent ?? [],
+    snore: rawDetail?.snore ?? [],
+    flowLimit: rawDetail?.flowLimit ?? [],
+  }
   const timeInApneaSec = nightData?.timeInApneaSec ?? 0
 
   // Real per-channel data arrives from src/edf/parseNight.js in physical

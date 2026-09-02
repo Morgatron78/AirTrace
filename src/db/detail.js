@@ -1,6 +1,19 @@
 import { getDB } from './schema.js'
 import { toDateStr } from '../utils/dates.js'
 
+// Bump this whenever parseNight.js's `detail` object gains a new channel
+// (most recently: therapyPressure). Import is incremental by date — a
+// plain re-import silently skips any night already stored, so without
+// this a night parsed by an older build stays missing that field forever,
+// which crashes Night View when it tries to chart it (see
+// DrillDownScreen.jsx). ImportScreen.jsx checks this against the
+// 'detailSchemaVersion' meta key before computing its skip-list: on a
+// mismatch (including "never set"), every already-stored night is
+// re-parsed on the next import instead of skipped, then the meta key is
+// updated to match — a one-time catch-up, self-healing the same way for
+// whatever field gets added next, no manual IndexedDB wipe ever needed.
+export const DETAIL_SCHEMA_VERSION = 2 // 2: added therapyPressure
+
 export async function getDetail(date) {
   const db = await getDB()
   return db.get('nightDetail', date)
