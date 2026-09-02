@@ -3,7 +3,7 @@ import { ChevronLeft } from 'lucide-react'
 import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
-import { daysAgo } from '../utils/dates'
+import { daysAgo, formatDuration } from '../utils/dates'
 
 function ReportRow({ label, value }) {
   return (
@@ -124,11 +124,6 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
     const sorted = [...arr].sort((a, b) => a - b)
     return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))]
   }
-  const fmtHM = (h) => {
-    const totalMin = Math.round(h * 60)
-    const hh = Math.floor(totalMin / 60), mm = totalMin % 60
-    return `${hh} hour${hh === 1 ? '' : 's'} ${mm} minute${mm === 1 ? '' : 's'}`
-  }
   // 4h/6h are standard clinical/insurance compliance thresholds — kept
   // fixed here rather than tied to the user's own configurable target
   // below, since a clinician report should read against the standard
@@ -202,7 +197,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
               </div>
               <div style={{ display: 'flex', gap: 24, marginTop: 2 }}>
                 <div style={{ flex: 1 }}>
-                  <ReportRow label="Average usage" value={fmtHM(stats.usageAvg)} />
+                  <ReportRow label="Average usage" value={formatDuration(stats.usageAvg)} />
                   <ReportRow label="Leak 95th %" value={`${stats.leak95.toFixed(2)} L/min`} />
                   <ReportRow label="Average AHI" value={`${stats.ahiAvg.toFixed(2)} events/hr`} />
                 </div>
@@ -271,7 +266,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
                 <td style={{ padding: '6px 4px', color: '#0A0A0C' }}>{n.label}</td>
                 <td style={{ padding: '6px 4px', textAlign: 'right', color: '#0A0A0C' }}>{n.ahi}</td>
                 <td style={{ padding: '6px 4px', textAlign: 'right', color: '#0A0A0C' }}>{n.leak}</td>
-                <td style={{ padding: '6px 4px', textAlign: 'right', color: '#0A0A0C' }}>{n.usage}h</td>
+                <td style={{ padding: '6px 4px', textAlign: 'right', color: '#0A0A0C' }}>{formatDuration(n.usage)}</td>
               </tr>
             ))}
           </tbody>

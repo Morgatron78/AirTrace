@@ -3,7 +3,7 @@ import { TrendingUp, Trophy, TriangleAlert, PowerOff, Sparkles, Calendar, Buildi
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, TAG_ICON, TAG_GRADIENT, AUTO_TAGS } from '../constants/tags'
-import { daysAgo } from '../utils/dates'
+import { daysAgo, formatDuration } from '../utils/dates'
 import { CardTitle } from '../components/CardTitle'
 import { NavCard } from '../components/NavCard'
 
@@ -33,7 +33,7 @@ function Troubleshooter({ nights, equipment }) {
   ]
   const CAUSES = {
     tired: [
-      { label: 'Usage hours', detail: `Your 7-night average is ${usageAvg.toFixed(1)}h — most guidelines treat 4+ hours as a full night of therapeutic use, and falling short is the single most common cause of residual daytime tiredness on CPAP.` },
+      { label: 'Usage hours', detail: `Your 7-night average is ${formatDuration(usageAvg)} — most guidelines treat 4+ hours as a full night of therapeutic use, and falling short is the single most common cause of residual daytime tiredness on CPAP.` },
       { label: 'Residual AHI', detail: `Your 7-night average AHI is ${ahiAvg.toFixed(1)} — even well-controlled therapy leaves some events, and those still fragment sleep even when you don't consciously wake for them.` },
     ],
     dry: [

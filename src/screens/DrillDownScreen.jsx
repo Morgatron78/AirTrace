@@ -18,6 +18,7 @@ import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
+import { formatDuration } from '../utils/dates'
 
 // Rolling date-chip strip at the top of Night View — shared by both the
 // normal (used) and not-used-this-night variants below, so navigating
@@ -421,7 +422,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
         <div style={{ margin: '12px 0 4px' }}>
           <EventRing night={night} size={140} />
         </div>
-        <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={`${night.usage}h`}
+        <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(night.usage)}
           description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
         <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${EQUIPMENT.fixedPressure} cmH₂O`}
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />

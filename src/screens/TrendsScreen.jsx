@@ -4,6 +4,7 @@ import { T, C, SEV } from '../constants/theme'
 import { TAG_LABEL } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreOf } from '../utils/scoring'
+import { formatDuration } from '../utils/dates'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
@@ -239,7 +240,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
         </div>
         <div style={{ marginTop: 8 }}>
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Leak average" value={`${wkLeakAvg.toFixed(0)} L/min`} warn={wkLeakAvg >= targets.leak} delta={prevPeriod.length ? pct(wkLeakAvg, avgUsed(prevPeriod, 'leak')) : undefined} />
-          <StatRow icon={Clock} iconColor={C.blue} label="Usage average" value={`${wkUsageAvg.toFixed(1)}h`} warn={wkUsageAvg < targets.usage} delta={prevPeriod.length ? pct(wkUsageAvg, avg(prevPeriod, 'usage')) : undefined} />
+          <StatRow icon={Clock} iconColor={C.blue} label="Usage average" value={formatDuration(wkUsageAvg)} warn={wkUsageAvg < targets.usage} delta={prevPeriod.length ? pct(wkUsageAvg, avg(prevPeriod, 'usage')) : undefined} />
           <StatRow icon={Gauge} iconColor={C.orange} label={`${rangeDays}-night compliance`} value={`${compliance}%`} warn={compliance < targets.compliance} />
           <StatRow icon={Calendar} iconColor={SEV.bad} label="Nights not used" value={noUsageCount} warn={noUsageCount > 0} last />
         </div>

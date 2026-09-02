@@ -1,6 +1,6 @@
 import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind } from 'lucide-react'
 import { C, SEV, T } from '../constants/theme'
-import { daysAgo } from './dates'
+import { daysAgo, formatDuration } from './dates'
 
 export function status(ahi, targets) {
   if (ahi < targets.ahi * 0.4) return ['Excellent score!', 'Your therapy is working really well.']
@@ -81,7 +81,7 @@ export function getPrimaryInsight(nights, targets, equipment) {
     return { icon: TriangleAlert, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: "Last night's AHI was high", subtitle: `${last.ahi} events/hr — worth a look at what might have caused it`, target: 'night' }
   }
   if (isConcern('usage', last, targets)) {
-    return { icon: TriangleAlert, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Short night last night', subtitle: `Only ${last.usage}h of usage — under your ${targets.usage}-hour target`, target: 'night' }
+    return { icon: TriangleAlert, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Short night last night', subtitle: `Only ${formatDuration(last.usage)} of usage — under your ${targets.usage}-hour target`, target: 'night' }
   }
   if (isConcern('leak', last, targets)) {
     return { icon: TriangleAlert, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'High leak last night', subtitle: `${last.leak} L/min — worth checking your mask seal`, target: 'night' }

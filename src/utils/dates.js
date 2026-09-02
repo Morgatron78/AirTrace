@@ -4,6 +4,17 @@ export function daysAgo(dateStr) {
   return Math.floor((Date.now() - new Date(dateStr)) / 86400000)
 }
 
+// Compact duration display used everywhere a measured length of time
+// (usage, session length, averages) is shown — "4h 36m", never a decimal
+// like "4.6h". Distinct from a target/threshold label like "4h+ usage",
+// which is a round configured number, not a measurement, and stays as-is.
+export function formatDuration(hoursDecimal) {
+  const totalMin = Math.round(hoursDecimal * 60)
+  const h = Math.floor(totalMin / 60)
+  const m = totalMin % 60
+  return `${h}h ${m}m`
+}
+
 export function formatClock(hourFloat) {
   const h24 = ((hourFloat % 24) + 24) % 24
   const h = Math.floor(h24)

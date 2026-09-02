@@ -3,7 +3,7 @@ import { T, SEV } from '../constants/theme'
 import { TAG_LABEL } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreBreakdown } from '../utils/scoring'
-import { formatClock } from '../utils/dates'
+import { formatClock, formatDuration } from '../utils/dates'
 import { DetailFields } from './DetailFields'
 import { ViewNightButton } from './ViewNightButton'
 
@@ -29,7 +29,7 @@ export function NightDetailPanel({ night, metric, targets, onViewNight, activeEv
   // the bar's value directly ("Leak rate", "High").
   const headerTotal = metric === 'ahi' ? { label: 'AHI', value: night.ahi.toFixed(1) }
     : metric === 'score' ? { label: 'Score', value: night.score }
-    : metric === 'usage' ? { label: 'Usage', value: `${night.usage}h` }
+    : metric === 'usage' ? { label: 'Usage', value: formatDuration(night.usage) }
     : null
   return (
     <div style={{ background: T.bg, borderRadius: 14, padding: 14, marginTop: 12 }}>

@@ -1,5 +1,5 @@
 import { T } from '../constants/theme'
-import { formatClock } from '../utils/dates'
+import { formatClock, formatDuration } from '../utils/dates'
 import { DetailFields } from './DetailFields'
 import { ViewNightButton } from './ViewNightButton'
 
@@ -21,7 +21,7 @@ export function SessionDetailPanel({ night, onViewNight }) {
       <DetailFields fields={[
         { label: 'Start', value: formatClock(night.startHour) },
         { label: 'Finish', value: formatClock(night.startHour + night.usage) },
-        { label: 'Length', value: `${night.usage}h` },
+        { label: 'Length', value: formatDuration(night.usage) },
       ]} />
       <ViewNightButton onClick={onViewNight} />
     </div>
