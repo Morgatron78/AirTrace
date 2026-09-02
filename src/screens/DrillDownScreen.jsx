@@ -194,7 +194,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // inspTime/expTime — confirmed this device has no real source for
   // either (see CLAUDE.md's "Real file structure" section).
   const CHANNEL_REGISTRY = {
-    flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s', unitLabel: 'litres per second, positive on inhale, negative on exhale',
+    flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s', unitLabel: 'litres per second, positive on inhale',
       sub: "Your real-time airflow at the mask. Obstructive, central, and hypopnea events are scored directly from dips and flattening in this signal, so it's the most direct view of what actually happened during an event — the colored dots mark exactly where." },
     // "Mask Pressure" (matching OSCAR's own naming), not "Pressure" — this
     // is the real-time pressure measured at the mask (Press.40ms), which

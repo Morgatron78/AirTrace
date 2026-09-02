@@ -151,11 +151,11 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
         )}
         {showInfo && (
           <div onClick={() => setShowInfo(false)} style={{
-            position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden', background: T.surface, border: `1.5px solid ${T.ink}`, borderRadius: 10,
-            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: big ? '12px 24px' : '8px 12px', textAlign: 'center', cursor: 'pointer',
+            position: 'absolute', inset: 0, zIndex: 2, overflow: 'auto', background: T.surface, border: `1.5px solid ${T.ink}`, borderRadius: 10,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: big ? '12px 24px' : '6px 10px', textAlign: 'center', cursor: 'pointer',
           }}>
-            <span className="font-display" style={{ fontSize: big ? 15 : 12, fontWeight: 700, color: T.ink }}>Events</span>
-            <span style={{ fontSize: big ? 13 : 11, color: big ? T.ink : T.muted, marginTop: big ? 6 : 4, lineHeight: 1.4, maxWidth: big ? 480 : undefined }}>{EVENTS_SUB}</span>
+            <span className="font-display" style={{ fontSize: big ? 15 : 11, fontWeight: 700, color: T.ink }}>Events</span>
+            <span style={{ fontSize: big ? 13 : 10, color: big ? T.ink : T.muted, marginTop: big ? 6 : 3, lineHeight: big ? 1.4 : 1.3, maxWidth: big ? 480 : undefined }}>{EVENTS_SUB}</span>
           </div>
         )}
       </div>

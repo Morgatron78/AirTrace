@@ -162,11 +162,11 @@ export function MiniChart({ label, sub, fullLabel, unitLabel, values, color, mod
           )}
           {showInfo && sub && (
             <div onClick={() => setShowInfo(false)} style={{
-              position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden', background: T.surface, border: `1.5px solid ${color}`, borderRadius: 10,
-              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '8px 12px', textAlign: 'center', cursor: 'pointer',
+              position: 'absolute', inset: 0, zIndex: 2, overflow: 'auto', background: T.surface, border: `1.5px solid ${color}`, borderRadius: 10,
+              display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '6px 10px', textAlign: 'center', cursor: 'pointer',
             }}>
-              <span className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink }}>{fullLabel || label}{unitLabel ? ` · ${unitLabel}` : ''}</span>
-              <span style={{ fontSize: 11, color: T.muted, marginTop: 4, lineHeight: 1.4 }}>{sub}</span>
+              <span className="font-display" style={{ fontSize: 11, fontWeight: 700, color: T.ink, lineHeight: 1.25 }}>{fullLabel || label}{unitLabel ? ` · ${unitLabel}` : ''}</span>
+              <span style={{ fontSize: 10, color: T.muted, marginTop: 3, lineHeight: 1.3 }}>{sub}</span>
             </div>
           )}
           {events && visEvents.map((e, i) => (
