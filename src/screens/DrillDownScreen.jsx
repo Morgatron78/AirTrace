@@ -28,9 +28,17 @@ import { formatDuration } from '../utils/dates'
 // prev/next arrows).
 function NightDatePicker({ nights, idx, setIdx, targets }) {
   // Always includes whichever night is currently selected — a fixed
-  // "last 10" slice would go blank (no highlighted night at all) once you
-  // page further back than that window via the prev/next arrows.
-  const pickerWindow = 10
+  // window would go blank (no highlighted night at all) once you page
+  // further back than that window via the prev/next arrows. Sized to the
+  // 90-day waveform-detail retention window (see ImportScreen.jsx's
+  // RETENTION_DAYS) rather than a small arbitrary number — that's the
+  // actual range a night has a real chart to drill into, so it's the
+  // range worth being able to scroll through here. A fixed number of
+  // rendered chips (not "all of nights") is still deliberate: real
+  // history can run 500+ nights, and CLAUDE.md already flags that
+  // scaling this picker to jump to arbitrary months-old dates needs its
+  // own real design pass, not a bigger version of this same strip.
+  const pickerWindow = 90
   let winStart = Math.max(0, idx - Math.floor(pickerWindow / 2))
   let winEnd = Math.min(nights.length, winStart + pickerWindow)
   winStart = Math.max(0, winEnd - pickerWindow)
