@@ -9,26 +9,44 @@ export function status(ahi, targets) {
   return ['A rougher night.', 'Worth checking your mask and settings.']
 }
 
-// Meeting every target simultaneously (AHI at/under target, leak at/under
-// target, usage at/over target, mask-off at/under target) is what
-// reliably earns 100 — each missed target costs points proportionally.
+// Points-earned, not penalties-subtracted, across four capped categories
+// that sum to 100 — matches ResMed's own published myAir methodology:
+// https://www.resmed.com/en-us/sleep-health/blog/myair-tips-understanding-your-myair-score/
+//
+// Usage is the one category myAir documents exactly: 10 points per hour,
+// capped at 70 (7 hours maxes it out) — a flat rate, the same for every
+// user, so it's deliberately NOT scaled by the user's own usage target
+// here either. The other three categories are only described in vague
+// verbal buckets with no published numeric thresholds ("minimal leak ->
+// up to 20 points, moderate -> 10 to 15, higher -> 0 to 10"; "minimal
+// events -> 4 to 5 points"; "1-2 mask-offs -> 5 points" — that 4-5 and
+// ~5 both come from the arithmetic, since 70+20+5+5=100 is the only way
+// the four categories add up). Since ResMed doesn't publish the actual
+// curve for those three, they're anchored to the user's own configured
+// targets instead — hitting a target lands roughly mid-bucket, which is
+// also how "override via Settings" works for this score: moving a
+// target reshapes exactly where that category's points taper off.
 //
 // Single source of truth for both the score number and its breakdown —
-// scoreOf sums these penalties, ScoreRing's tap-reveal shows them
+// scoreOf sums these points, ScoreRing's tap-reveal shows them
 // individually, so the two can never drift out of sync with each other.
 export function scoreBreakdown(night, targets) {
+  const usage = Math.max(0, Math.min(70, night.usage * 10))
+  const leak = Math.max(0, Math.min(20, 20 * (1 - night.leak / (targets.leak * 2.5))))
+  const ahi = Math.max(0, Math.min(5, 5 * (1 - night.ahi / (targets.ahi * 2))))
+  const maskOff = Math.max(0, Math.min(5, 5 * (1 - Math.max(0, night.maskOff - targets.maskOff) / targets.maskOff)))
   return [
-    { label: 'AHI', penalty: Math.max(0, night.ahi - targets.ahi) * 6, met: night.ahi <= targets.ahi },
-    { label: 'Leak', penalty: Math.max(0, night.leak - targets.leak) * 1, met: night.leak <= targets.leak },
-    { label: 'Usage', penalty: Math.max(0, targets.usage - night.usage) * 8, met: night.usage >= targets.usage },
-    { label: 'Mask-off', penalty: Math.max(0, night.maskOff - targets.maskOff) * 5, met: night.maskOff <= targets.maskOff },
+    { label: 'Usage', points: usage, max: 70 },
+    { label: 'Leak', points: leak, max: 20 },
+    { label: 'AHI', points: ahi, max: 5 },
+    { label: 'Mask-off', points: maskOff, max: 5 },
   ]
 }
 
 export function scoreOf(night, targets) {
   if (night.noUsage) return 0
-  const total = scoreBreakdown(night, targets).reduce((s, b) => s + b.penalty, 0)
-  return Math.round(Math.max(0, Math.min(100, 100 - total)))
+  const total = scoreBreakdown(night, targets).reduce((s, b) => s + b.points, 0)
+  return Math.round(Math.max(0, Math.min(100, total)))
 }
 
 export function scoreColor(ahi, targets) {

@@ -1,4 +1,4 @@
-import { ChevronRight, Check } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { T, SEV } from '../constants/theme'
 import { TAG_LABEL } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
@@ -100,9 +100,7 @@ export function NightDetailPanel({ night, metric, targets, onViewNight, activeEv
       {metric === 'score' && scoreBreakdown(night, targets).map((b, i, arr) => (
         <div key={b.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : 'none' }}>
           <span className="font-display" style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{b.label}</span>
-          {b.met
-            ? <Check size={16} style={{ color: SEV.good }} strokeWidth={2.5} />
-            : <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{`-${Math.round(b.penalty)} pts`}</span>}
+          <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{`${Math.round(b.points)}/${b.max} pts`}</span>
         </div>
       ))}
 

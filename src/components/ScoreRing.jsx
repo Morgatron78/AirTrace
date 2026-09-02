@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { PowerOff, Check, Activity, Clock } from 'lucide-react'
-import { T, C, SEV } from '../constants/theme'
+import { PowerOff, Activity, Clock } from 'lucide-react'
+import { T, C } from '../constants/theme'
 import { scoreOf, scoreBreakdown } from '../utils/scoring'
 import { StatRow } from './StatRow'
 import { LeakIcon } from './icons/LeakIcon'
@@ -38,9 +38,7 @@ export function ScoreRing({ night, targets, size = 158 }) {
         <div style={{ marginTop: 10 }}>
           {breakdown.map((b, i) => (
             <StatRow key={b.label} icon={b.icon} iconColor={b.color} label={b.label}
-              value={b.met
-                ? <Check size={18} style={{ color: SEV.good }} strokeWidth={2.5} />
-                : <span style={{ color: T.ink }}>{`-${Math.round(b.penalty)} pts`}</span>}
+              value={<span style={{ color: T.ink }}>{`${Math.round(b.points)}/${b.max} pts`}</span>}
               last={i === breakdown.length - 1} />
           ))}
         </div>
