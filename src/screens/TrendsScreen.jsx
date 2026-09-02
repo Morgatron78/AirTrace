@@ -37,7 +37,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   useEffect(() => { setShowChartInfo(false) }, [eventType])
   const rangeDays = range === 'week' ? 7 : range === '2weeks' ? 14 : 30
   const rawData = nights.slice(-rangeDays)
-  const data = rawData.map((n) => ({ ...n, score: scoreOf(n, targets) }))
+  const data = rawData.map((n) => ({ ...n, score: scoreOf(n) }))
   const labelEvery = rangeDays <= 7 ? 1 : rangeDays <= 14 ? 2 : 5
   const prevPeriod = nights.slice(-rangeDays * 2, -rangeDays)
   const periodLabel = range === 'week' ? 'week' : range === '2weeks' ? '2 weeks' : 'month'

@@ -10,33 +10,35 @@ export function status(ahi, targets) {
 }
 
 // Points-earned, not penalties-subtracted, across four capped categories
-// that sum to 100 — matches ResMed's own published myAir methodology:
-// https://www.resmed.com/en-us/sleep-health/blog/myair-tips-understanding-your-myair-score/
-//
-// Usage and Mask-off are both categories myAir documents exactly — flat
-// rates, the same for every user, deliberately NOT scaled by the user's
-// own targets: Usage is 10 points/hour capped at 70 (7 hours maxes it
-// out); Mask-off is the real lookup table from myAir's own in-app info
-// screen (1-2 events -> 5pts, 3 -> 4pts, 4 -> 3pts, 5 -> 1pt, 6+ -> 0pts).
-// Leak and AHI are only described in vague verbal buckets with no
-// published numeric thresholds ("minimal leak -> up to 20 points,
-// moderate -> 10 to 15, higher -> 0 to 10"; "minimal events -> 4 to 5
-// points" — that 4-5 comes from the arithmetic, since 70+20+5+5=100 is
-// the only way the four categories add up). Since ResMed doesn't publish
-// the actual curve for those two, they're anchored to the user's own
-// configured targets instead — hitting a target lands roughly
-// mid-bucket, which is also how "override via Settings" works for this
-// score: moving a target reshapes exactly where that category's points
-// taper off.
+// that sum to 100 — matches ResMed's own published myAir methodology.
+// All four tables below are the exact, real lookup tables from myAir's
+// own in-app info screens (user-supplied screenshots), not derived or
+// approximated — every category turns out to be a flat, universal table,
+// the same for every user, none of them scaled by the user's own
+// targets. That means the targets configured in Settings no longer feed
+// the score itself (they still drive Stats/warning-triangle thresholds
+// elsewhere in the app, unaffected by this).
 //
 // Single source of truth for both the score number and its breakdown —
 // scoreOf sums these points, ScoreRing's tap-reveal shows them
 // individually, so the two can never drift out of sync with each other.
-const MASK_OFF_POINTS = { 0: 5, 1: 5, 2: 5, 3: 4, 4: 3, 5: 1 }
-export function scoreBreakdown(night, targets) {
+const MASK_OFF_POINTS = { 0: 5, 1: 5, 2: 5, 3: 4, 4: 3, 5: 1 } // 6+ -> 0, the ?? 0 fallback below
+const LEAK_POINTS_TABLE = [
+  [16, 20], [18, 19], [20, 18], [22, 17], [24, 16], [26, 15], [28, 14],
+  [30, 13], [32, 12], [34, 11], [36, 10], [38, 9], [40, 8], [42, 7],
+  [44, 6], [46, 5], [48, 4], [50, 3], [52, 2], [54, 1],
+] // 55+ L/min -> 0
+const AHI_POINTS_TABLE = [[6, 5], [9, 4], [12, 3], [15, 2], [18, 1]] // 19+ events/hr -> 0
+function tablePoints(table, value) {
+  for (const [maxInclusive, points] of table) {
+    if (value <= maxInclusive) return points
+  }
+  return 0
+}
+export function scoreBreakdown(night) {
   const usage = Math.max(0, Math.min(70, night.usage * 10))
-  const leak = Math.max(0, Math.min(20, 20 * (1 - night.leak / (targets.leak * 2.5))))
-  const ahi = Math.max(0, Math.min(5, 5 * (1 - night.ahi / (targets.ahi * 2))))
+  const leak = tablePoints(LEAK_POINTS_TABLE, night.leak)
+  const ahi = tablePoints(AHI_POINTS_TABLE, night.ahi)
   const maskOff = MASK_OFF_POINTS[night.maskOff] ?? 0
   return [
     { label: 'Usage', points: usage, max: 70 },
@@ -46,9 +48,9 @@ export function scoreBreakdown(night, targets) {
   ]
 }
 
-export function scoreOf(night, targets) {
+export function scoreOf(night) {
   if (night.noUsage) return 0
-  const total = scoreBreakdown(night, targets).reduce((s, b) => s + b.points, 0)
+  const total = scoreBreakdown(night).reduce((s, b) => s + b.points, 0)
   return Math.round(Math.max(0, Math.min(100, total)))
 }
 

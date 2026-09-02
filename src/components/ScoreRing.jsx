@@ -5,7 +5,7 @@ import { scoreOf, scoreBreakdown } from '../utils/scoring'
 import { StatRow } from './StatRow'
 import { LeakIcon } from './icons/LeakIcon'
 
-export function ScoreRing({ night, targets, size = 158 }) {
+export function ScoreRing({ night, size = 158 }) {
   const [showBreakdown, setShowBreakdown] = useState(false)
   if (night.noUsage) {
     return (
@@ -18,8 +18,8 @@ export function ScoreRing({ night, targets, size = 158 }) {
       </div>
     )
   }
-  const score = scoreOf(night, targets)
-  const breakdown = scoreBreakdown(night, targets).map((b) => ({
+  const score = scoreOf(night)
+  const breakdown = scoreBreakdown(night).map((b) => ({
     ...b,
     icon: b.label === 'AHI' ? Activity : b.label === 'Leak' ? LeakIcon : b.label === 'Usage' ? Clock : PowerOff,
     color: b.label === 'AHI' ? C.pink : b.label === 'Leak' ? C.purple : b.label === 'Usage' ? C.blue : C.orange,

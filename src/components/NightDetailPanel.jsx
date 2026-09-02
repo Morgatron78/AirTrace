@@ -97,7 +97,7 @@ export function NightDetailPanel({ night, metric, targets, onViewNight, activeEv
         ]} />
       )}
 
-      {metric === 'score' && scoreBreakdown(night, targets).map((b, i, arr) => (
+      {metric === 'score' && scoreBreakdown(night).map((b, i, arr) => (
         <div key={b.label} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '6px 0', borderBottom: i < arr.length - 1 ? `1px solid ${T.line}` : 'none' }}>
           <span className="font-display" style={{ fontSize: 12, fontWeight: 500, color: T.muted }}>{b.label}</span>
           <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{`${Math.round(b.points)}/${b.max} pts`}</span>

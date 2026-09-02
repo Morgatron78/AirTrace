@@ -31,7 +31,7 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
       <div style={{ background: T.surface, borderRadius: 22, padding: '28px 20px' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 12 }}>
           <div style={{ flex: 1 }}>
-            <ScoreRing night={last} targets={targets} size={140} />
+            <ScoreRing night={last} size={140} />
           </div>
           <div style={{ flex: 1 }}>
             <EventRing night={last} size={140} />
