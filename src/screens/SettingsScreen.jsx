@@ -44,7 +44,7 @@ export function SettingsScreen({ onBack, targets, onChange }) {
           <StepperRow label="Mask-off target" value={targets.maskOff} unit="events" step={1} min={0} max={10} onChange={set('maskOff')} last />
         </div>
         <div style={{ fontSize: 12, color: T.muted, padding: '0 4px', lineHeight: 1.5 }}>
-          Today's score follows ResMed's own myAir methodology: up to 70 points for usage (10 points per hour, capped at 7 hours — the same flat rate for everyone, not tied to your usage target below), 20 for mask seal, and 5 each for AHI and mask-off events. ResMed doesn't publish exact numbers for those last three, so they're built around the targets below — a target hit lands roughly mid-category. Defaults match common clinical benchmarks (AHI under 5, 4+ hours on 70% of nights) — adjust if your clinician has given you different numbers to work toward.
+          Today's score follows ResMed's own myAir methodology: up to 70 points for usage (10 points per hour, capped at 7 hours) and 5 for mask-off events (myAir's own published table — 1-2 events still earns full marks) — both flat rates, the same for everyone, not tied to your targets below. Mask seal (up to 20) and AHI (up to 5) aren't published as exact formulas, so those are built around the targets below instead — a target hit lands roughly mid-category. Defaults match common clinical benchmarks (AHI under 5, 4+ hours on 70% of nights) — adjust if your clinician has given you different numbers to work toward.
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
