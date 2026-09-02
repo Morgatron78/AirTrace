@@ -97,8 +97,12 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
       desc: 'How much air escaped around your mask each night, in litres per minute. A poor mask seal flag means the fit itself was the likely cause.' },
     { key: 'usage', label: 'Usage', color: C.blue, icon: Clock, max: 10,
       desc: 'Hours the machine ran each night, from mask-on to mask-off. Consistent, longer sessions give therapy more chance to actually work.' },
-    { key: 'pMax', label: 'Pressure', color: C.orange, icon: Gauge, max: 16,
-      desc: 'The pressure range delivered overnight, including the 95th percentile — roughly the level needed for all but the highest 5% of the night.' },
+    // "Mask Pressure" (matching OSCAR's own naming, and Night View's), not
+    // "Pressure" — this is the real measured range at the mask (STR.edf's
+    // MaskPress.50/.95/.Max), not the flat set pressure a fixed-mode CPAP
+    // holds.
+    { key: 'pMax', label: 'Mask Pressure', color: C.orange, icon: Gauge, max: 16,
+      desc: 'The mask pressure range delivered overnight, including the 95th percentile — roughly the level needed for all but the highest 5% of the night.' },
     { key: 'score', label: 'Score', color: SEV.good, icon: Trophy, max: 100,
       desc: 'A single number combining events, leak, usage and mask seal against your targets, out of 100.' },
   ]

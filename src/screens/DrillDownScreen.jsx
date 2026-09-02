@@ -169,7 +169,12 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // either (see CLAUDE.md's "Real file structure" section).
   const CHANNEL_REGISTRY = {
     flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s' },
-    pressure: { label: 'Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O' },
+    // "Mask Pressure" (matching OSCAR's own naming), not "Pressure" — this
+    // is the real-time pressure measured at the mask (Press.40ms), which
+    // moves with your own breathing and any leak, not the flat set
+    // pressure a fixed-mode CPAP holds. Labeling it just "Pressure" reads
+    // as if it should be a flat line at the set point, which it never is.
+    pressure: { label: 'Mask Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O' },
     leak: { label: 'Leak Rate', color: C.orange, mode: 'line', values: normalize(detail.leak, 0, 25), axisMax: 25, unit: ' L/min', unitLabel: 'litres per minute',
       sub: 'Air escaping around the mask seal rather than being delivered to you. Under about 24 L/min is generally considered an acceptable seal — a rising or spiking pattern usually means the mask needs adjusting or the cushion is due for replacement.' },
     flowLimit: { label: 'Flow Limit', color: C.pink, mode: 'bar', values: normalize(detail.flowLimit, 0, 1), axisMax: 1, unit: '', decimals: 2, unitLabel: 'a 0-1 flattening index, not a physical unit',
@@ -197,7 +202,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // machine there's no meaningful waveform percentile, so it reuses the
   // per-night pMin/pMax/p95 already generated for Trends' Pressure tab.
   const statRows = [
-    { label: 'Pressure', unit: ' cmH₂O', decimals: 1, min: night.pMin, med: setPressure, p95: night.p95, p995: night.pMax },
+    { label: 'Mask Pressure', unit: ' cmH₂O', decimals: 1, min: night.pMin, med: setPressure, p95: night.p95, p995: night.pMax },
     // computeStats expects the normalized 0-1 fraction values (it reverses
     // the normalization back to real units itself) — CHANNEL_REGISTRY's
     // *.values, not the raw detail.* arrays, which are already real units.
