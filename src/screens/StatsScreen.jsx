@@ -9,6 +9,13 @@ import { StatRow } from '../components/StatRow'
 import { LeakIcon } from '../components/icons/LeakIcon'
 
 export function StatsScreen({ nights, targets }) {
+  // Every stat and label on this screen claims "30-night" — actually
+  // slicing to the last 30 nights here, rather than using the full
+  // (potentially 18-month) history passed in, is what makes that true.
+  // Previously every figure here (compliance %, streak, "Nights not
+  // used", tag correlation) was silently computed over the entire
+  // history instead.
+  const data = nights.slice(-30)
   const avg = (arr, k) => arr.reduce((s, n) => s + n[k], 0) / arr.length
   // avgUsed skips no-usage nights for anything that only exists because a
   // session happened (AHI, leak, event mix) — same reasoning as Trends'
@@ -19,19 +26,22 @@ export function StatsScreen({ nights, targets }) {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
   }
-  const obs = avgUsed(nights, 'obstructive'), cen = avgUsed(nights, 'central'), hyp = avgUsed(nights, 'hypopnea')
-  const compliance = Math.round((nights.filter((n) => n.usage >= targets.usage).length / nights.length) * 100)
-  const under3 = Math.round((nights.filter((n) => !n.noUsage && n.ahi < targets.ahi).length / nights.length) * 100)
-  const leakUnder20 = Math.round((nights.filter((n) => !n.noUsage && n.leak < targets.leak).length / nights.length) * 100)
-  const maskOffUnder = Math.round((nights.filter((n) => !n.noUsage && n.maskOff <= targets.maskOff).length / nights.length) * 100)
-  const noUsageCount = nights.filter((n) => n.noUsage).length
+  const obs = avgUsed(data, 'obstructive'), cen = avgUsed(data, 'central'), hyp = avgUsed(data, 'hypopnea')
+  const compliance = Math.round((data.filter((n) => n.usage >= targets.usage).length / data.length) * 100)
+  const under3 = Math.round((data.filter((n) => !n.noUsage && n.ahi < targets.ahi).length / data.length) * 100)
+  const leakUnder20 = Math.round((data.filter((n) => !n.noUsage && n.leak < targets.leak).length / data.length) * 100)
+  const maskOffUnder = Math.round((data.filter((n) => !n.noUsage && n.maskOff <= targets.maskOff).length / data.length) * 100)
+  const noUsageCount = data.filter((n) => n.noUsage).length
+  // Streak intentionally uses the full history, not the 30-night slice —
+  // it's not labeled "30-night" anywhere on this screen, and a genuinely
+  // longer streak would be wrongly truncated by capping the scan window.
   const streak = computeStreak(nights, targets)
-  const weekday = nights.filter((n) => !n.weekend), weekend = nights.filter((n) => n.weekend)
+  const weekday = data.filter((n) => !n.weekend), weekend = data.filter((n) => n.weekend)
 
   const tagKeys = Object.keys(TAG_LABEL)
-  const overallAhi = avgUsed(nights, 'ahi')
+  const overallAhi = avgUsed(data, 'ahi')
   const rows = tagKeys.map((tk) => {
-    const withTag = nights.filter((n) => !n.noUsage && n.tags.includes(tk))
+    const withTag = data.filter((n) => !n.noUsage && n.tags.includes(tk))
     const ahiPct = withTag.length ? Math.round(((avg(withTag, 'ahi') - overallAhi) / overallAhi) * 100) : null
     return { tk, n: withTag.length, ahiPct }
   })
@@ -45,7 +55,7 @@ export function StatsScreen({ nights, targets }) {
             <EventRing night={{ obstructive: obs, central: cen, hypopnea: hyp }} size={140} />
           </div>
           <div style={{ flex: 1 }}>
-            <SealRing nights={nights} size={140} />
+            <SealRing nights={data} size={140} />
           </div>
         </div>
       </div>
