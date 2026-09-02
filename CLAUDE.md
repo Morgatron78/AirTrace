@@ -259,6 +259,11 @@ Full design, agreed before any of it was built:
   manual "don't background the app" warning regardless — the two aren't
   redundant, Wake Lock doesn't prevent backgrounding at all, only
   auto-lock.
+- **Night View's date picker doesn't scale to 18 months of real history.**
+  Flagged directly by the user after navigating back to March 2025 (the
+  actual start of their therapy) required many taps through a short
+  rolling date-chip strip with no jump-to-date/scrub mechanism. Explicitly
+  deferred, not a bug to fix reactively — needs a real design pass.
 
 ## App identity
 
