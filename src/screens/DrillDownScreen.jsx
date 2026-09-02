@@ -1,7 +1,7 @@
 import { Fragment, useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
-  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive,
+  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -19,6 +19,7 @@ import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { EventsChart } from '../components/charts/EventsChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
+import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration } from '../utils/dates'
 
 // Rolling date-chip strip at the top of Night View — shared by both the
@@ -252,6 +253,30 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // that view's own picker offers, reorderable independently of it.
   const [channelOrder, setChannelOrder] = useState(DEFAULT_CHANNEL_ORDER)
   const [reorderMode, setReorderMode] = useState(false)
+  // Which channels to skip in the "Individual channels" list below —
+  // a global preference (which signals you actually care about), not a
+  // per-night one, so it's persisted the same way targets/equipment are
+  // (App.jsx's own getMeta/setMeta pattern), just read/written locally
+  // here since nothing else in the app needs it. Independent of
+  // Synchronized view's own up-to-3 selectedChannels below — hiding a
+  // channel from the individual list doesn't imply you never want to
+  // overlay it there too.
+  const [hiddenChannels, setHiddenChannels] = useState([])
+  useEffect(() => {
+    getMeta('hiddenChannels').then((v) => { if (Array.isArray(v)) setHiddenChannels(v) })
+  }, [])
+  function toggleHiddenChannel(key) {
+    setHiddenChannels((cur) => {
+      const isHidden = cur.includes(key)
+      // Always leave at least one channel visible — an all-hidden list
+      // would just be an empty section with no way back in short of
+      // re-opening every row here anyway.
+      if (!isHidden && channelOrder.length - cur.length <= 1) return cur
+      const next = isHidden ? cur.filter((k) => k !== key) : [...cur, key]
+      setMeta('hiddenChannels', next)
+      return next
+    })
+  }
   const [selectedChannels, setSelectedChannels] = useState(['flow', 'leak', 'flowLimit'])
   function toggleChannel(key) {
     setSyncShowInfo(false)
@@ -591,25 +616,32 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
             background: reorderMode ? C.blue : T.surface, border: reorderMode ? 'none' : `1px solid ${T.line}`,
           }}>
             {!reorderMode && <ArrowUpDown size={13} style={{ color: T.muted }} />}
-            <span className="font-display" style={{ fontSize: 12, fontWeight: 600, color: reorderMode ? '#FFFFFF' : T.muted }}>{reorderMode ? 'Done' : 'Reorder'}</span>
+            <span className="font-display" style={{ fontSize: 12, fontWeight: 600, color: reorderMode ? '#FFFFFF' : T.muted }}>{reorderMode ? 'Done' : 'Edit'}</span>
           </button>
         </div>
       </div>
 
       {reorderMode ? (
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <div style={{ fontSize: 12, color: T.muted, marginBottom: 4 }}>Tap the eye to show or hide a channel below</div>
           {channelOrder.map((key, idx) => {
             const ch = CHANNEL_REGISTRY[key]
+            const hidden = hiddenChannels.includes(key)
             return (
               <div key={key} style={{
                 display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 52,
                 borderBottom: idx === channelOrder.length - 1 ? 'none' : `1px solid ${T.line}`,
+                opacity: hidden ? 0.45 : 1,
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                   <span style={{ width: 10, height: 10, borderRadius: 5, background: ch.color, flexShrink: 0 }} />
                   <span className="font-display" style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>{ch.fullLabel || ch.label}</span>
                 </div>
                 <div style={{ display: 'flex', gap: 6 }}>
+                  <button onClick={() => toggleHiddenChannel(key)}
+                    style={{ width: 32, height: 32, borderRadius: '50%', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                    {hidden ? <EyeOff size={15} style={{ color: T.muted }} /> : <Eye size={15} style={{ color: T.ink }} />}
+                  </button>
                   <button onClick={() => moveChannel(idx, -1)} disabled={idx === 0}
                     style={{ width: 32, height: 32, borderRadius: '50%', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: idx === 0 ? 0.3 : 1 }}>
                     <ChevronUp size={15} style={{ color: T.ink }} />
@@ -624,7 +656,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
           })}
         </div>
       ) : (
-        channelOrder.map((key) => {
+        channelOrder.filter((key) => !hiddenChannels.includes(key)).map((key) => {
           const ch = CHANNEL_REGISTRY[key]
           const linkProps = chartsLinked
             ? { zoom: linkedZoom, onZoomChange: setLinkedZoom, panStart: linkedPan, onPanChange: setLinkedPan }
