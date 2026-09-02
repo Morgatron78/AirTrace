@@ -138,7 +138,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // render, regardless of load state) — the actual detailStatus gate on
   // what renders happens once, right before the JSX return.
   const events = nightData?.events ?? []
-  const detail = nightData?.detail ?? { flow: [], pressure: [], leak: [], respRate: [], tidalVolume: [], minuteVent: [], snore: [], flowLimit: [] }
+  const detail = nightData?.detail ?? { flow: [], pressure: [], therapyPressure: [], leak: [], respRate: [], tidalVolume: [], minuteVent: [], snore: [], flowLimit: [] }
   const timeInApneaSec = nightData?.timeInApneaSec ?? 0
 
   // Real per-channel data arrives from src/edf/parseNight.js in physical
@@ -175,6 +175,14 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
     // pressure a fixed-mode CPAP holds. Labeling it just "Pressure" reads
     // as if it should be a flat line at the set point, which it never is.
     pressure: { label: 'Mask Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O' },
+    // The machine's own commanded output (PLD.edf's Press.2s, "Therapy
+    // Pres" per OSCAR) — genuinely flat at the real set pressure except
+    // during ramp-up, unlike Mask Pressure above which moves with your
+    // own breathing and any leak. Same axis range as Mask Pressure
+    // deliberately, so overlaying both in Synchronized view is a direct
+    // visual comparison, not two different scales.
+    therapyPressure: { label: 'Therapy Pressure', color: C.pink, mode: 'line', values: normalize(detail.therapyPressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O',
+      sub: "The pressure your machine is actually commanding, moment to moment — flat at your set pressure apart from a brief ramp-up (and EPR's small dip during exhale, if enabled). Compare against Mask Pressure to see how much your own breathing and any leak affect what actually reaches you." },
     leak: { label: 'Leak Rate', color: C.orange, mode: 'line', values: normalize(detail.leak, 0, 25), axisMax: 25, unit: ' L/min', unitLabel: 'litres per minute',
       sub: 'Air escaping around the mask seal rather than being delivered to you. Under about 24 L/min is generally considered an acceptable seal — a rising or spiking pattern usually means the mask needs adjusting or the cushion is due for replacement.' },
     flowLimit: { label: 'Flow Limit', color: C.pink, mode: 'bar', values: normalize(detail.flowLimit, 0, 1), axisMax: 1, unit: '', decimals: 2, unitLabel: 'a 0-1 flattening index, not a physical unit',
@@ -192,7 +200,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // channels is about intent (raw signal vs. breathing quality vs.
   // ventilation) rather than one long undifferentiated list.
   const CHANNEL_GROUPS = [
-    { label: 'Core', keys: ['flow', 'pressure', 'leak'] },
+    { label: 'Core', keys: ['flow', 'pressure', 'therapyPressure', 'leak'] },
     { label: 'Breathing', keys: ['flowLimit', 'snore'] },
     { label: 'Ventilation', keys: ['tidalVolume', 'respRate', 'minuteVent'] },
   ]

@@ -88,7 +88,7 @@ for (const dayFolder of nightDirs) {
   })
 
   console.log(`  ${(night.totalNightSec / 3600).toFixed(2)}h recorded  ` +
-    `flow=${night.detail.flow.length} pressure=${night.detail.pressure.length} ` +
+    `flow=${night.detail.flow.length} pressure=${night.detail.pressure.length} therapyPressure=${night.detail.therapyPressure.length} ` +
     `leak=${night.detail.leak.length} respRate=${night.detail.respRate.length} ` +
     `tidalVolume=${night.detail.tidalVolume.length} minuteVent=${night.detail.minuteVent.length} ` +
     `snore=${night.detail.snore.length} flowLimit=${night.detail.flowLimit.length}`)

@@ -54,6 +54,15 @@ export function parseNight(files) {
   const minuteVent = readNamedSignal(files.pld, pldHeader, 'MinVent.2s') // L/min
   const snore = readNamedSignal(files.pld, pldHeader, 'Snore.2s') // index
   const flowLimit = readNamedSignal(files.pld, pldHeader, 'FlowLim.2s') // 0-1 index
+  // The machine's own commanded therapy pressure — distinct from
+  // BRP's Press.40ms (the noisy real-time mask sensor reading, "Mask
+  // Pressure" elsewhere in this app). OSCAR's own translation table
+  // calls this exact PLD.edf signal "Therapy Pres". Confirmed against
+  // real data: on a fixed-pressure night it climbs during the ramp
+  // (8.0 -> 10.0 -> 11.0 cmH2O) then holds flat at the real set
+  // pressure for the rest of the night, exactly as expected for a
+  // non-auto-adjusting machine.
+  const therapyPressure = readNamedSignal(files.pld, pldHeader, 'Press.2s')
 
   const eveResult = parseEvents(files.eve)
   const cslResult = files.csl ? parseEvents(files.csl) : { events: [], unmapped: new Set() }
@@ -71,7 +80,7 @@ export function parseNight(files) {
   const timeInApneaSec = events.reduce((s, e) => s + e.durationSec, 0)
 
   return {
-    detail: { flow, pressure, leak, respRate, tidalVolume, minuteVent, snore, flowLimit },
+    detail: { flow, pressure, therapyPressure, leak, respRate, tidalVolume, minuteVent, snore, flowLimit },
     events,
     timeInApneaSec,
     totalNightSec,
