@@ -1,4 +1,4 @@
-import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind } from 'lucide-react'
+import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind, Upload } from 'lucide-react'
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
 
@@ -73,6 +73,19 @@ export function getPrimaryInsight(nights, targets, equipment) {
   const cushionDays = daysAgo(equipment.cushionChanged)
   const headgearDays = daysAgo(equipment.headgearWashed)
   const filterDays = daysAgo(equipment.filterChanged)
+
+  // last.noUsage doesn't only mean "you skipped a night" — STR.edf's own
+  // last record is always a not-yet-populated placeholder for today until
+  // the next import, so this is the everyday state of the app on any day
+  // before that day's card has been imported, not a one-time first-run
+  // edge case. Surfacing "Short night — 0h 0m of usage" here would be
+  // actively misleading (there's no real night to judge yet, and every
+  // one of last night's own stats is a zeroed placeholder, not data) —
+  // prompting the actual next step is far more useful, and takes priority
+  // over everything else since it's blocking every other stat on the page.
+  if (last.noUsage) {
+    return { icon: Upload, dot: `linear-gradient(135deg,${C.blue},${C.purple})`, title: 'No data imported for today yet', subtitle: "Import your SD card to see last night's results", target: 'import' }
+  }
 
   // Tonight's own warning-triangle stats take priority — the banner should
   // never say "nothing urgent" while a triangle is visible right below it.

@@ -140,7 +140,7 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '12px 18px 0' }}>
-        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} />}
+        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} />}
         {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} />}
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate} />}
