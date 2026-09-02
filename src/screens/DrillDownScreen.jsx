@@ -169,13 +169,15 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // inspTime/expTime — confirmed this device has no real source for
   // either (see CLAUDE.md's "Real file structure" section).
   const CHANNEL_REGISTRY = {
-    flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s' },
+    flow: { label: 'Flow', color: C.blue, mode: 'line', values: normalize(detail.flow, -2, 3), axisMin: -2, axisMax: 3, unit: ' L/s', unitLabel: 'litres per second, positive on inhale, negative on exhale',
+      sub: "Your real-time airflow at the mask. Obstructive, central, and hypopnea events are scored directly from dips and flattening in this signal, so it's the most direct view of what actually happened during an event — the colored dots mark exactly where." },
     // "Mask Pressure" (matching OSCAR's own naming), not "Pressure" — this
     // is the real-time pressure measured at the mask (Press.40ms), which
     // moves with your own breathing and any leak, not the flat set
     // pressure a fixed-mode CPAP holds. Labeling it just "Pressure" reads
     // as if it should be a flat line at the set point, which it never is.
-    pressure: { label: 'Mask Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O' },
+    pressure: { label: 'Mask Pressure', color: C.purple, mode: 'line', values: normalize(detail.pressure, PRESSURE_MIN, PRESSURE_MAX), axisMin: PRESSURE_MIN, axisMax: PRESSURE_MAX, unit: ' cmH₂O', unitLabel: 'centimetres of water pressure',
+      sub: "The real-time pressure measured at the mask — it dips and rises with your own breathing and any leak, so it's never a flat line even though this is a fixed-pressure machine. Compare against Therapy Pressure to see how much of that movement is you rather than the machine." },
     // The machine's own commanded output (PLD.edf's Press.2s, "Therapy
     // Pres" per OSCAR) — genuinely flat at the real set pressure except
     // during ramp-up, unlike Mask Pressure above which moves with your

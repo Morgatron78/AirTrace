@@ -1,8 +1,14 @@
 import { useState, useRef } from 'react'
-import { ZoomOut, Maximize2 } from 'lucide-react'
+import { ZoomOut, Maximize2, MoreHorizontal, Info } from 'lucide-react'
 import { T } from '../../constants/theme'
 import { formatClock } from '../../utils/dates'
 import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS } from './chartHelpers'
+
+// Same Description affordance every other channel chart offers (the "..."
+// menu in MiniChart/BigChannelChart) — this chart doesn't come from
+// CHANNEL_REGISTRY like the others, so its own explanatory text lives here
+// instead of alongside theirs in DrillDownScreen.jsx.
+const EVENTS_SUB = "Every obstructive, central, and hypopnea event during the night, all in one place. Nearby events merge into a numbered cluster so a busy stretch doesn't turn into an unreadable pile of dots — tap a single dot, or a cluster once it's already at full zoom, to see exactly what happened and when."
 
 // A dedicated events-only timeline, separate from the small dots overlaid
 // on the Flow band elsewhere (Synchronized view, MiniChart, BigChannelChart
@@ -33,6 +39,8 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
   const [zoom, setZoom] = useState(1)
   const [panStart, setPanStart] = useState(0)
   const [openCluster, setOpenCluster] = useState(null) // { px, items } | null
+  const [showMore, setShowMore] = useState(false)
+  const [showInfo, setShowInfo] = useState(false)
   const dragRef = useRef(null)
   const isZoomedIn = zoom < 0.999
   const atDeepestZoom = zoom <= ZOOM_PRESETS[ZOOM_PRESETS.length - 1] + 0.001
@@ -141,6 +149,15 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
             </div>
           </>
         )}
+        {showInfo && (
+          <div onClick={() => setShowInfo(false)} style={{
+            position: 'absolute', inset: 0, zIndex: 2, overflow: 'hidden', background: T.surface, border: `1.5px solid ${T.ink}`, borderRadius: 10,
+            display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: big ? '12px 24px' : '8px 12px', textAlign: 'center', cursor: 'pointer',
+          }}>
+            <span className="font-display" style={{ fontSize: big ? 15 : 12, fontWeight: 700, color: T.ink }}>Events</span>
+            <span style={{ fontSize: big ? 13 : 11, color: big ? T.ink : T.muted, marginTop: big ? 6 : 4, lineHeight: 1.4, maxWidth: big ? 480 : undefined }}>{EVENTS_SUB}</span>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -164,12 +181,33 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
   if (big) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0 }}>
-          {isZoomedIn && (
-            <button onClick={() => { setZoom(1); setPanStart(0) }}
-              style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <ZoomOut size={14} style={{ color: T.ink }} />
+        <div style={{ display: 'flex', justifyContent: 'flex-end', flexShrink: 0, position: 'relative' }}>
+          <div style={{ display: 'flex', gap: 5 }}>
+            <button onClick={() => setShowMore((s) => !s)}
+              style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <MoreHorizontal size={16} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
             </button>
+            {isZoomedIn && (
+              <button onClick={() => { setZoom(1); setPanStart(0) }}
+                style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <ZoomOut size={14} style={{ color: T.ink }} />
+              </button>
+            )}
+          </div>
+          {showMore && (
+            <>
+              <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+              <div style={{
+                position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 10, minWidth: 180,
+                background: T.surface, borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: 6,
+              }}>
+                <button onClick={() => { setShowInfo((s) => !s); setShowMore(false) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 9, background: 'none' }}>
+                  <Info size={15} style={{ color: T.muted }} />
+                  <span className="font-display" style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>Description</span>
+                </button>
+              </div>
+            </>
           )}
         </div>
         <div style={{ flex: 1, minHeight: 0, marginTop: 8 }}>{body}</div>
@@ -180,9 +218,13 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
   }
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'relative' }}>
         <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Events</span>
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
+          <button onClick={() => setShowMore((s) => !s)}
+            style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <MoreHorizontal size={15} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
+          </button>
           {isZoomedIn && (
             <button onClick={() => { setZoom(1); setPanStart(0) }}
               style={{ width: 32, height: 32, borderRadius: '50%', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -193,6 +235,21 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
             <Maximize2 size={13} style={{ color: T.ink }} />
           </button>
         </div>
+        {showMore && (
+          <>
+            <div onClick={() => setShowMore(false)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+            <div style={{
+              position: 'absolute', top: '100%', right: 0, marginTop: 6, zIndex: 10, minWidth: 168,
+              background: T.surface, borderRadius: 14, boxShadow: '0 6px 20px rgba(0,0,0,0.14)', padding: 6,
+            }}>
+              <button onClick={() => { setShowInfo((s) => !s); setShowMore(false) }}
+                style={{ display: 'flex', alignItems: 'center', gap: 10, width: '100%', padding: '9px 10px', borderRadius: 9, background: 'none' }}>
+                <Info size={14} style={{ color: T.muted }} />
+                <span className="font-display" style={{ fontSize: 13, fontWeight: 600, color: T.ink }}>Description</span>
+              </button>
+            </div>
+          </>
+        )}
       </div>
       <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Tap a dot for its type · tap a cluster to zoom in</div>
       <div style={{ marginTop: 12 }}>{body}</div>
