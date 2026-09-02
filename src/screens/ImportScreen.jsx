@@ -213,7 +213,15 @@ export function ImportScreen({ onBack }) {
             </div>
             <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink, marginBottom: 6 }}>Import from SD card</div>
             <div style={{ fontSize: 13, color: T.muted, marginBottom: 18, lineHeight: 1.5 }}>Plug in your card reader, then select the card's root folder — the one containing STR.edf and DATALOG together.</div>
-            <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={onFilesSelected} style={{ display: 'none' }} />
+            {/* Hidden off-screen rather than display:none — iOS Safari has
+                known quirks where a display:none file input still opens
+                the native picker via .click() but silently fails to
+                populate .files on selection. Positioning off-screen
+                keeps the element live in the layout, which is the
+                standard cross-browser-safe way to visually hide a file
+                input. */}
+            <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={onFilesSelected}
+              style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
             <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF' }} className="font-display">
               <span style={{ fontSize: 14, fontWeight: 700 }}>Choose folder</span>
             </button>
