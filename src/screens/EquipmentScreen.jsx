@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronRight, TriangleAlert, Fan, VenetianMask, Hash, RefreshCw, Gauge, Wind,
-  TrendingUp, Shield, Droplets, Thermometer, Package,
+  TrendingUp, Shield, Droplets, Thermometer, Package, Zap,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -9,13 +9,22 @@ import { daysAgo } from '../utils/dates'
 import { dueColor, currentSetPressure, mostRecentValue, filterIntervalDays } from '../utils/scoring'
 import { getMeta } from '../db/meta.js'
 
-// Enum meanings confirmed against OSCAR's own resmed_loader.cpp channel
-// definitions, not guessed (see parseSummaries.js). Mask/Tube type codes
-// have no confirmed enum available, so those two fields stay mock.
+// Enum meanings confirmed against OSCAR's own resmed_loader.cpp (channel/
+// addOption definitions, and for EPR specifically its actual STR.edf
+// derivation logic — see parseSummaries.js), cross-checked field-by-field
+// against a real OSCAR "Device Settings" screenshot for this exact card.
+// Tube type has no confirmed enum available, so that one stays unread.
 const MODE_LABEL = { 0: 'CPAP' }
 const RAMP_LABEL = { 0: 'Off', 1: 'On', 2: 'Auto' }
 const ON_OFF_LABEL = { 0: 'Off', 1: 'On' }
+const ON_OFF_AUTO_LABEL = { 0: 'Off', 1: 'On', 2: 'Auto' }
 const YES_NO_LABEL = { 0: 'No', 1: 'Yes' }
+const AUTO_MANUAL_LABEL = { 0: 'Auto', 1: 'Manual' }
+// OSCAR's own label for value 3 is literally "Patient???" (an
+// unresolved/uncertain state even in its own source) — relabeled here
+// since that reads as a debug artifact, not something to surface as-is.
+const EPR_LABEL = { 0: 'Off', 1: 'Ramp Only', 2: 'Full Time', 3: 'Unknown' }
+const MASK_TYPE_LABEL = { 0: 'Pillows', 1: 'Full Face', 2: 'Nasal', 3: 'Unknown' }
 function labelOr(rawValue, labelMap, fallbackLabel) {
   return rawValue == null ? fallbackLabel : (labelMap[rawValue] ?? fallbackLabel)
 }
@@ -82,23 +91,29 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
 export function EquipmentScreen({ equipment, onChange, nights }) {
   const set = (key) => (val) => onChange({ ...equipment, [key]: val })
   // Real per-night data (see parseSummaries.js) wherever a confirmed
-  // signal exists — machine identity (brand/model/serial) and mask
-  // brand/model/cushion size still come from EQUIPMENT's mockup
-  // placeholders, since those need Mask/Tube type codes this device
-  // doesn't expose a confirmed decode for.
+  // signal exists. Machine identity (brand/model/serial), specific mask
+  // product, cushion size, and Essentials tier stay EQUIPMENT's mockup
+  // placeholders — those aren't things the device itself records (mask
+  // *style* is, and is wired below; the exact product isn't).
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
   const modeLabel = labelOr(mostRecentValue(nights, 'mode', null), MODE_LABEL, EQUIPMENT.machine.mode)
   const rampEnableRaw = mostRecentValue(nights, 'rampEnable', null)
   const rampTimeRaw = mostRecentValue(nights, 'rampTime', null)
   const rampLabel = rampEnableRaw == null ? EQUIPMENT.machine.ramp
     : `${RAMP_LABEL[rampEnableRaw] ?? 'Unknown'}${rampEnableRaw > 0 && rampTimeRaw ? ` · ${rampTimeRaw} min` : ''}`
-  const eprEnableRaw = mostRecentValue(nights, 'eprEnable', null)
+  const eprRaw = mostRecentValue(nights, 'epr', null)
   const eprLevelRaw = mostRecentValue(nights, 'eprLevel', null)
-  const eprLabel = eprEnableRaw == null ? `${EQUIPMENT.machine.epr} · ${EQUIPMENT.machine.eprLevel} cmH₂O`
-    : (eprEnableRaw ? `On · ${eprLevelRaw} cmH₂O` : 'Off')
+  const eprLabel = eprRaw == null ? `${EQUIPMENT.machine.epr} · ${EQUIPMENT.machine.eprLevel} cmH₂O`
+    : `${EPR_LABEL[eprRaw] ?? 'Unknown'}${eprRaw > 0 ? ` · ${eprLevelRaw} cmH₂O` : ''}`
   const humidityLevel = mostRecentValue(nights, 'humidityLevel', EQUIPMENT.machine.humidityLevel)
   const antibacterialLabel = labelOr(mostRecentValue(nights, 'antibacterialFilter', null), YES_NO_LABEL, EQUIPMENT.machine.antibacterialFilter)
-  const climateLabel = labelOr(mostRecentValue(nights, 'climateControl', null), ON_OFF_LABEL, EQUIPMENT.machine.climateControl)
+  const climateLabel = labelOr(mostRecentValue(nights, 'climateControl', null), AUTO_MANUAL_LABEL, EQUIPMENT.machine.climateControl)
+  const humidifierLabel = labelOr(mostRecentValue(nights, 'humidifierStatus', null), ON_OFF_LABEL, EQUIPMENT.machine.humidifier)
+  const maskTypeRaw = mostRecentValue(nights, 'mask', null)
+  const maskTypeLabel = maskTypeRaw == null ? null : (MASK_TYPE_LABEL[maskTypeRaw] ?? 'Unknown')
+  const smartStartLabel = labelOr(mostRecentValue(nights, 'smartStart', null), ON_OFF_LABEL, null)
+  const temperatureRaw = mostRecentValue(nights, 'temperature', null)
+  const temperatureEnableLabel = labelOr(mostRecentValue(nights, 'temperatureEnable', null), ON_OFF_AUTO_LABEL, null)
   // Same interval Today's overdue-filter warning uses (see scoring.js) —
   // a single source of truth for the 30-vs-180-day distinction.
   const filterInterval = filterIntervalDays(nights)
@@ -125,12 +140,16 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
         <StatRow icon={Wind} iconColor={T.muted} label="EPR" value={eprLabel}
           description="Expiratory Pressure Relief slightly lowers pressure as you breathe out, making exhaling feel more natural." />
         <StatRow icon={TrendingUp} iconColor={T.muted} label="Ramp" value={rampLabel} />
+        {smartStartLabel != null && <StatRow icon={Zap} iconColor={T.muted} label="Smart Start" value={smartStartLabel}
+          description="Starts therapy automatically when it detects you've put the mask on and begun breathing into it, rather than needing a button press." />}
         <MaintenanceRow icon={Wind} label="Filter changed" dateStr={equipment.filterChanged} onChange={set('filterChanged')} intervalDays={filterInterval}
           description="Most manufacturers recommend a reusable filter be rinsed monthly and replaced roughly every 6 months, or sooner in dusty environments. A disposable filter is generally replaced monthly." />
         <StatRow icon={Shield} iconColor={T.muted} label="Antibacterial filter" value={antibacterialLabel} />
         <StatRow icon={Droplets} iconColor={T.muted} label="Humidity level" value={humidityLevel} />
-        <StatRow icon={Thermometer} iconColor={T.muted} label="Climate control" value={climateLabel} />
-        <StatRow icon={Droplets} iconColor={T.muted} label="Humidifier" value={EQUIPMENT.machine.humidifier} />
+        <StatRow icon={Thermometer} iconColor={T.muted} label="Climate control" value={climateLabel}
+          description="Auto lets the machine balance humidity and tube temperature together against room conditions; Manual means you've set the temperature yourself." />
+        {temperatureRaw != null && <StatRow icon={Thermometer} iconColor={T.muted} label="Temperature" value={`${temperatureRaw}°C${temperatureEnableLabel ? ` · ${temperatureEnableLabel}` : ''}`} />}
+        <StatRow icon={Droplets} iconColor={T.muted} label="Humidifier" value={humidifierLabel} />
         <StatRow icon={Package} iconColor={T.muted} label="Essentials" value={EQUIPMENT.machine.essentials} last />
       </div>
 
@@ -142,6 +161,8 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
           <span className="font-display" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.muted, marginBottom: 2 }}>Mask</span>
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.mask.brand} {EQUIPMENT.mask.model}</div>
         </div>
+        {maskTypeLabel && <StatRow icon={VenetianMask} iconColor={T.muted} label="Mask type" value={maskTypeLabel}
+          description="The style your machine has recorded (Pillows, Full Face, or Nasal) — the exact model above is still a placeholder, since the device only records the style, not the specific product." />}
         <SelectRow label="Cushion size" value={equipment.cushionSize}>
           <Segmented options={[{ key: 'Small', label: 'S' }, { key: 'Medium', label: 'M' }, { key: 'Large', label: 'L' }]} active={equipment.cushionSize} onChange={set('cushionSize')} />
         </SelectRow>

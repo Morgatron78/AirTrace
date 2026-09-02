@@ -51,17 +51,32 @@ export function parseSummaries(arrayBuffer) {
   // Machine settings, same real-per-night-value treatment as set pressure
   // — none of these are UI-string-mapped here, that's the display layer's
   // job (EquipmentScreen.jsx); this just extracts sentinel-aware raw
-  // values. Enum meanings (RampEnable 0/1/2 -> Off/On/Auto, ABFilter
-  // 0/1 -> No/Yes, Mode 0 -> CPAP) confirmed against OSCAR's own
-  // resmed_loader.cpp channel definitions, not guessed. Mask/Tube type
-  // codes have no confirmed enum available and are deliberately not read
-  // here.
+  // values. Enum meanings confirmed against OSCAR's own resmed_loader.cpp
+  // (both its channel/addOption definitions and, for EPR specifically,
+  // its actual STR.edf derivation logic — see below), not guessed, and
+  // cross-checked field-by-field against a real OSCAR "Device Settings"
+  // screenshot for this exact card. Tube type has no confirmed enum
+  // available and is deliberately not read here.
   const modeArr = sig('Mode')
   const rampEnableArr = sig('S.RampEnable'), rampTimeArr = sig('S.RampTime')
-  const eprEnableArr = sig('S.EPR.EPREnable'), eprLevelArr = sig('S.EPR.Level')
   const humLevelArr = sig('S.HumLevel')
   const abFilterArr = sig('S.ABFilter')
   const climateControlArr = sig('S.ClimateControl')
+  const maskArr = sig('S.Mask')
+  const smartStartArr = sig('S.SmartStart')
+  const humidifierArr = sig('Humidifier')
+  const tempArr = sig('S.Temp'), tempEnableArr = sig('S.TempEnable')
+  // EPR is not the simple on/off S.EPR.EPREnable alone — OSCAR's own STR
+  // parser derives a 4-value mode (0=Off, 1=Ramp Only, 2=Full Time, 3=
+  // "Patient???") from EPRType+1, then forces it (and the level) to 0
+  // whenever EPREnable and ClinEnable aren't *both* true. (OSCAR also
+  // subtracts 1 for AirSense 11 devices specifically — this is a
+  // confirmed AirSense 10 Elite, so that adjustment doesn't apply here.)
+  // Verified record-by-record against a real OSCAR Device Settings
+  // screenshot for this exact card: EPRType=1, EPREnable=1, ClinEnable=1
+  // -> epr=2 ("Full Time"), matching exactly.
+  const eprTypeArr = sig('S.EPR.EPRType'), eprEnableArr = sig('S.EPR.EPREnable')
+  const clinEnableArr = sig('S.EPR.ClinEnable'), eprLevelArr = sig('S.EPR.Level')
 
   const summaries = []
   for (let r = 0; r < header.numDataRecords; r++) {
@@ -79,8 +94,9 @@ export function parseSummaries(arrayBuffer) {
         weekend, noUsage: true,
         ahi: 0, obstructive: 0, central: 0, hypopnea: 0,
         leak: 0, usage: 0, startHour: 22, pMin: 0, pMax: 0, p95: 0, maskOff: 0, seal: null, setPressure: null,
-        mode: null, rampEnable: null, rampTime: null, eprEnable: null, eprLevel: null,
+        mode: null, rampEnable: null, rampTime: null, epr: null, eprLevel: null,
         humidityLevel: null, antibacterialFilter: null, climateControl: null,
+        mask: null, smartStart: null, humidifierStatus: null, temperature: null, temperatureEnable: null,
       })
       continue
     }
@@ -120,11 +136,23 @@ export function parseSummaries(arrayBuffer) {
     const mode = modeArr[r] === SENTINEL ? null : modeArr[r]
     const rampEnable = rampEnableArr[r] === SENTINEL ? null : rampEnableArr[r]
     const rampTime = rampTimeArr[r] === SENTINEL ? null : rampTimeArr[r]
-    const eprEnable = eprEnableArr[r] === SENTINEL ? null : eprEnableArr[r]
-    const eprLevel = eprLevelArr[r] > 0 ? Math.round(eprLevelArr[r]) : null
     const humidityLevel = humLevelArr[r] >= 1 ? Math.round(humLevelArr[r]) : null
     const antibacterialFilter = abFilterArr[r] === SENTINEL ? null : abFilterArr[r]
     const climateControl = climateControlArr[r] === SENTINEL ? null : climateControlArr[r]
+    const mask = maskArr[r] === SENTINEL ? null : maskArr[r]
+    const smartStart = smartStartArr[r] === SENTINEL ? null : smartStartArr[r]
+    const humidifierStatus = humidifierArr[r] === SENTINEL ? null : humidifierArr[r]
+    const temperature = tempArr[r] > 0 ? Math.round(tempArr[r]) : null
+    const temperatureEnable = tempEnableArr[r] === SENTINEL ? null : tempEnableArr[r]
+
+    // OSCAR's exact STR.edf derivation (see the comment above this
+    // function's signal reads) — not a simple EPREnable boolean.
+    let epr = null, eprLevel = null
+    if (eprTypeArr[r] !== SENTINEL && eprEnableArr[r] !== SENTINEL && clinEnableArr[r] !== SENTINEL) {
+      epr = eprTypeArr[r] + 1
+      eprLevel = eprLevelArr[r] > 0 ? Math.round(eprLevelArr[r]) : 0
+      if (!(eprEnableArr[r] && clinEnableArr[r])) { epr = 0; eprLevel = 0 }
+    }
 
     summaries.push({
       date,
@@ -136,7 +164,8 @@ export function parseSummaries(arrayBuffer) {
       leak, usage, startHour,
       pMin: +pMinArr[r].toFixed(1), p95: +p95Arr[r].toFixed(1), pMax: +pMaxArr[r].toFixed(1),
       maskOff, seal: sealFromLeak(leak), setPressure,
-      mode, rampEnable, rampTime, eprEnable, eprLevel, humidityLevel, antibacterialFilter, climateControl,
+      mode, rampEnable, rampTime, epr, eprLevel, humidityLevel, antibacterialFilter, climateControl,
+      mask, smartStart, humidifierStatus, temperature, temperatureEnable,
     })
   }
   return summaries
