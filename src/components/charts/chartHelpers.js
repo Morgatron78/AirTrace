@@ -23,17 +23,29 @@ export const EVENT_COLOR = { obstructive: C.red, central: C.orange, hypopnea: C.
 // inconsistent rather than intentional.
 export const DEFAULT_CHANNEL_ORDER = ['flow', 'pressure', 'therapyPressure', 'leak', 'flowLimit', 'snore', 'tidalVolume', 'respRate', 'minuteVent']
 
-// Real wall-clock hour markers (matches how a real overnight chart reads —
+// "Nice" round step sizes to choose between, in minutes — small enough to
+// give real precision once zoomed in tight, but never an odd number like
+// "7 minutes" that would read as arbitrary rather than a real clock
+// interval.
+const NICE_STEP_MINUTES = [1, 2, 5, 10, 15, 20, 30, 60, 90, 120, 180, 240, 360, 480, 720]
+
+// Real wall-clock markers (matches how a real overnight chart reads —
 // "11:00 PM, 12:00 AM..." — rather than elapsed time from session start).
-// Steps by more than 1 hour once the span is long enough that hourly
-// labels would start colliding at typical mobile chart widths.
+// Picks the smallest "nice" step (minutes, not just whole hours) that
+// still keeps the label count under maxLabels — a zoomed-out full night
+// lands on an hour-ish step same as before, but a zoomed-in window a
+// few minutes wide now gets minute-level ticks instead of just one lonely
+// hour label (or none at all): the previous version never stepped below
+// 1 hour regardless of how tight the zoom was, which made it hard to
+// tell precisely when something happened once zoomed in.
 export function hourTicks(startHour, spanHours, maxLabels = 5) {
-  let step = 1
-  while (spanHours / step > maxLabels) step++
-  const first = Math.ceil(startHour / step) * step
+  const spanMinutes = spanHours * 60
+  const stepMinutes = NICE_STEP_MINUTES.find((m) => spanMinutes / m <= maxLabels) ?? NICE_STEP_MINUTES[NICE_STEP_MINUTES.length - 1]
+  const startMinutes = startHour * 60
+  const firstMinutes = Math.ceil(startMinutes / stepMinutes) * stepMinutes
   const list = []
-  for (let h = first; h < startHour + spanHours; h += step) {
-    list.push({ frac: (h - startHour) / spanHours, label: formatClock(h) })
+  for (let m = firstMinutes; m < startMinutes + spanMinutes; m += stepMinutes) {
+    list.push({ frac: (m - startMinutes) / spanMinutes, label: formatClock(m / 60) })
   }
   return list
 }
