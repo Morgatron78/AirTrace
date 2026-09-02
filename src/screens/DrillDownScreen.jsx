@@ -19,8 +19,13 @@ import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
 
-function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) {
-  const night = nights[idx]
+// Rolling date-chip strip at the top of Night View — shared by both the
+// normal (used) and not-used-this-night variants below, so navigating
+// through a stretch of skipped nights never loses this picker (it used
+// to only exist in the used-night render path, making a run of no-usage
+// nights impossible to page through except one day at a time via the
+// prev/next arrows).
+function NightDatePicker({ nights, idx, setIdx, targets }) {
   // Always includes whichever night is currently selected — a fixed
   // "last 10" slice would go blank (no highlighted night at all) once you
   // page further back than that window via the prev/next arrows.
@@ -33,6 +38,34 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   useEffect(() => {
     activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [idx])
+  return (
+    <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
+        {recentWindow.map((n) => {
+          const ni = nights.indexOf(n)
+          const active = ni === idx
+          return (
+            <button key={ni} ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
+              <div style={{
+                height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
+                border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
+                outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
+                boxSizing: 'border-box', opacity: active ? 1 : 0.4,
+              }}>
+                <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
+                <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
+              </div>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) {
+  const night = nights[idx]
   const [expandedChart, setExpandedChart] = useState(null)
   const [syncZoom, setSyncZoom] = useState(1)
   const [syncPan, setSyncPan] = useState(0)
@@ -371,28 +404,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
-        <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
-          {recentWindow.map((n) => {
-            const ni = nights.indexOf(n)
-            const active = ni === idx
-            return (
-              <button key={ni} ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
-                <div style={{
-                  height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
-                  background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
-                  border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
-                  outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
-                  boxSizing: 'border-box', opacity: active ? 1 : 0.4,
-                }}>
-                  <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
-                  <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
-                </div>
-              </button>
-            )
-          })}
-        </div>
-      </div>
+      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -642,6 +654,8 @@ function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagE
   const night = nights[idx]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} />
+
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronLeft size={16} style={{ color: T.ink }} />
