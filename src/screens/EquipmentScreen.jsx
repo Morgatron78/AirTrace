@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   ChevronRight, TriangleAlert, Fan, VenetianMask, Hash, RefreshCw, Gauge, Wind,
   TrendingUp, Shield, Droplets, Thermometer, Package,
@@ -6,7 +6,19 @@ import {
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { daysAgo } from '../utils/dates'
-import { dueColor, currentSetPressure } from '../utils/scoring'
+import { dueColor, currentSetPressure, mostRecentValue, filterIntervalDays } from '../utils/scoring'
+import { getMeta } from '../db/meta.js'
+
+// Enum meanings confirmed against OSCAR's own resmed_loader.cpp channel
+// definitions, not guessed (see parseSummaries.js). Mask/Tube type codes
+// have no confirmed enum available, so those two fields stay mock.
+const MODE_LABEL = { 0: 'CPAP' }
+const RAMP_LABEL = { 0: 'Off', 1: 'On', 2: 'Auto' }
+const ON_OFF_LABEL = { 0: 'Off', 1: 'On' }
+const YES_NO_LABEL = { 0: 'No', 1: 'Yes' }
+function labelOr(rawValue, labelMap, fallbackLabel) {
+  return rawValue == null ? fallbackLabel : (labelMap[rawValue] ?? fallbackLabel)
+}
 import { StatRow } from '../components/StatRow'
 import { Segmented } from '../components/Segmented'
 
@@ -69,11 +81,31 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
 
 export function EquipmentScreen({ equipment, onChange, nights }) {
   const set = (key) => (val) => onChange({ ...equipment, [key]: val })
-  // Real per-night data (see parseSummaries.js) — the rest of this
-  // screen's machine/mask details still come from EQUIPMENT's mockup
-  // placeholders, since that would need actually parsing the SD card's
-  // SETTINGS folder, a separate piece of work.
+  // Real per-night data (see parseSummaries.js) wherever a confirmed
+  // signal exists — machine identity (brand/model/serial) and mask
+  // brand/model/cushion size still come from EQUIPMENT's mockup
+  // placeholders, since those need Mask/Tube type codes this device
+  // doesn't expose a confirmed decode for.
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
+  const modeLabel = labelOr(mostRecentValue(nights, 'mode', null), MODE_LABEL, EQUIPMENT.machine.mode)
+  const rampEnableRaw = mostRecentValue(nights, 'rampEnable', null)
+  const rampTimeRaw = mostRecentValue(nights, 'rampTime', null)
+  const rampLabel = rampEnableRaw == null ? EQUIPMENT.machine.ramp
+    : `${RAMP_LABEL[rampEnableRaw] ?? 'Unknown'}${rampEnableRaw > 0 && rampTimeRaw ? ` · ${rampTimeRaw} min` : ''}`
+  const eprEnableRaw = mostRecentValue(nights, 'eprEnable', null)
+  const eprLevelRaw = mostRecentValue(nights, 'eprLevel', null)
+  const eprLabel = eprEnableRaw == null ? `${EQUIPMENT.machine.epr} · ${EQUIPMENT.machine.eprLevel} cmH₂O`
+    : (eprEnableRaw ? `On · ${eprLevelRaw} cmH₂O` : 'Off')
+  const humidityLevel = mostRecentValue(nights, 'humidityLevel', EQUIPMENT.machine.humidityLevel)
+  const antibacterialLabel = labelOr(mostRecentValue(nights, 'antibacterialFilter', null), YES_NO_LABEL, EQUIPMENT.machine.antibacterialFilter)
+  const climateLabel = labelOr(mostRecentValue(nights, 'climateControl', null), ON_OFF_LABEL, EQUIPMENT.machine.climateControl)
+  // Same interval Today's overdue-filter warning uses (see scoring.js) —
+  // a single source of truth for the 30-vs-180-day distinction.
+  const filterInterval = filterIntervalDays(nights)
+  // Real last-import date/time, from the same meta record ImportScreen
+  // itself writes and reads — not a fake "lastSynced" placeholder.
+  const [lastSynced, setLastSynced] = useState(null)
+  useEffect(() => { getMeta('lastImport').then((v) => v && setLastSynced(v.date)) }, [])
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -86,18 +118,18 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.machine.brand} {EQUIPMENT.machine.model}</div>
         </div>
         <StatRow icon={Hash} iconColor={T.muted} label="Serial number" value={EQUIPMENT.machine.serial} />
-        <StatRow icon={RefreshCw} iconColor={T.muted} label="Last synced" value={EQUIPMENT.machine.lastSynced} />
-        <StatRow icon={Gauge} iconColor={T.muted} label="Mode" value={EQUIPMENT.machine.mode} />
+        <StatRow icon={RefreshCw} iconColor={T.muted} label="Last synced" value={lastSynced ?? EQUIPMENT.machine.lastSynced} />
+        <StatRow icon={Gauge} iconColor={T.muted} label="Mode" value={modeLabel} />
         <StatRow icon={Gauge} iconColor={T.muted} label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${setPressure} cmH₂O` : 'Auto'}
           description="A fixed-pressure machine delivers one constant pressure set by your clinician, rather than adjusting automatically through the night the way an APAP machine does." />
-        <StatRow icon={Wind} iconColor={T.muted} label="EPR" value={`${EQUIPMENT.machine.epr} · ${EQUIPMENT.machine.eprLevel} cmH₂O`}
+        <StatRow icon={Wind} iconColor={T.muted} label="EPR" value={eprLabel}
           description="Expiratory Pressure Relief slightly lowers pressure as you breathe out, making exhaling feel more natural." />
-        <StatRow icon={TrendingUp} iconColor={T.muted} label="Ramp" value={EQUIPMENT.machine.ramp} />
-        <MaintenanceRow icon={Wind} label="Filter changed" dateStr={equipment.filterChanged} onChange={set('filterChanged')} intervalDays={180}
+        <StatRow icon={TrendingUp} iconColor={T.muted} label="Ramp" value={rampLabel} />
+        <MaintenanceRow icon={Wind} label="Filter changed" dateStr={equipment.filterChanged} onChange={set('filterChanged')} intervalDays={filterInterval}
           description="Most manufacturers recommend a reusable filter be rinsed monthly and replaced roughly every 6 months, or sooner in dusty environments. A disposable filter is generally replaced monthly." />
-        <StatRow icon={Shield} iconColor={T.muted} label="Antibacterial filter" value={EQUIPMENT.machine.antibacterialFilter} />
-        <StatRow icon={Droplets} iconColor={T.muted} label="Humidity level" value={EQUIPMENT.machine.humidityLevel} />
-        <StatRow icon={Thermometer} iconColor={T.muted} label="Climate control" value={EQUIPMENT.machine.climateControl} />
+        <StatRow icon={Shield} iconColor={T.muted} label="Antibacterial filter" value={antibacterialLabel} />
+        <StatRow icon={Droplets} iconColor={T.muted} label="Humidity level" value={humidityLevel} />
+        <StatRow icon={Thermometer} iconColor={T.muted} label="Climate control" value={climateLabel} />
         <StatRow icon={Droplets} iconColor={T.muted} label="Humidifier" value={EQUIPMENT.machine.humidifier} />
         <StatRow icon={Package} iconColor={T.muted} label="Essentials" value={EQUIPMENT.machine.essentials} last />
       </div>

@@ -2,18 +2,35 @@ import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind,
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
 
-// The real prescribed pressure (STR.edf's S.C.Press, see parseSummaries.js)
-// isn't a fixed constant — it genuinely changes over time as a
-// prescription is adjusted, so there's no single "current" value baked
-// into a night that predates the latest change. For UI that wants one
-// current figure rather than a specific night's own (Equipment, Insights),
-// this walks backward for the most recent night that actually recorded
-// one. Returns fallback if no night ever has (e.g. nothing imported yet).
-export function currentSetPressure(nights, fallback) {
+// Several real machine settings (STR.edf's S.C.Press, S.RampEnable, etc —
+// see parseSummaries.js) aren't fixed constants — they genuinely change
+// over time as a prescription or preference is adjusted, so there's no
+// single "current" value baked into a night that predates the latest
+// change. For UI that wants one current figure rather than a specific
+// night's own (Equipment, Insights, Clinician Report), this walks
+// backward for the most recent night that actually recorded a non-null
+// value for the given field. Returns fallback if no night ever has (e.g.
+// nothing imported yet, or this field predates when it started being
+// parsed).
+export function mostRecentValue(nights, field, fallback) {
   for (let i = nights.length - 1; i >= 0; i--) {
-    if (nights[i].setPressure != null) return nights[i].setPressure
+    if (nights[i][field] != null) return nights[i][field]
   }
   return fallback
+}
+
+export function currentSetPressure(nights, fallback) {
+  return mostRecentValue(nights, 'setPressure', fallback)
+}
+
+// Antibacterial filter changes what kind of filter this actually is, and
+// that changes its real lifespan: no antibacterial filter fitted (the
+// common case, confirmed via STR.edf's S.ABFilter) means a disposable
+// filter, replaced monthly; a reusable one is rinsed monthly but only
+// fully replaced every ~6 months. Defaults to the disposable/shorter
+// interval when unknown — the safer assumption to warn early on, not late.
+export function filterIntervalDays(nights) {
+  return mostRecentValue(nights, 'antibacterialFilter', 0) === 1 ? 180 : 30
 }
 
 export function status(ahi, targets) {
@@ -167,7 +184,7 @@ export function getPrimaryInsight(nights, targets, equipment) {
   if (headgearDays >= 14) {
     return { icon: Droplets, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Headgear overdue for a wash', subtitle: `${headgearDays} days since it was last washed`, target: 'equipment' }
   }
-  if (filterDays >= 180) {
+  if (filterDays >= filterIntervalDays(nights)) {
     return { icon: Wind, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Filter overdue for replacement', subtitle: `${filterDays} days since it was last changed`, target: 'equipment' }
   }
   if (trajDiff < -5) {

@@ -3,6 +3,7 @@ import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upl
 import { T, C } from './constants/theme'
 import { DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
+import { getMeta, setMeta } from './db/meta.js'
 import { SplashScreen } from './screens/SplashScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { TrendsScreen } from './screens/TrendsScreen'
@@ -33,6 +34,19 @@ export default function App() {
     headgearWashed: '2026-08-14',
     filterChanged: '2026-07-02',
   })
+  // targets/equipment previously lived only in memory — any change (a
+  // custom AHI target, a logged filter-change date) was silently lost on
+  // every reload. Both persist via the same generic meta store nights'
+  // own import bookkeeping already uses. Loaded once on mount; the
+  // hardcoded values above stay as the seed shown until a real stored
+  // value (if any) arrives, same brief-flash-then-settle pattern as the
+  // rest of the app's IndexedDB-backed state.
+  useEffect(() => {
+    getMeta('targets').then((v) => v && setTargets(v))
+    getMeta('equipment').then((v) => v && setEquipment(v))
+  }, [])
+  const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
+  const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
   // Merges the raw (imported, IndexedDB-backed) nights with the tag log by
   // date. Any night before tagStartDate is exempt from review-state
   // tracking entirely — first-import history can span a year or more, so
@@ -113,7 +127,7 @@ export default function App() {
     return <ImportScreen onBack={closeImport} />
   }
   if (showSettings) {
-    return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={setTargets} />
+    return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} />
   }
   if (status === 'empty') {
     return (
@@ -145,7 +159,7 @@ export default function App() {
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate} />}
         {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
-        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={setEquipment} nights={nights} />}
+        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} />}
       </main>
 
       {tagEntryDate && (

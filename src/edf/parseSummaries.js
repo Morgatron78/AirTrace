@@ -48,6 +48,20 @@ export function parseSummaries(arrayBuffer) {
   // sentinel scaled through this signal's own physical range, not a
   // real reading; treated as unavailable that day rather than shown.
   const setPressArr = sig('S.C.Press')
+  // Machine settings, same real-per-night-value treatment as set pressure
+  // — none of these are UI-string-mapped here, that's the display layer's
+  // job (EquipmentScreen.jsx); this just extracts sentinel-aware raw
+  // values. Enum meanings (RampEnable 0/1/2 -> Off/On/Auto, ABFilter
+  // 0/1 -> No/Yes, Mode 0 -> CPAP) confirmed against OSCAR's own
+  // resmed_loader.cpp channel definitions, not guessed. Mask/Tube type
+  // codes have no confirmed enum available and are deliberately not read
+  // here.
+  const modeArr = sig('Mode')
+  const rampEnableArr = sig('S.RampEnable'), rampTimeArr = sig('S.RampTime')
+  const eprEnableArr = sig('S.EPR.EPREnable'), eprLevelArr = sig('S.EPR.Level')
+  const humLevelArr = sig('S.HumLevel')
+  const abFilterArr = sig('S.ABFilter')
+  const climateControlArr = sig('S.ClimateControl')
 
   const summaries = []
   for (let r = 0; r < header.numDataRecords; r++) {
@@ -65,6 +79,8 @@ export function parseSummaries(arrayBuffer) {
         weekend, noUsage: true,
         ahi: 0, obstructive: 0, central: 0, hypopnea: 0,
         leak: 0, usage: 0, startHour: 22, pMin: 0, pMax: 0, p95: 0, maskOff: 0, seal: null, setPressure: null,
+        mode: null, rampEnable: null, rampTime: null, eprEnable: null, eprLevel: null,
+        humidityLevel: null, antibacterialFilter: null, climateControl: null,
       })
       continue
     }
@@ -101,6 +117,14 @@ export function parseSummaries(arrayBuffer) {
     const hypopnea = +hiArr[r].toFixed(2)
     const setPressureRaw = setPressArr[r]
     const setPressure = setPressureRaw > 0 ? +setPressureRaw.toFixed(1) : null
+    const mode = modeArr[r] === SENTINEL ? null : modeArr[r]
+    const rampEnable = rampEnableArr[r] === SENTINEL ? null : rampEnableArr[r]
+    const rampTime = rampTimeArr[r] === SENTINEL ? null : rampTimeArr[r]
+    const eprEnable = eprEnableArr[r] === SENTINEL ? null : eprEnableArr[r]
+    const eprLevel = eprLevelArr[r] > 0 ? Math.round(eprLevelArr[r]) : null
+    const humidityLevel = humLevelArr[r] >= 1 ? Math.round(humLevelArr[r]) : null
+    const antibacterialFilter = abFilterArr[r] === SENTINEL ? null : abFilterArr[r]
+    const climateControl = climateControlArr[r] === SENTINEL ? null : climateControlArr[r]
 
     summaries.push({
       date,
@@ -112,6 +136,7 @@ export function parseSummaries(arrayBuffer) {
       leak, usage, startHour,
       pMin: +pMinArr[r].toFixed(1), p95: +p95Arr[r].toFixed(1), pMax: +pMaxArr[r].toFixed(1),
       maskOff, seal: sealFromLeak(leak), setPressure,
+      mode, rampEnable, rampTime, eprEnable, eprLevel, humidityLevel, antibacterialFilter, climateControl,
     })
   }
   return summaries
