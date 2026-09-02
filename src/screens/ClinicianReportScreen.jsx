@@ -1,4 +1,3 @@
-import { useMemo } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -85,41 +84,6 @@ function ReportLegendDot({ color, label }) {
 }
 
 export function ClinicianReportScreen({ nights, onBack, equipment }) {
-  // Real history is whatever `nights` holds (the mockup's 30 nights). A
-  // proper multi-window report needs up to 365 days to compare against, so
-  // this screen synthesizes ~335 additional preceding nights, scoped
-  // entirely to itself — nothing else in the app (Stats' "30-night
-  // average" copy, Trends' month view, etc.) sees or is affected by this.
-  // In the real build this whole block goes away; there's just more real
-  // history to read as it accumulates.
-  const fullHistory = useMemo(() => {
-    const extra = []
-    const today = new Date(`${nights[0].date}T00:00:00`)
-    const tagPool = ['alcohol', 'lateMeal', 'awayFromHome', 'highStress', 'illness']
-    for (let i = 335; i >= 1; i--) {
-      const d = new Date(today)
-      d.setDate(d.getDate() - i)
-      const weekend = d.getDay() === 0 || d.getDay() === 6
-      const noUsage = Math.random() < 0.03
-      const alcohol = !noUsage && Math.random() < 0.15
-      const ahi = noUsage ? 0 : Math.max(0.2, (alcohol ? 4.8 : weekend ? 2.9 : 2.2) + (Math.random() - 0.5) * 2.2)
-      const obstructive = noUsage ? 0 : ahi * (0.55 + Math.random() * 0.15)
-      const central = noUsage ? 0 : ahi * (0.1 + Math.random() * 0.1)
-      const hypopnea = noUsage ? 0 : Math.max(0, ahi - obstructive - central)
-      const leak = noUsage ? 0 : Math.round(Math.max(2, 10 + (Math.random() - 0.5) * 12))
-      const usage = noUsage ? 0 : +(Math.max(2.5, 6.6 + (Math.random() - 0.5) * 3)).toFixed(1)
-      const tags = noUsage ? [] : tagPool.filter(() => Math.random() < 0.08)
-      if (alcohol) tags.push('alcohol')
-      extra.push({
-        label: d.toLocaleDateString(undefined, { day: '2-digit', month: 'short' }),
-        date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`,
-        weekend, ahi: +ahi.toFixed(1), obstructive: +obstructive.toFixed(1), central: +central.toFixed(1), hypopnea: +hypopnea.toFixed(1),
-        leak, usage, tags: [...new Set(tags)], noUsage,
-      })
-    }
-    return [...extra, ...nights]
-  }, [nights])
-
   const pctl = (arr, p) => {
     if (!arr.length) return 0
     const sorted = [...arr].sort((a, b) => a - b)
@@ -138,10 +102,13 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
     const days6 = win.filter((n) => n.usage >= 6).length
     return { usageAvg, ahiAvg, leak95, days4, days4Pct: Math.round((days4 / win.length) * 100), days6, days6Pct: Math.round((days6 / win.length) * 100) }
   }
+  // Real history only — nights.slice(-N) naturally returns whatever's
+  // actually there if it's shorter than the window (e.g. a new user a
+  // few weeks in), rather than padding out to N with fabricated nights.
   const windows = [
-    { key: '30', label: 'Last 30 days', data: fullHistory.slice(-30), labelEvery: 5 },
-    { key: '90', label: 'Last 90 days', data: fullHistory.slice(-90), labelEvery: 14 },
-    { key: '365', label: 'Last 365 days', data: fullHistory.slice(-365), labelEvery: 56 },
+    { key: '30', label: 'Last 30 days', data: nights.slice(-30), labelEvery: 5 },
+    { key: '90', label: 'Last 90 days', data: nights.slice(-90), labelEvery: 14 },
+    { key: '365', label: 'Last 365 days', data: nights.slice(-365), labelEvery: 56 },
   ]
 
   // Tag correlation, computed over the 90-day window — long enough for a
@@ -262,7 +229,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
             </tr>
           </thead>
           <tbody>
-            {nights.map((n, i) => (
+            {windows[0].data.map((n, i) => (
               <tr key={i} style={{ borderBottom: '1px solid #EDEDF0' }}>
                 <td style={{ padding: '6px 4px', color: '#0A0A0C' }}>{n.label}</td>
                 <td style={{ padding: '6px 4px', textAlign: 'right', color: '#0A0A0C' }}>{n.ahi}</td>
