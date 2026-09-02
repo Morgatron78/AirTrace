@@ -158,7 +158,36 @@ testing and are easy to lose hours rediscovering:
 - Channel names come from the EDF label field (trim, dots→underscores);
   `EDF Annotations` and `Crc16` are pseudo-channels, not real data.
 
-## Real-build architecture (agreed, not started)
+### Real-import bugs found via actual on-device testing (fixed, keep in mind)
+
+The Web Worker + IndexedDB + real `webkitdirectory` import pipeline is
+built and has been exercised against the user's real, full-size card
+(1.11GB, ~18 months since March 2025, 5,689 files/514 folders). Two real
+bugs surfaced this way that a synthetic/small test wouldn't have caught:
+
+- **iOS Safari: clearing a file input's `.value` right after reading
+  `.files` silently empties the FileList you already captured.** It
+  isn't an independent snapshot there. Confirmed via a side-by-side
+  test: a bare page with no `.value` reset correctly saw hundreds of
+  real files from the same card that the app reported as 0. Always
+  `Array.from(e.target.files)` into a real array *before* touching
+  `e.target.value = ''`, never after.
+- **A `DATALOG/YYYYMMDD/` folder can hold more than one session** — the
+  main overnight one plus a brief, seconds-long "fit check" mask contact
+  afterward (matches the MaskOn/MaskOff multi-slot behavior already
+  documented above for `STR.edf`), each with their own timestamp-prefixed
+  BRP/PLD/EVE/CSL file set. A brief, interrupted session's file can carry
+  `-1` in its EDF+ header's numDataRecords field — the spec's own
+  documented sentinel for "count unknown," left there because the device
+  never went back to finalize it. Two fixes, both needed: (1) when
+  grouping same-kind files within one date folder, keep the *largest*
+  file per kind, not whichever sorts last — that reliably picks the real
+  session over a leftover fit-check file; (2) `parseEdfHeader` should
+  derive the true record count from the file's actual byte length
+  whenever it sees `-1`, rather than trusting the header and crashing on
+  a negative typed-array length.
+
+## Real-build architecture (built)
 
 - Web Worker for parsing (don't block the UI on a 20-minute first import).
 - Two-tier retention: nightly summaries kept forever (cheap), waveform
