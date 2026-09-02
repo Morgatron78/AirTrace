@@ -96,25 +96,25 @@ export function ImportScreen({ onBack }) {
   const chooseFolder = () => { setError(null); fileInputRef.current?.click() }
 
   const onFilesSelected = async (e) => {
-    const fileList = e.target.files
+    // Snapshot into a real array BEFORE touching e.target.value — on iOS
+    // Safari, clearing the input's value right after reading .files was
+    // silently emptying the FileList out from under us (confirmed via a
+    // side-by-side test: a plain page with no such reset correctly saw
+    // hundreds of real files from the same card that this app reported
+    // as 0). Array.from copies the entries out, so the later reset can't
+    // touch them.
+    const files = Array.from(e.target.files || [])
     e.target.value = '' // allow re-selecting the same folder later
 
-    // Diagnostic only: iOS Safari's webkitdirectory has known cases where
-    // it silently returns zero files (or a shallow, non-recursive list)
-    // when the source is an external file provider — like an SD card
-    // reader — rather than on-device storage. Previously this returned
-    // silently with no feedback at all, which is indistinguishable from
-    // "still working" to the user. Surfacing the raw count + a sample of
-    // paths turns that into something diagnosable instead of a guess.
-    if (!fileList || fileList.length === 0) {
-      setError('The folder picker returned 0 files. This can happen on iOS when reading from an external SD card reader rather than on-device storage — please let Claude know this happened so it can be investigated further.')
+    if (files.length === 0) {
+      setError('The folder picker returned 0 files — please let Claude know this happened so it can be investigated further.')
       return
     }
 
-    const { strFile, nightFolders } = groupImportFiles(fileList)
+    const { strFile, nightFolders } = groupImportFiles(files)
     if (!strFile) {
-      const sample = Array.from(fileList).slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
-      setError(`Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together). Picker returned ${fileList.length} file(s). Sample paths: ${sample || '(none)'}`)
+      const sample = files.slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
+      setError(`Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together). Picker returned ${files.length} file(s). Sample paths: ${sample || '(none)'}`)
       return
     }
 
