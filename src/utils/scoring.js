@@ -2,6 +2,20 @@ import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind,
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
 
+// The real prescribed pressure (STR.edf's S.C.Press, see parseSummaries.js)
+// isn't a fixed constant — it genuinely changes over time as a
+// prescription is adjusted, so there's no single "current" value baked
+// into a night that predates the latest change. For UI that wants one
+// current figure rather than a specific night's own (Equipment, Insights),
+// this walks backward for the most recent night that actually recorded
+// one. Returns fallback if no night ever has (e.g. nothing imported yet).
+export function currentSetPressure(nights, fallback) {
+  for (let i = nights.length - 1; i >= 0; i--) {
+    if (nights[i].setPressure != null) return nights[i].setPressure
+  }
+  return fallback
+}
+
 export function status(ahi, targets) {
   if (ahi < targets.ahi * 0.4) return ['Excellent score!', 'Your therapy is working really well.']
   if (ahi < targets.ahi * 0.6) return ["That's a great score!", "You're well on your way to good sleep."]

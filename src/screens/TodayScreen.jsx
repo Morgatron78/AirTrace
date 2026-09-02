@@ -1,7 +1,7 @@
 import { Clock, Activity, Gauge, LockKeyhole, PowerOff, Moon, ChevronRight, Sparkles, Flame, Pencil } from 'lucide-react'
 import { T, C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
-import { computeStreak, getPrimaryInsight, isConcern } from '../utils/scoring'
+import { computeStreak, currentSetPressure, getPrimaryInsight, isConcern } from '../utils/scoring'
 import { NavCard } from '../components/NavCard'
 import { ScoreRing } from '../components/ScoreRing'
 import { EventRing } from '../components/EventRing'
@@ -17,6 +17,7 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)
   const insight = getPrimaryInsight(nights, targets, equipment)
+  const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
   const pctDelta = (curr, prevVal) => (prevVal ? Math.round(((curr - prevVal) / prevVal) * 100) : undefined)
   const goToInsight = () => (
     insight.target === 'night' ? onSelectNight(nights.length - 1) :
@@ -43,8 +44,8 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
           <StatRow icon={Activity} iconColor={C.pink} label="Events/hr" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
             description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal." />
-          <StatRow icon={Gauge} iconColor={C.orange} label="Pressure" value={`${EQUIPMENT.fixedPressure} cmH₂O`}
-            description={`Your machine is set to a fixed pressure of ${EQUIPMENT.fixedPressure} cmH₂O rather than auto-adjusting. This confirms it held steady overnight.`} />
+          <StatRow icon={Gauge} iconColor={C.orange} label="Pressure" value={`${setPressure} cmH₂O`}
+            description={`Your machine is set to a fixed pressure of ${setPressure} cmH₂O rather than auto-adjusting. This confirms it held steady overnight.`} />
           <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={last.seal} warn={isConcern('seal', last, targets)}
             description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check the Leak stat above alongside this." />
           <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} last />

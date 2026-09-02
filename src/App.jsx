@@ -145,7 +145,7 @@ export default function App() {
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate} />}
         {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
-        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={setEquipment} />}
+        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={setEquipment} nights={nights} />}
       </main>
 
       {tagEntryDate && (

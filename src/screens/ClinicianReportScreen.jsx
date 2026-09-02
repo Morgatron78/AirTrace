@@ -4,6 +4,7 @@ import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { daysAgo, formatDuration } from '../utils/dates'
+import { currentSetPressure } from '../utils/scoring'
 
 function ReportRow({ label, value }) {
   return (
@@ -246,7 +247,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
         <ReportHeading>Equipment</ReportHeading>
         <ReportRow label="Machine" value={`${EQUIPMENT.machine.brand} ${EQUIPMENT.machine.model}`} />
         <ReportRow label="Serial number" value={EQUIPMENT.machine.serial} />
-        <ReportRow label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${EQUIPMENT.fixedPressure} cmH₂O` : 'Auto'} />
+        <ReportRow label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${currentSetPressure(nights, EQUIPMENT.fixedPressure)} cmH₂O` : 'Auto'} />
         <ReportRow label="Filter changed" value={`${filterDays} days ago`} />
         <ReportRow label="Mask" value={`${EQUIPMENT.mask.brand} ${EQUIPMENT.mask.model}, ${equipment.cushionSize}`} />
         <ReportRow label="Cushion changed" value={`${cushionDays} days ago`} />

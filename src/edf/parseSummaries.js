@@ -37,6 +37,17 @@ export function parseSummaries(arrayBuffer) {
   const maskOnArr = sig('MaskOn'), maskOffArr = sig('MaskOff')
   const leak95Arr = sig('Leak.95')
   const pMinArr = sig('MaskPress.50'), p95Arr = sig('MaskPress.95'), pMaxArr = sig('MaskPress.Max')
+  // The actual prescribed pressure — confirmed via OSCAR's own ResMed
+  // loader source (resmed_loader.cpp's resmed_codes[RMS9_SetPressure]
+  // maps to this exact STR.edf signal name for fixed-CPAP-mode devices)
+  // and verified against real values in this device's own STR.edf: not
+  // a fixed constant, genuinely changes over time as a prescription is
+  // adjusted (11, 12, 13, 11.6 cmH2O all appear across one real card's
+  // history). physMin for this signal is 4 cmH2O — a real device can't
+  // be set below that — so any decoded value <= 0 is the day's -1
+  // sentinel scaled through this signal's own physical range, not a
+  // real reading; treated as unavailable that day rather than shown.
+  const setPressArr = sig('S.C.Press')
 
   const summaries = []
   for (let r = 0; r < header.numDataRecords; r++) {
@@ -53,7 +64,7 @@ export function parseSummaries(arrayBuffer) {
         wd: d.toLocaleDateString(undefined, { weekday: 'narrow', timeZone: 'UTC' }),
         weekend, noUsage: true,
         ahi: 0, obstructive: 0, central: 0, hypopnea: 0,
-        leak: 0, usage: 0, startHour: 22, pMin: 0, pMax: 0, p95: 0, maskOff: 0, seal: null,
+        leak: 0, usage: 0, startHour: 22, pMin: 0, pMax: 0, p95: 0, maskOff: 0, seal: null, setPressure: null,
       })
       continue
     }
@@ -88,6 +99,8 @@ export function parseSummaries(arrayBuffer) {
     const obstructive = +(oaiArr[r] + uaiArr[r]).toFixed(2)
     const central = +caiArr[r].toFixed(2)
     const hypopnea = +hiArr[r].toFixed(2)
+    const setPressureRaw = setPressArr[r]
+    const setPressure = setPressureRaw > 0 ? +setPressureRaw.toFixed(1) : null
 
     summaries.push({
       date,
@@ -98,7 +111,7 @@ export function parseSummaries(arrayBuffer) {
       ahi: +ahiArr[r].toFixed(2), obstructive, central, hypopnea,
       leak, usage, startHour,
       pMin: +pMinArr[r].toFixed(1), p95: +p95Arr[r].toFixed(1), pMax: +pMaxArr[r].toFixed(1),
-      maskOff, seal: sealFromLeak(leak),
+      maskOff, seal: sealFromLeak(leak), setPressure,
     })
   }
   return summaries

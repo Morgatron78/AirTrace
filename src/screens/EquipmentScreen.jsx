@@ -6,7 +6,7 @@ import {
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { daysAgo } from '../utils/dates'
-import { dueColor } from '../utils/scoring'
+import { dueColor, currentSetPressure } from '../utils/scoring'
 import { StatRow } from '../components/StatRow'
 import { Segmented } from '../components/Segmented'
 
@@ -67,8 +67,13 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
   )
 }
 
-export function EquipmentScreen({ equipment, onChange }) {
+export function EquipmentScreen({ equipment, onChange, nights }) {
   const set = (key) => (val) => onChange({ ...equipment, [key]: val })
+  // Real per-night data (see parseSummaries.js) — the rest of this
+  // screen's machine/mask details still come from EQUIPMENT's mockup
+  // placeholders, since that would need actually parsing the SD card's
+  // SETTINGS folder, a separate piece of work.
+  const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -83,7 +88,7 @@ export function EquipmentScreen({ equipment, onChange }) {
         <StatRow icon={Hash} iconColor={T.muted} label="Serial number" value={EQUIPMENT.machine.serial} />
         <StatRow icon={RefreshCw} iconColor={T.muted} label="Last synced" value={EQUIPMENT.machine.lastSynced} />
         <StatRow icon={Gauge} iconColor={T.muted} label="Mode" value={EQUIPMENT.machine.mode} />
-        <StatRow icon={Gauge} iconColor={T.muted} label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${EQUIPMENT.fixedPressure} cmH₂O` : 'Auto'}
+        <StatRow icon={Gauge} iconColor={T.muted} label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${setPressure} cmH₂O` : 'Auto'}
           description="A fixed-pressure machine delivers one constant pressure set by your clinician, rather than adjusting automatically through the night the way an APAP machine does." />
         <StatRow icon={Wind} iconColor={T.muted} label="EPR" value={`${EQUIPMENT.machine.epr} · ${EQUIPMENT.machine.eprLevel} cmH₂O`}
           description="Expiratory Pressure Relief slightly lowers pressure as you breathe out, making exhaling feel more natural." />

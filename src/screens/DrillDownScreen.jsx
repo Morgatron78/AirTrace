@@ -6,7 +6,7 @@ import {
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, TAG_ICON, TAG_COLOR, AUTO_TAGS } from '../constants/tags'
-import { scoreColor } from '../utils/scoring'
+import { scoreColor, currentSetPressure } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
 import { EventRing } from '../components/EventRing'
 import { StatRow } from '../components/StatRow'
@@ -67,6 +67,11 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
 
 function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) {
   const night = nights[idx]
+  // This night's own real prescribed pressure, or (for a night that
+  // predates this field, or a no-usage placeholder) the most recent real
+  // value known as of that date — not the global "current" value, which
+  // could be a later reading than this specific night actually had.
+  const setPressure = currentSetPressure(nights.slice(0, idx + 1), EQUIPMENT.fixedPressure)
   const [expandedChart, setExpandedChart] = useState(null)
   const [syncZoom, setSyncZoom] = useState(1)
   const [syncPan, setSyncPan] = useState(0)
@@ -126,8 +131,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // plain Array regardless of the input type, so bandPath keeps working
   // exactly as it always did.
   const normalize = (values, min, max) => Array.from(values, (v) => Math.max(0, Math.min(1, (v - min) / (max - min))))
-  const PRESSURE_MIN = Math.max(0, EQUIPMENT.fixedPressure - 5)
-  const PRESSURE_MAX = EQUIPMENT.fixedPressure + 5
+  const PRESSURE_MIN = Math.max(0, setPressure - 5)
+  const PRESSURE_MAX = setPressure + 5
 
   // Every overlayable channel, in one place — the single source of truth
   // for label/color/mode/axis/description, used by the individual charts,
@@ -164,7 +169,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
   // machine there's no meaningful waveform percentile, so it reuses the
   // per-night pMin/pMax/p95 already generated for Trends' Pressure tab.
   const statRows = [
-    { label: 'Pressure', unit: ' cmH₂O', decimals: 1, min: night.pMin, med: EQUIPMENT.fixedPressure, p95: night.p95, p995: night.pMax },
+    { label: 'Pressure', unit: ' cmH₂O', decimals: 1, min: night.pMin, med: setPressure, p95: night.p95, p995: night.pMax },
     // computeStats expects the normalized 0-1 fraction values (it reverses
     // the normalization back to real units itself) — CHANNEL_REGISTRY's
     // *.values, not the raw detail.* arrays, which are already real units.
@@ -423,7 +428,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
         </div>
         <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(night.usage)}
           description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
-        <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${EQUIPMENT.fixedPressure} cmH₂O`}
+        <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${night.leak} L/min`}
           description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal; consistently higher is worth checking your mask fit." />

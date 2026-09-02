@@ -4,6 +4,7 @@ import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, TAG_ICON, TAG_GRADIENT, AUTO_TAGS } from '../constants/tags'
 import { daysAgo, formatDuration } from '../utils/dates'
+import { currentSetPressure } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
 import { NavCard } from '../components/NavCard'
 
@@ -22,6 +23,7 @@ function Troubleshooter({ nights, equipment }) {
   const cushionDays = daysAgo(equipment.cushionChanged)
   const headgearDays = daysAgo(equipment.headgearWashed)
   const totalMaskOff = nights.reduce((s, n) => s + n.maskOff, 0)
+  const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
 
   const SYMPTOMS = [
     { key: 'tired', label: 'Tired / unrested' },
@@ -37,7 +39,7 @@ function Troubleshooter({ nights, equipment }) {
       { label: 'Residual AHI', detail: `Your 7-night average AHI is ${ahiAvg.toFixed(1)} — even well-controlled therapy leaves some events, and those still fragment sleep even when you don't consciously wake for them.` },
     ],
     dry: [
-      { label: 'Pressure setting', detail: `Dry mouth or throat often points to mouth breathing at your set pressure of ${EQUIPMENT.fixedPressure} cmH₂O — worth discussing a humidity or pressure change with your clinician if it persists.` },
+      { label: 'Pressure setting', detail: `Dry mouth or throat often points to mouth breathing at your set pressure of ${setPressure} cmH₂O — worth discussing a humidity or pressure change with your clinician if it persists.` },
       { label: 'Mask type', detail: 'Full-face masks reduce dryness from mouth breathing compared to nasal masks, if that\'s a recurring issue for you.' },
     ],
     noise: [
