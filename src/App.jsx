@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upload } from 'lucide-react'
+import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upload, CalendarDays } from 'lucide-react'
 import { T, C, applyTheme } from './constants/theme'
 import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
@@ -140,6 +140,10 @@ export default function App() {
   const closeImport = () => { setShowImport(false); refresh() }
   const [showSettings, setShowSettings] = useState(false)
   const [tab, setTab] = useState('today')
+  // Lives here (not inside DrillDownScreen) because its trigger button
+  // moved into the shared header, next to Settings/Upload — see the
+  // header's tab === 'night' branch below.
+  const [showJumpToDate, setShowJumpToDate] = useState(false)
   const [nightIdx, setNightIdx] = useState(Math.max(0, nights.length - 1))
   useEffect(() => { setNightIdx(Math.max(0, nights.length - 1)) }, [nights.length])
   const goToNight = (i) => { setNightIdx(i); setTab('night') }
@@ -192,16 +196,24 @@ export default function App() {
           <Settings size={17} style={{ color: T.ink }} />
         </button>
         <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: T.ink, letterSpacing: '-0.01em' }}>{titles[tab]}</div>
-        <button onClick={() => setShowImport(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Upload size={17} style={{ color: T.ink }} />
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          {tab === 'night' && (
+            <button onClick={() => setShowJumpToDate(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CalendarDays size={17} style={{ color: T.ink }} />
+            </button>
+          )}
+          <button onClick={() => setShowImport(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Upload size={17} style={{ color: T.ink }} />
+          </button>
+        </div>
       </header>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '12px 18px 0' }}>
         {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} />}
         {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} />}
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
-        {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate} />}
+        {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate}
+          showJump={showJumpToDate} onCloseJump={() => setShowJumpToDate(false)} />}
         {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
         {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} profile={profile} />}
       </main>

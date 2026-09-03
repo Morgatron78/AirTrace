@@ -2,7 +2,6 @@ import { Fragment, useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
   ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff,
-  CalendarDays,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -105,7 +104,7 @@ function JumpToDateOverlay({ nights, idx, setIdx, onClose }) {
 // to only exist in the used-night render path, making a run of no-usage
 // nights impossible to page through except one day at a time via the
 // prev/next arrows).
-function NightDatePicker({ nights, idx, setIdx, targets }) {
+function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }) {
   // Always includes whichever night is currently selected — a fixed
   // window would go blank (no highlighted night at all) once you page
   // further back than that window via the prev/next arrows. Sized to the
@@ -126,16 +125,10 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
   useEffect(() => {
     activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [idx])
-  const [showJump, setShowJump] = useState(false)
   return (
-    <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
-        <button onClick={() => setShowJump(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <CalendarDays size={13} style={{ color: T.ink }} />
-        </button>
-      </div>
-      {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} onClose={() => setShowJump(false)} />}
-      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
+    <div style={{ background: T.surface, borderRadius: 22, padding: '10px 12px 12px' }}>
+      {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} onClose={onCloseJump} />}
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 5, overflowX: 'auto', padding: '3px 4px' }}>
         {recentWindow.map((n, i) => {
           const ni = nights.indexOf(n)
           const active = ni === idx
@@ -150,25 +143,25 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
           return (
             <Fragment key={ni}>
               {showMonthLabel && (
-                <div style={{ flexShrink: 0, width: 16, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ flexShrink: 0, width: 14, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="font-display" style={{
-                    fontSize: 9, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em',
+                    fontSize: 8, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em',
                     writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap',
                   }}>
                     {new Date(`${n.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short' })}
                   </span>
                 </div>
               )}
-              <button ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
+              <button ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 34 }}>
                 <div style={{
-                  height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                  height: 38, borderRadius: 9, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
                   background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
                   border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
                   outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
                   boxSizing: 'border-box', opacity: active ? 1 : 0.4,
                 }}>
-                  <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
-                  <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
+                  <span className="font-display" style={{ fontSize: 8, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
+                  <span className="font-display" style={{ fontSize: 12, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
                 </div>
               </button>
             </Fragment>
@@ -179,7 +172,7 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
   )
 }
 
-function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) {
+function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
   const night = nights[idx]
   // This night's own real prescribed pressure, or (for a night that
   // predates this field, or a no-usage placeholder) the most recent real
@@ -613,7 +606,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} />
+      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} showJump={showJump} onCloseJump={onCloseJump} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -887,11 +880,11 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
 // rather than as no data at all. This wrapper decides before any hooks run,
 // so the two very different render paths (full charts vs. a plain message)
 // never conflict with React's rules of hooks.
-function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagEntry }) {
+function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
   const night = nights[idx]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} />
+      <NightDatePicker nights={nights} idx={idx} setIdx={setIdx} targets={targets} showJump={showJump} onCloseJump={onCloseJump} />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -960,7 +953,7 @@ function TagsCard({ night, onOpenTagEntry }) {
     </div>
   )
 }
-export function DrillDownScreen({ nights, idx, setIdx, targets, onOpenTagEntry }) {
-  if (nights[idx].noUsage) return <DrillDownScreenNight_NotUsed nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} />
-  return <DrillDownScreenNight nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} />
+export function DrillDownScreen({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
+  if (nights[idx].noUsage) return <DrillDownScreenNight_NotUsed nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} />
+  return <DrillDownScreenNight nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} />
 }
