@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upload } from 'lucide-react'
 import { T, C } from './constants/theme'
-import { DEFAULT_TARGETS } from './constants/equipment'
+import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
 import { getMeta, setMeta } from './db/meta.js'
 import { SplashScreen } from './screens/SplashScreen'
@@ -27,12 +27,22 @@ export default function App() {
     const t2 = setTimeout(() => setSplashStage('gone'), 1300)
     return () => { clearTimeout(t1); clearTimeout(t2) }
   }, [])
+  // Make/model/serial seeded from EQUIPMENT here (its previous role, a
+  // hardcoded mockup placeholder with no edit path at all) — the device
+  // can't self-report any of this over the SD card, so these live only
+  // as user-entered/edited fields from here on, same persistence as the
+  // maintenance dates below.
   const [equipment, setEquipment] = useState({
     cushionSize: 'Medium',
     cushionChanged: '2026-08-05',
     lastCleaned: '2026-08-27',
     headgearWashed: '2026-08-14',
     filterChanged: '2026-07-02',
+    machineBrand: EQUIPMENT.machine.brand,
+    machineModel: EQUIPMENT.machine.model,
+    machineSerial: EQUIPMENT.machine.serial,
+    maskBrand: EQUIPMENT.mask.brand,
+    maskModel: EQUIPMENT.mask.model,
   })
   // targets/equipment previously lived only in memory — any change (a
   // custom AHI target, a logged filter-change date) was silently lost on

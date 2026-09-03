@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronRight, TriangleAlert, VenetianMask, Hash, RefreshCw, Gauge, Wind,
-  TrendingUp, Shield, Droplets, Thermometer, Package, Zap, Ruler,
+  TrendingUp, Shield, Droplets, Thermometer, Package, Zap, Ruler, Tag, Box,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -54,6 +54,43 @@ function SelectRow({ icon: Icon, iconColor, label, value, children, last }) {
         </div>
       </div>
       {open && <div style={{ paddingBottom: 14, display: 'flex', justifyContent: 'flex-end' }}>{children}</div>}
+    </div>
+  )
+}
+
+// Free-text fields the device itself can never report over the SD card
+// (make, model, serial number) — same tap-to-expand shape as
+// MaintenanceRow's date picker, but a plain text input + explicit Save
+// rather than an immediate-apply control, since a stray keystroke
+// shouldn't overwrite a real value the way a date/dropdown pick can't.
+function TextEditRow({ icon: Icon, iconColor, label, value, onChange, placeholder, last }) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState(value)
+  useEffect(() => { setDraft(value) }, [value])
+  const save = () => { onChange(draft.trim()); setOpen(false) }
+  return (
+    <div style={{ borderBottom: last ? 'none' : `1px solid ${T.line}` }}>
+      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44, boxSizing: 'border-box', cursor: 'pointer' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {Icon && <Icon size={18} style={{ color: iconColor }} strokeWidth={1.8} />}
+          <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>{label}</span>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="font-display" style={{ fontSize: 18, fontWeight: 700, color: T.ink }}>{value || placeholder}</span>
+          <ChevronRight size={14} style={{ color: T.muted, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+        </div>
+      </div>
+      {open && (
+        <div style={{ paddingBottom: 14, display: 'flex', gap: 8 }}>
+          <input type="text" value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') save() }}
+            style={{ flex: 1, padding: '9px 10px', borderRadius: 10, border: `1px solid ${T.line}`, fontFamily: "'Plus Jakarta Sans'", fontSize: 13, color: T.ink, background: T.bg }} />
+          <button onClick={save} className="font-display"
+            style={{ padding: '9px 14px', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
+            Save
+          </button>
+        </div>
+      )}
     </div>
   )
 }
@@ -141,9 +178,16 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
             <img src={machinePhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <span className="font-display" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.muted, marginBottom: 2 }}>CPAP machine</span>
-          <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.machine.brand} {EQUIPMENT.machine.model}</div>
+          <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{equipment.machineBrand} {equipment.machineModel}</div>
         </div>
-        <StatRow icon={Hash} iconColor={T.muted} label="Serial number" value={EQUIPMENT.machine.serial} />
+        {/* Make/model/serial: the device can't self-report any of this
+            over the SD card (STR.edf has no such field), so these three
+            are pure user-entered text — everything else on this card is
+            either read from real per-night data or a device-recorded
+            setting. */}
+        <TextEditRow icon={Tag} iconColor={T.muted} label="Brand" value={equipment.machineBrand} placeholder="e.g. ResMed" onChange={set('machineBrand')} />
+        <TextEditRow icon={Box} iconColor={T.muted} label="Model" value={equipment.machineModel} placeholder="e.g. AirSense 10 Elite" onChange={set('machineModel')} />
+        <TextEditRow icon={Hash} iconColor={T.muted} label="Serial number" value={equipment.machineSerial} placeholder="Not set" onChange={set('machineSerial')} />
         <StatRow icon={RefreshCw} iconColor={T.muted} label="Last synced" value={lastSynced ?? EQUIPMENT.machine.lastSynced} />
         <StatRow icon={Gauge} iconColor={T.muted} label="Mode" value={modeLabel} />
         <StatRow icon={Gauge} iconColor={T.muted} label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${setPressure} cmH₂O` : 'Auto'}
@@ -170,10 +214,15 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
             <img src={maskPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <span className="font-display" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.muted, marginBottom: 2 }}>Mask</span>
-          <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.mask.brand} {EQUIPMENT.mask.model}</div>
+          <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{equipment.maskBrand} {equipment.maskModel}</div>
         </div>
+        {/* Same reasoning as the machine card above — the device only
+            records mask *style* (Mask type, below), never the specific
+            product, so brand/model are pure user-entered text. */}
+        <TextEditRow icon={Tag} iconColor={T.muted} label="Brand" value={equipment.maskBrand} placeholder="e.g. ResMed" onChange={set('maskBrand')} />
+        <TextEditRow icon={Box} iconColor={T.muted} label="Model" value={equipment.maskModel} placeholder="e.g. AirFit F40" onChange={set('maskModel')} />
         {maskTypeLabel && <StatRow icon={VenetianMask} iconColor={T.muted} label="Mask type" value={maskTypeLabel}
-          description="The style your machine has recorded (Pillows, Full Face, or Nasal) — the exact model above is still a placeholder, since the device only records the style, not the specific product." />}
+          description="The style your machine has recorded (Pillows, Full Face, or Nasal) — a separate field from the specific brand/model above, which the device itself never records." />}
         <SelectRow icon={Ruler} iconColor={T.muted} label="Cushion size" value={equipment.cushionSize}>
           <Segmented options={[{ key: 'Small', label: 'S' }, { key: 'Medium', label: 'M' }, { key: 'Large', label: 'L' }]} active={equipment.cushionSize} onChange={set('cushionSize')} />
         </SelectRow>

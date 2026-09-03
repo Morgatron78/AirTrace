@@ -153,7 +153,7 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px 60px' }}>
         <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, color: '#0A0A0C', marginBottom: 4 }}>CPAP Therapy Summary</h1>
-        <p style={{ fontSize: 13, color: '#7C7C88', marginBottom: 4 }}>{EQUIPMENT.machine.brand} {EQUIPMENT.machine.model}, SN {EQUIPMENT.machine.serial}</p>
+        <p style={{ fontSize: 13, color: '#7C7C88', marginBottom: 4 }}>{equipment.machineBrand} {equipment.machineModel}, SN {equipment.machineSerial}</p>
         <p style={{ fontSize: 12, color: '#9A9AA5' }}>Generated {new Date().toLocaleDateString()} · Not a substitute for clinical review</p>
 
         {windows.map((win) => {
@@ -212,11 +212,11 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
         )}
 
         <ReportHeading>Equipment</ReportHeading>
-        <ReportRow label="Machine" value={`${EQUIPMENT.machine.brand} ${EQUIPMENT.machine.model}`} />
-        <ReportRow label="Serial number" value={EQUIPMENT.machine.serial} />
+        <ReportRow label="Machine" value={`${equipment.machineBrand} ${equipment.machineModel}`} />
+        <ReportRow label="Serial number" value={equipment.machineSerial} />
         <ReportRow label="Pressure mode" value={EQUIPMENT.pressureMode === 'fixed' ? `Fixed · ${currentSetPressure(nights, EQUIPMENT.fixedPressure)} cmH₂O` : 'Auto'} />
         <ReportRow label="Filter changed" value={`${filterDays} days ago`} />
-        <ReportRow label="Mask" value={`${EQUIPMENT.mask.brand} ${EQUIPMENT.mask.model}, ${equipment.cushionSize}`} />
+        <ReportRow label="Mask" value={`${equipment.maskBrand} ${equipment.maskModel}, ${equipment.cushionSize}`} />
         <ReportRow label="Cushion changed" value={`${cushionDays} days ago`} />
 
         <ReportHeading>Nightly log (last 30 days)</ReportHeading>
