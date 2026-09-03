@@ -94,7 +94,7 @@ export default function App() {
     // entirely — there's nothing to review for a number the device
     // already recorded, so it's just always there once a night has data.
     if (!n.noUsage && n.startHour > targets.bedtime + 2) tags = [...tags, 'lateStart']
-    return { ...n, tags, tagStatus: status, alcoholLevel: entry ? entry.alcohol : null }
+    return { ...n, tags, tagStatus: status, alcoholLevel: entry ? entry.alcohol : null, note: entry?.note || null }
   }), [rawNights, tagLog, tagStartDate, targets.bedtime])
   // Every date from tagStartDate through yesterday with no tagLog entry —
   // computed independent of rawNights entirely, since the whole point is

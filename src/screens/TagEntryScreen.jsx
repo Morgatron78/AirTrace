@@ -38,9 +38,15 @@ export function TagEntryScreen({ date, initialEntry, onSave, onClose }) {
   const [awayFromHome, setAwayFromHome] = useState(initialEntry?.awayFromHome || false)
   const [highStress, setHighStress] = useState(initialEntry?.highStress || false)
   const [illness, setIllness] = useState(initialEntry?.illness || false)
+  // Free text, deliberately outside the fixed 5-tag taxonomy — for
+  // whatever doesn't fit a box (a new medication, an unusually hot
+  // room), without inventing a formal tag for every one-off hypothesis.
+  // Not correlated automatically, just carried through to the night's
+  // own Tags card for the user to notice patterns in themselves.
+  const [note, setNote] = useState(initialEntry?.note || '')
   const dateLabel = formatTagDateLabel(date)
-  const save = () => onSave({ reviewed: true, alcohol, lateMeal, awayFromHome, highStress, illness })
-  const saveNothing = () => onSave({ reviewed: true, alcohol: null, lateMeal: false, awayFromHome: false, highStress: false, illness: false })
+  const save = () => onSave({ reviewed: true, alcohol, lateMeal, awayFromHome, highStress, illness, note: note.trim() })
+  const saveNothing = () => onSave({ reviewed: true, alcohol: null, lateMeal: false, awayFromHome: false, highStress: false, illness: false, note: note.trim() })
   return (
     <div style={{ position: 'fixed', inset: 0, background: T.bg, zIndex: 60, display: 'flex', flexDirection: 'column', fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui" }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', maxWidth: 448, margin: '0 auto', width: '100%', boxSizing: 'border-box', flexShrink: 0 }}>
@@ -79,6 +85,21 @@ export function TagEntryScreen({ date, initialEntry, onSave, onClose }) {
           <Chip active={awayFromHome} label="Away from home" icon={Plane} color={TAG_COLOR.awayFromHome} onClick={() => setAwayFromHome((v) => !v)} />
           <Chip active={highStress} label="High stress" icon={Zap} color={TAG_COLOR.highStress} onClick={() => setHighStress((v) => !v)} />
           <Chip active={illness} label="Congestion / illness" icon={Thermometer} color={TAG_COLOR.illness} onClick={() => setIllness((v) => !v)} last />
+        </div>
+
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20, marginBottom: 20 }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginBottom: 4 }}>
+            <span className="font-display" style={{ fontSize: 14, fontWeight: 600, color: T.ink }}>Notes</span>
+            <span style={{ fontSize: 11, color: T.muted }}>optional</span>
+          </div>
+          <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={240}
+            placeholder="Anything else worth remembering about this night&hellip;"
+            style={{
+              width: '100%', minHeight: 64, marginTop: 6, padding: '10px 12px', borderRadius: 12,
+              border: `1px solid ${T.line}`, background: T.bg, color: T.ink, resize: 'none',
+              fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", fontSize: 13, lineHeight: 1.4, boxSizing: 'border-box',
+            }} />
+          <div style={{ fontSize: 10.5, color: T.muted, textAlign: 'right', marginTop: 4 }}>{note.length}/240</div>
         </div>
 
         <button onClick={saveNothing} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: T.surface }}>

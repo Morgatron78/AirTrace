@@ -864,6 +864,15 @@ function TagsCard({ night, onOpenTagEntry }) {
           })}
         </div>
       )}
+      {/* Independent of the fixed-tag state above — a note can exist
+          even on a "nothing to report" night, so this checks night.note
+          directly rather than folding into the tagStatus branches. */}
+      {night.note && (
+        <div style={{ marginTop: 12, paddingTop: 12, borderTop: `1px solid ${T.line}` }}>
+          <div className="font-display" style={{ fontSize: 10, fontWeight: 700, letterSpacing: '0.06em', textTransform: 'uppercase', color: T.muted, marginBottom: 4 }}>Note</div>
+          <div style={{ fontSize: 13, color: T.ink, lineHeight: 1.5 }}>{night.note}</div>
+        </div>
+      )}
     </div>
   )
 }
