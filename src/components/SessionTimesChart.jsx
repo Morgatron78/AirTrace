@@ -26,7 +26,15 @@ export function SessionTimesChart({ data, height = 160, onBarClick, selectedIdx,
           </span>
         ))}
       </div>
-      <div style={{ position: 'relative', flex: 1, height, overflow: 'hidden' }}>
+      {/* padding, not just overflow:hidden with none — the selected bar's
+          outline (outlineOffset 1 + 2px outline = 3px of bleed beyond the
+          bar's own box) was getting clipped by this same overflow:hidden
+          whenever the first or last bar was the selected one, since
+          absolutely-positioned children (the tick lines) and the in-flow
+          bar row both respect the padding box as their available area, so
+          this inset applies to both automatically without any other
+          adjustment needed. */}
+      <div style={{ position: 'relative', flex: 1, height, overflow: 'hidden', padding: '0 3px' }}>
         {ticks.map((t) => (
           <div key={t} style={{ position: 'absolute', top: `${((t - domainStart) / span) * 100}%`, left: 0, right: 0, borderTop: `1px dashed ${T.line}` }} />
         ))}
