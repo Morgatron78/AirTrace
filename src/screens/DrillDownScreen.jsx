@@ -126,9 +126,9 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
     activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [idx])
   return (
-    <div style={{ background: T.surface, borderRadius: 22, padding: '10px 12px 12px' }}>
+    <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
       {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} onClose={onCloseJump} />}
-      <div className="no-scrollbar" style={{ display: 'flex', gap: 5, overflowX: 'auto', padding: '3px 4px' }}>
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
         {recentWindow.map((n, i) => {
           const ni = nights.indexOf(n)
           const active = ni === idx
@@ -143,25 +143,25 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
           return (
             <Fragment key={ni}>
               {showMonthLabel && (
-                <div style={{ flexShrink: 0, width: 14, height: 38, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <div style={{ flexShrink: 0, width: 16, height: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                   <span className="font-display" style={{
-                    fontSize: 8, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em',
+                    fontSize: 9, fontWeight: 700, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em',
                     writingMode: 'vertical-rl', transform: 'rotate(180deg)', whiteSpace: 'nowrap',
                   }}>
                     {new Date(`${n.date}T00:00:00`).toLocaleDateString(undefined, { month: 'short' })}
                   </span>
                 </div>
               )}
-              <button ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 34 }}>
+              <button ref={active ? activePickerRef : null} onClick={() => setIdx(ni)} style={{ flexShrink: 0, width: 40 }}>
                 <div style={{
-                  height: 38, borderRadius: 9, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
+                  height: 44, borderRadius: 10, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 1,
                   background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
                   border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
                   outline: active ? `2px solid ${T.ink}` : 'none', outlineOffset: 1,
                   boxSizing: 'border-box', opacity: active ? 1 : 0.4,
                 }}>
-                  <span className="font-display" style={{ fontSize: 8, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
-                  <span className="font-display" style={{ fontSize: 12, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
+                  <span className="font-display" style={{ fontSize: 9, fontWeight: 700, color: n.noUsage ? T.muted : 'rgba(255,255,255,0.75)' }}>{n.wd}</span>
+                  <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{n.label.split(' ')[0]}</span>
                 </div>
               </button>
             </Fragment>
