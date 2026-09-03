@@ -17,12 +17,28 @@ export const EVENT_COLOR = { obstructive: C.red, central: C.orange, hypopnea: C.
 // inspTime/expTime aren't recorded signals — this device has no real
 // source for either (see CLAUDE.md's "Real file structure" section) —
 // they're derived from Flow's own zero-crossings instead (see
-// edf/deriveBreathTimes.js). All 11 channels are listed here, same order
-// as the Synchronized view's own Core/Breathing/Ventilation groups —
-// Flow and Pressure used to be left out (covered by Synchronized view
-// instead), but that meant the two sections' channel pickers didn't
-// actually match, which read as inconsistent rather than intentional.
-export const DEFAULT_CHANNEL_ORDER = ['flow', 'pressure', 'therapyPressure', 'leak', 'flowLimit', 'snore', 'inspTime', 'expTime', 'tidalVolume', 'respRate', 'minuteVent']
+// edf/deriveBreathTimes.js). All 11 channels are listed here, ranked by
+// default usefulness for a first look at a night — this is the initial
+// order only, not a fixed structure: Individual channels' own Edit mode
+// lets it be freely reordered (and hidden) per user, persisted from
+// there once set, so this ranking only matters until someone overrides
+// it once.
+//   1. Flow, Leak, Mask Pressure — the most directly diagnostic trio:
+//      what happened, whether the seal held, what pressure you actually
+//      got.
+//   2. Flow Limit, Snore — subtler breathing-quality markers.
+//   3. Insp./Exp. Time — useful supporting detail, but explicitly an
+//      *estimate* (derived from Flow, not a recorded signal), so it
+//      sits after the directly-measured channels above it.
+//   4. Tidal Volume, Resp. Rate, Minute Vent — the ventilation group,
+//      more of a deep-dive than a first-look stat.
+//   5. Therapy Pressure last — deliberately, not an oversight: on this
+//      fixed-pressure machine it's flat except a brief ramp, the least
+//      dynamically informative channel of the eleven (see CLAUDE.md's
+//      note on pressure trend analysis being low-value on fixed CPAP).
+//      Still worth keeping around for the rare cases (ramp review, EPR
+//      dip check), just not worth defaulting near the top.
+export const DEFAULT_CHANNEL_ORDER = ['flow', 'leak', 'pressure', 'flowLimit', 'snore', 'inspTime', 'expTime', 'tidalVolume', 'respRate', 'minuteVent', 'therapyPressure']
 
 // "Nice" round step sizes to choose between, in minutes — small enough to
 // give real precision once zoomed in tight, but never an odd number like

@@ -259,9 +259,27 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
     const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60)
     return m > 0 ? `${m}m ${s}s` : `${s}s`
   }
-  // The individual cards below the Synchronized view — same 8 channels
+  // The individual cards below the Synchronized view — same channels
   // that view's own picker offers, reorderable independently of it.
+  // Persisted the same way hiddenChannels is (global preference, meta
+  // store) — this used to reset to DEFAULT_CHANNEL_ORDER on every
+  // reload, silently discarding a manual reorder the moment you left
+  // the screen.
   const [channelOrder, setChannelOrder] = useState(DEFAULT_CHANNEL_ORDER)
+  useEffect(() => {
+    getMeta('channelOrder').then((v) => {
+      if (!Array.isArray(v)) return
+      // Forward-merge: a channel added to DEFAULT_CHANNEL_ORDER after this
+      // was last saved (e.g. Insp./Exp. Time, added in a later release)
+      // wouldn't exist in an older stored order at all — append those at
+      // the end rather than letting them silently vanish from a returning
+      // user's list. Also drops any stored key that's no longer a real
+      // channel, symmetric protection for the reverse case.
+      const kept = v.filter((k) => DEFAULT_CHANNEL_ORDER.includes(k))
+      const added = DEFAULT_CHANNEL_ORDER.filter((k) => !v.includes(k))
+      setChannelOrder([...kept, ...added])
+    })
+  }, [])
   const [reorderMode, setReorderMode] = useState(false)
   // Which channels to skip in the "Individual channels" list below —
   // a global preference (which signals you actually care about), not a
@@ -302,6 +320,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry }) 
       if (target < 0 || target >= cur.length) return cur
       const next = [...cur]
       ;[next[idx], next[target]] = [next[target], next[idx]]
+      setMeta('channelOrder', next)
       return next
     })
   }
