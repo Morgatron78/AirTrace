@@ -4,10 +4,12 @@ import { T, C, SEV } from '../constants/theme'
 import { TAG_LABEL } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreOf } from '../utils/scoring'
-import { formatDuration } from '../utils/dates'
+import { formatDuration, formatClock } from '../utils/dates'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
+import { ChartStatsButton } from '../components/ChartStatsButton'
+import { ChartStatsPanel } from '../components/ChartStatsPanel'
 import { FlatBarChart } from '../components/FlatBarChart'
 import { BarChartLabels } from '../components/BarChartLabels'
 import { NightDetailPanel } from '../components/NightDetailPanel'
@@ -25,16 +27,18 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   const [eventType, setEventType] = useState(null) // drill-down within the Events breakdown: null = full stack, else one type
   const [showChartInfo, setShowChartInfo] = useState(false)
   const [showSessionInfo, setShowSessionInfo] = useState(false)
+  const [showChartStats, setShowChartStats] = useState(false)
+  const [showSessionStats, setShowSessionStats] = useState(false)
   // Bar indices are only meaningful for the current range/metric's data
   // array — a stale index would otherwise point at the wrong night (or
   // nothing) the moment either changes, so both panels close instead.
   useEffect(() => { setChartDetailIdx(null); setSessionDetailIdx(null) }, [range])
-  useEffect(() => { setChartDetailIdx(null); setShowChartInfo(false) }, [metric])
+  useEffect(() => { setChartDetailIdx(null); setShowChartInfo(false); setShowChartStats(false) }, [metric])
   // The type drill-down only makes sense while a night's breakdown is open —
   // closing the breakdown (whichever way) always clears it too, so
   // re-opening a breakdown never starts already drilled into a type.
   useEffect(() => { if (chartDetailIdx === null) setEventType(null) }, [chartDetailIdx])
-  useEffect(() => { setShowChartInfo(false) }, [eventType])
+  useEffect(() => { setShowChartInfo(false); setShowChartStats(false) }, [eventType])
   const rangeDays = range === 'week' ? 7 : range === '2weeks' ? 14 : 30
   const rawData = nights.slice(-rangeDays)
   const data = rawData.map((n) => ({ ...n, score: scoreOf(n) }))
@@ -111,6 +115,53 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   const handleChartBarClick = (i) => setChartDetailIdx((cur) => (cur === i ? null : i))
   const handleSessionBarClick = (i) => setSessionDetailIdx((cur) => (cur === i ? null : i))
 
+  // Average/high/low for whichever metric (or AHI-breakdown sub-type) is
+  // currently on screen, behind the new stats (Σ) button next to each
+  // chart's info button — the number the chart shows visually, spelled
+  // out precisely rather than eyeballed off the bars.
+  const statsKey = metric === 'ahi' && eventType ? eventType : metric
+  // usage stays on the plain (not no-usage-filtered) data, same reasoning
+  // as avg vs. avgUsed above: a skipped night's 0 hours is real
+  // compliance signal for a usage stat, not a gap to exclude. Every other
+  // metric only exists when the machine actually ran, so a no-usage
+  // night's zeroed field would otherwise win "best"/"lowest" trivially.
+  const statsData = metric === 'usage' ? data : data.filter((n) => !n.noUsage)
+  const extremum = (arr, cmp) => arr.reduce((a, b) => (cmp(b[statsKey], a[statsKey]) ? b : a))
+  const formatMetricValue = (v) => {
+    if (metric === 'usage') return formatDuration(v)
+    if (metric === 'leak') return `${v.toFixed(0)} L/min`
+    if (metric === 'pMax') return `${v.toFixed(1)} cmH₂O`
+    if (metric === 'score') return `${Math.round(v)}`
+    return v.toFixed(1) // ahi and its obstructive/central/hypopnea sub-types — events/hr
+  }
+  const chartStatRows = statsData.length ? (() => {
+    const avgV = statsData.reduce((s, n) => s + n[statsKey], 0) / statsData.length
+    const highN = extremum(statsData, (b, a) => b > a)
+    const lowN = extremum(statsData, (b, a) => b < a)
+    return [
+      { label: 'Average', value: formatMetricValue(avgV) },
+      { label: 'High', value: formatMetricValue(highN[statsKey]), sub: highN.label },
+      { label: 'Low', value: formatMetricValue(lowN[statsKey]), sub: lowN.label },
+    ]
+  })() : null
+  const chartStatsTitle = metric === 'ahi' && eventType ? AHI_BREAKDOWN.find((s) => s.key === eventType).label : active.label
+
+  // Session times' own "value" is bedtime, not session length (Usage's
+  // stats already cover duration) — average, earliest, and latest start
+  // are the more actionable read on a wandering bedtime. No-usage nights
+  // have no real start time to average in.
+  const sessionStatsData = data.filter((n) => !n.noUsage)
+  const sessionStatRows = sessionStatsData.length ? (() => {
+    const avgStart = sessionStatsData.reduce((s, n) => s + n.startHour, 0) / sessionStatsData.length
+    const earliestN = sessionStatsData.reduce((a, b) => (b.startHour < a.startHour ? b : a))
+    const latestN = sessionStatsData.reduce((a, b) => (b.startHour > a.startHour ? b : a))
+    return [
+      { label: 'Average start', value: formatClock(avgStart) },
+      { label: 'Earliest', value: formatClock(earliestN.startHour), sub: earliestN.label },
+      { label: 'Latest', value: formatClock(latestN.startHour), sub: latestN.label },
+    ]
+  })() : null
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -172,7 +223,10 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
                 {metric === 'ahi' && eventType ? AHI_BREAKDOWN.find((s) => s.key === eventType).label : active.label} — {rangeDays} nights
               </div>
             </div>
-            <ChartInfoButton show={showChartInfo} onToggle={() => setShowChartInfo((s) => !s)} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {chartStatRows && <ChartStatsButton show={showChartStats} onToggle={() => { setShowChartStats((s) => !s); setShowChartInfo(false) }} />}
+              <ChartInfoButton show={showChartInfo} onToggle={() => { setShowChartInfo((s) => !s); setShowChartStats(false) }} />
+            </div>
           </div>
           <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>
             Tap a bar for a breakdown{metric === 'leak' && ' · Colored by how close to target, flagged nights had a poor mask seal'}
@@ -204,6 +258,9 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
               <span style={{ fontSize: 11, color: T.muted }}>Poor mask seal that night</span>
             </div>
           )}
+          {showChartStats && chartStatRows && (
+            <ChartStatsPanel title={chartStatsTitle} periodLabel={periodLabel} rows={chartStatRows} />
+          )}
           {chartDetailIdx != null && (
             <NightDetailPanel night={data[chartDetailIdx]} metric={metric} targets={targets}
               activeEventType={eventType} onSelectEventType={setEventType}
@@ -215,7 +272,10 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
           <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Session times</div>
-          <ChartInfoButton show={showSessionInfo} onToggle={() => setShowSessionInfo((s) => !s)} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+            {sessionStatRows && <ChartStatsButton show={showSessionStats} onToggle={() => { setShowSessionStats((s) => !s); setShowSessionInfo(false) }} />}
+            <ChartInfoButton show={showSessionInfo} onToggle={() => { setShowSessionInfo((s) => !s); setShowSessionStats(false) }} />
+          </div>
         </div>
         <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>Tap a night for start, finish &amp; length</div>
         <SessionTimesChart data={data} onBarClick={handleSessionBarClick} selectedIdx={sessionDetailIdx}
@@ -223,6 +283,9 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           infoTitle="Session times" infoDesc="When you started and finished each session, and how long it ran — useful for spotting inconsistent bedtimes or early mask removals."
           infoColor={C.blue} />
         <BarChartLabels data={data} labelEvery={labelEvery} labelWidth={30} />
+        {showSessionStats && sessionStatRows && (
+          <ChartStatsPanel title="Session times" periodLabel={periodLabel} rows={sessionStatRows} />
+        )}
         {sessionDetailIdx != null && <SessionDetailPanel night={data[sessionDetailIdx]} onViewNight={() => onSelectNight(nights.indexOf(rawData[sessionDetailIdx]))} />}
       </div>
 
