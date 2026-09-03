@@ -59,37 +59,37 @@ function JumpToDateOverlay({ nights, idx, setIdx, onClose }) {
       padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))',
       display: 'flex', flexDirection: 'column',
     }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
-        <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: T.ink }}>Jump to date</div>
-        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <X size={16} style={{ color: T.ink }} />
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexShrink: 0 }}>
+        <div className="font-display" style={{ fontSize: 17, fontWeight: 800, color: T.ink }}>Jump to date</div>
+        <button onClick={onClose} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={14} style={{ color: T.ink }} />
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 24, flexShrink: 0 }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, marginBottom: 16, flexShrink: 0 }}>
         <button onClick={() => setYear((y) => Math.max(minYear, y - 1))} disabled={year <= minYear}
-          style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year <= minYear ? 0.3 : 1 }}>
-          <ChevronLeft size={16} style={{ color: T.ink }} />
+          style={{ width: 30, height: 30, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year <= minYear ? 0.3 : 1 }}>
+          <ChevronLeft size={14} style={{ color: T.ink }} />
         </button>
-        <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: T.ink, minWidth: 64, textAlign: 'center' }}>{year}</div>
+        <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: T.ink, minWidth: 52, textAlign: 'center' }}>{year}</div>
         <button onClick={() => setYear((y) => Math.min(maxYear, y + 1))} disabled={year >= maxYear}
-          style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year >= maxYear ? 0.3 : 1 }}>
-          <ChevronRight size={16} style={{ color: T.ink }} />
+          style={{ width: 30, height: 30, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year >= maxYear ? 0.3 : 1 }}>
+          <ChevronRight size={14} style={{ color: T.ink }} />
         </button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
         {monthNames.map((m, i) => {
           const has = monthHasData(i)
           const isCurrent = year === currentYear && i === currentMonth
           return (
             <button key={m} disabled={!has} onClick={() => jumpToMonth(i)} style={{
-              height: 64, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: isCurrent ? T.ink : (has ? T.surface : T.bg),
               border: has && !isCurrent ? `1px solid ${T.line}` : 'none',
               opacity: has ? 1 : 0.35,
             }}>
-              <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: isCurrent ? '#FFFFFF' : T.ink }}>{m}</span>
+              <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? '#FFFFFF' : T.ink }}>{m}</span>
             </button>
           )
         })}
