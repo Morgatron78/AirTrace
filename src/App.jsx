@@ -192,9 +192,18 @@ export default function App() {
   return (
     <div key={resolvedTheme} style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
       <header style={{ maxWidth: 448, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-        <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Settings size={17} style={{ color: T.ink }} />
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Settings size={17} style={{ color: T.ink }} />
+          </button>
+          {/* Invisible spacer matching the calendar button's width+gap on
+              the right (below) — without it, Night View's extra button
+              makes the right side wider than the left, so space-between
+              pushes the title off-center. Only added on the tab that
+              actually has the extra button, so every other tab's header
+              is untouched. */}
+          {tab === 'night' && <div style={{ width: 36, height: 36 }} />}
+        </div>
         <div className="font-display" style={{ fontSize: 22, fontWeight: 800, color: T.ink, letterSpacing: '-0.01em' }}>{titles[tab]}</div>
         <div style={{ display: 'flex', gap: 8 }}>
           {tab === 'night' && (
