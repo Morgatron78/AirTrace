@@ -413,8 +413,25 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
     const winLen = Math.max(10, Math.round(total * frac))
     const maxStart = Math.max(0, total - winLen)
     const start = Math.min(maxStart, Math.round(panStart * maxStart))
-    const bands = bandsFull.map((b) => ({ ...b, values: b.values.slice(start, start + winLen) }))
     const winStartFrac = start / total, winEndFrac = (start + winLen) / total
+    // Overlaid channels don't all share a sample rate (Flow is 25Hz,
+    // Leak Rate/Flow Limit/etc are 0.5Hz — a ~50x difference), so their
+    // values arrays are very different lengths even though they cover
+    // the exact same night. Slicing every band with start/winLen (both
+    // derived from band 0's own length above) worked by luck at full
+    // zoom, where slice's end just clamps past a shorter array's actual
+    // length — but once zoomed into any window whose start index
+    // exceeds a lower-rate band's real length, that band's slice came
+    // back empty and its line silently vanished. Re-deriving each
+    // band's own start/end from the shared winStartFrac/winEndFrac
+    // keeps every band's window proportionally correct regardless of
+    // its own sample rate.
+    const bands = bandsFull.map((b) => {
+      const bTotal = b.values.length
+      const bStart = Math.min(bTotal, Math.round(winStartFrac * bTotal))
+      const bEnd = Math.max(bStart, Math.round(winEndFrac * bTotal))
+      return { ...b, values: b.values.slice(bStart, bEnd) }
+    })
     const visEvents = events
       .filter((e) => e.x >= winStartFrac && e.x <= winEndFrac)
       .map((e) => ({ ...e, origX: e.x, x: (e.x - winStartFrac) / (winEndFrac - winStartFrac) }))
