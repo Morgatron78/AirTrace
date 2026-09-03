@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
-import { TAG_LABEL } from '../constants/tags'
+import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreOf } from '../utils/scoring'
 import { formatDuration, formatClock } from '../utils/dates'
@@ -84,12 +84,37 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // honestly instead of guessing, same pattern as the "Not enough history
   // yet" fallback already used for the previous-period comparison below.
   const MIN_HALF_FOR_TREND = 6
+  // The banner used to stop at "something changed" — a real AHI shift
+  // with no link back to what was actually logged, even though Insights'
+  // tag-correlation cards are computed from these exact same nights. When
+  // the shift is real (half >= MIN_HALF_FOR_TREND, same guard as the
+  // headline claim itself), check whether any tag's own frequency moved
+  // in the direction that would explain it: more common in the worse
+  // half when AHI rose, less common in the better half when it improved.
+  // >=20 percentage points is a deliberately blunt bar — this is a
+  // single-tag frequency shift, not a controlled comparison, so it's
+  // framed as "may be part of it," never asserted as the cause.
+  let tagShift = null
+  if (half >= MIN_HALF_FOR_TREND && (summaryDiff > 8 || summaryDiff < -8)) {
+    const rose = summaryDiff > 8
+    const freq = (arr, tk) => arr.length ? arr.filter((n) => n.tags.includes(tk)).length / arr.length : 0
+    const candidates = Object.keys(TAG_LABEL).map((tk) => ({ tk, ptDiff: Math.round((freq(secondHalf, tk) - freq(firstHalf, tk)) * 100) }))
+      .filter((c) => (rose ? c.ptDiff >= 20 : c.ptDiff <= -20))
+      .sort((a, b) => Math.abs(b.ptDiff) - Math.abs(a.ptDiff))
+    tagShift = candidates[0] || null
+  }
+  const tagShiftClause = tagShift ? (() => {
+    const label = TAG_LABEL[tagShift.tk] + (AUTO_TAGS.has(tagShift.tk) ? ' (auto-detected)' : '')
+    const c1 = firstHalf.filter((n) => n.tags.includes(tagShift.tk)).length
+    const c2 = secondHalf.filter((n) => n.tags.includes(tagShift.tk)).length
+    return ` ${label} came up on ${c2} of ${secondHalf.length} nights this half vs ${c1} of ${firstHalf.length} last half — may be part of it.`
+  })() : ''
   const summary = half < MIN_HALF_FOR_TREND
     ? `Not enough nights in this range to call a clear trend — ${range === 'week' ? 'try 2 Weeks or Month' : 'try Month'} for a steadier read.`
     : summaryDiff > 8
-    ? `AHI has risen ${Math.abs(summaryDiff)}% across this period — worth a closer look.`
+    ? `AHI has risen ${Math.abs(summaryDiff)}% across this period — worth a closer look.${tagShiftClause}`
     : summaryDiff < -8
-    ? `AHI has improved ${Math.abs(summaryDiff)}% across this period — whatever's changed, it's working.`
+    ? `AHI has improved ${Math.abs(summaryDiff)}% across this period — whatever's changed, it's working.${tagShiftClause}`
     : 'A steady period overall, no real drift either way.'
 
   const wkLeakAvg = avgUsed(data, 'leak'), wkUsageAvg = avg(data, 'usage')
