@@ -99,7 +99,17 @@ async function handlePush() {
 }
 
 self.addEventListener('push', (event) => {
-  event.waitUntil(handlePush())
+  // No Mac means no Safari Web Inspector access to this service worker's
+  // own console on a real iOS device — an exception in handlePush()
+  // would otherwise fail completely silently, indistinguishable from a
+  // day that's legitimately fully caught up. Surfacing it as a
+  // notification is the only debugging visibility available here.
+  event.waitUntil(
+    handlePush().catch((err) => self.registration.showNotification('AirTrace: notification check failed', {
+      body: String(err?.message || err),
+      tag: 'debug-error',
+    })),
+  )
 })
 
 // Focus the already-open installed PWA and navigate it, rather than
