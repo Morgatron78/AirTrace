@@ -115,6 +115,14 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
   const [notifError, setNotifError] = useState('')
   const [subscription, setSubscription] = useState(null)
   const [copied, setCopied] = useState(false)
+  // The endpoint of whichever subscription was last actually copied to the
+  // clipboard — lets the copy panel below tell "already pasted into the
+  // GitHub secret" apart from "this is a different subscription than what's
+  // there now," instead of showing the same one-time setup prompt on every
+  // single visit to this screen regardless of whether anything changed.
+  const [copiedEndpoint, setCopiedEndpoint] = useState(null)
+  useEffect(() => { getMeta('copiedSubscriptionEndpoint').then((v) => v && setCopiedEndpoint(v)) }, [])
+  const needsCopy = subscription && subscription.endpoint !== copiedEndpoint
 
   useEffect(() => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window) || typeof Notification === 'undefined') {
@@ -175,6 +183,8 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
     try {
       await navigator.clipboard.writeText(JSON.stringify(subscription.toJSON(), null, 2))
       setCopied(true)
+      await setMeta('copiedSubscriptionEndpoint', subscription.endpoint)
+      setCopiedEndpoint(subscription.endpoint)
       setTimeout(() => setCopied(false), 2000)
     } catch {
       // Clipboard API can be unavailable (e.g. non-HTTPS, denied
@@ -275,16 +285,28 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                 </div>
               )}
 
-              {subscription && (
+              {subscription && (needsCopy || copied) && (
                 <div style={{ marginTop: 14, background: T.bg, borderRadius: 14, padding: 14 }}>
                   <div style={{ fontSize: 12.5, color: T.ink, lineHeight: 1.5, marginBottom: 10 }}>
-                    One manual step to finish setup: copy this and paste it into this repo's <b>PUSH_SUBSCRIPTION</b> GitHub secret. You'll only need to redo this if it ever shows up here again after reopening the app — that means the old subscription expired.
+                    {copiedEndpoint
+                      ? <>The subscription changed since you last copied one &mdash; copy the new one and paste it into this repo's <b>PUSH_SUBSCRIPTION</b> GitHub secret to replace the old value.</>
+                      : <>One manual step to finish setup: copy this and paste it into this repo's <b>PUSH_SUBSCRIPTION</b> GitHub secret.</>}
                   </div>
                   <button onClick={handleCopySubscription} className="font-display" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, width: '100%', padding: '9px 0', borderRadius: 10, background: T.surface, color: T.ink, fontSize: 13, fontWeight: 700, border: `1px solid ${T.line}` }}>
                     {copied ? <Check size={15} style={{ color: SEV.good }} /> : <Copy size={15} />}
                     {copied ? 'Copied' : 'Copy subscription JSON'}
                   </button>
                 </div>
+              )}
+
+              {/* Steady state — already copied and nothing's changed since.
+                  A quiet way back to the JSON (e.g. to double-check the
+                  GitHub secret still matches) without the setup panel
+                  reappearing on every single visit to this screen. */}
+              {subscription && !needsCopy && !copied && (
+                <button onClick={handleCopySubscription} className="font-display" style={{ marginTop: 10, padding: 0, background: 'none', border: 'none', fontSize: 12, color: T.muted, textDecoration: 'underline', textUnderlineOffset: 2 }}>
+                  Copy subscription JSON again
+                </button>
               )}
             </>
           )}
