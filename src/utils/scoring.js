@@ -1,6 +1,7 @@
 import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind, Upload } from 'lucide-react'
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
+import { isOverdue, isApproaching } from './nagLogic.js'
 
 // Several real machine settings (STR.edf's S.C.Press, S.RampEnable, etc —
 // see parseSummaries.js) aren't fixed constants — they genuinely change
@@ -103,9 +104,13 @@ export function nightsForExtremes(nights) {
   return nights.filter((n) => !n.noUsage && n.usage >= MIN_USAGE_FOR_EXTREME_HOURS)
 }
 
+// Thresholds themselves live in nagLogic.js (isOverdue/isApproaching) —
+// the push-notification service worker needs the exact same "is this
+// actually overdue" check, dependency-free (no theme colors, which are
+// UI-only). This keeps just the color-mapping role here.
 export function dueColor(days, intervalDays) {
-  if (days >= intervalDays) return SEV.bad
-  if (days >= intervalDays * 0.75) return SEV.fair
+  if (isOverdue(days, intervalDays)) return SEV.bad
+  if (isApproaching(days, intervalDays)) return SEV.fair
   return T.ink
 }
 

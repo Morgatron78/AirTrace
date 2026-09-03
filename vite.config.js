@@ -18,6 +18,15 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      // injectManifest, not the previous (simpler) generateSW default —
+      // push notifications need a `push` event listener, and generateSW
+      // builds a fully auto-generated worker with no room for custom
+      // code. src/sw.js is now responsible for what generateSW used to
+      // do silently (skipWaiting/clientsClaim/precacheAndRoute — see
+      // that file's own top few lines).
+      strategies: 'injectManifest',
+      srcDir: 'src',
+      filename: 'sw.js',
       includeAssets: ['favicon.svg'],
       manifest: {
         name: 'AirTrace',
@@ -36,8 +45,12 @@ export default defineConfig({
       },
       // Precache the built app shell only for now — the real offline/caching
       // strategy for imported CPAP data waits for the IndexedDB storage
-      // layer (see CLAUDE.md's real-build architecture notes).
-      workbox: {
+      // layer (see CLAUDE.md's real-build architecture notes). Same
+      // globPatterns value as before injectManifest — just a different
+      // config key (injectManifest, not workbox, now that src/sw.js
+      // itself calls precacheAndRoute rather than vite-plugin-pwa
+      // generating that call for us).
+      injectManifest: {
         globPatterns: ['**/*.{js,css,html,svg,webp,woff2}'],
       },
     }),

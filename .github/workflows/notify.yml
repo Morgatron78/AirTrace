@@ -1,0 +1,36 @@
+name: Send push notification
+
+# Runs once a day, at an off-the-hour minute (GitHub's own docs recommend
+# avoiding :00 — everyone's cron jobs pile up there). 17 6 * * * lands
+# around 6:17am GMT / 7:17am BST — a UK morning, not chased to
+# per-user-timezone precision since this nag tolerates being a day late
+# (see CLAUDE.md). workflow_dispatch is for manual testing, e.g. right
+# after setting up the PUSH_SUBSCRIPTION/VAPID secrets for the first
+# time — see docs/push-notifications.md.
+#
+# Known, accepted limitation: GitHub silently disables scheduled
+# workflows after 60 days without any repository activity, with no
+# notification when it happens. If nags stop arriving, check this tab.
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: node scripts/send-push.mjs
+        env:
+          # Not a secret — the same value committed in
+          # src/constants/push.js, kept as plain text here rather than a
+          # third repo secret for something that isn't sensitive.
+          VAPID_PUBLIC_KEY: BBYcjT8DoAHZeuBrnUBCQVCNdO3qdqKKgA3CNGzYoh3gBoNrC61HuLfz9x634SARZjcp4ZuHnVH3tsKIuOKm9XY
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+          PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}

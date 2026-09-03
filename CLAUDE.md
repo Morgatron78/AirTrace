@@ -243,13 +243,36 @@ Full design, agreed before any of it was built:
 - Entry points: same-morning quick-tag (defaults to yesterday's date) and
   editing any past night from its own detail view. Same picker UI both
   ways.
-- Real push notification for the nag is a real-build research item, not
-  mocked. Relevant precedent: GitHub Actions + Web Push was built for a
-  prior project and technically worked, but Actions' cron scheduling proved
-  loose enough in practice that it was set aside for a *time-sensitive* use
-  case. This nag is much more tolerant of timing slop (a day late doesn't
-  matter), so the same approach may well be fine here — worth trying, not
-  assuming.
+- **Real push notifications are built** (tagging nag + an equipment-overdue
+  nag sharing the same delivery mechanism), following the same
+  GitHub-Actions-cron-triggers, Web-Push-delivers precedent noted above —
+  it worked technically for a prior project, and this nag's tolerance for
+  a day's timing slop (unlike that prior *time-sensitive* use case) made
+  it worth trying here. The core problem it had to solve: this app has no
+  backend and Actions has zero access to a user's local-only IndexedDB, so
+  Actions can't itself know whether last night got tagged or the filter's
+  overdue. Resolved by splitting trigger from decision — the cron job
+  (`.github/workflows/notify.yml`, `scripts/send-push.mjs`) sends one
+  content-free push daily, off-the-hour (GitHub recommends avoiding
+  `:00`), landing in a UK morning; `src/sw.js`'s own `push` handler is
+  what actually reads IndexedDB and decides whether (and what) to show,
+  since a service worker shares storage with its page in a way the
+  triggering server never can. Shared decision logic
+  (`src/utils/nagLogic.js`) is deliberately dependency-free — the service
+  worker must never pull in `lucide-react`, which both `scoring.js` and
+  `tags.js` import at module scope. Settings has a master toggle (off by
+  default) that walks through subscribing and shows the resulting
+  subscription JSON for a one-time manual paste into a `PUSH_SUBSCRIPTION`
+  GitHub secret — there's no backend to receive it automatically, and
+  adding one would reintroduce exactly the external dependency this app's
+  local-first design otherwise avoids. Full operational detail (VAPID key
+  setup, which secrets, how to resubscribe) lives in
+  `docs/push-notifications.md`, kept separate from this file since it's a
+  copy-paste command reference with its own update lifecycle, not
+  architecture narrative. **Accepted limitation, not a bug**: GitHub
+  silently disables scheduled workflows after 60 days of repo inactivity,
+  with no notification — Settings says to check the Actions tab if nags
+  stop.
 
 ## Known research items for the real build (flagged, not resolved)
 

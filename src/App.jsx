@@ -4,6 +4,7 @@ import { T, C, applyTheme } from './constants/theme'
 import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
 import { getMeta, setMeta } from './db/meta.js'
+import { getUntaggedDates, toDateStr } from './utils/nagLogic.js'
 import { SplashScreen } from './screens/SplashScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { TrendsScreen } from './screens/TrendsScreen'
@@ -124,22 +125,41 @@ export default function App() {
   // Every date from tagStartDate through yesterday with no tagLog entry —
   // computed independent of rawNights entirely, since the whole point is
   // catching up on a date even if that night hasn't been imported yet.
-  const untaggedDates = useMemo(() => {
-    if (!tagStartDate) return []
-    const out = []
-    const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1); yesterday.setHours(0, 0, 0, 0)
-    for (const d = new Date(`${tagStartDate}T00:00:00`); d <= yesterday; d.setDate(d.getDate() + 1)) {
-      const ds = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
-      if (!tagLog[ds]) out.push(ds)
-    }
-    return out
-  }, [tagLog, tagStartDate])
+  // Extracted to nagLogic.js — the push notification service worker
+  // needs this exact same logic to decide whether to nag, and needs it
+  // dependency-free (no lucide-react/theme), so there's one shared
+  // implementation rather than two that could drift.
+  const untaggedDates = useMemo(() => getUntaggedDates(tagLog, tagStartDate), [tagLog, tagStartDate])
   const [tagEntryDate, setTagEntryDate] = useState(null)
   const saveTagEntry = (entry) => { persistTagEntry(tagEntryDate, entry); setTagEntryDate(null) }
   const [showImport, setShowImport] = useState(false)
   const closeImport = () => { setShowImport(false); refresh() }
   const [showSettings, setShowSettings] = useState(false)
   const [tab, setTab] = useState('today')
+  // Deep-link handling for a tapped push notification — a service
+  // worker can only navigate to a URL, not reach into React state
+  // directly, so the notification's own click handler opens this same
+  // origin with a query param and this reads it once on mount.
+  // ?tag=yesterday opens the exact same quick-tag entry point Today's
+  // own card already uses; ?nag=<target> reuses whichever target string
+  // getPrimaryInsight already returns for that kind of nudge (e.g.
+  // 'equipment'), so there's one shared vocabulary instead of a second
+  // one invented just for notifications. Stripped from the URL once
+  // handled so a later reload doesn't re-trigger it.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const tagParam = params.get('tag')
+    const nagParam = params.get('nag')
+    if (!tagParam && !nagParam) return
+    if (tagParam === 'yesterday') {
+      const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
+      setTagEntryDate(toDateStr(yesterday))
+    }
+    if (nagParam) setTab(nagParam)
+    const url = new URL(window.location.href)
+    url.search = ''
+    window.history.replaceState({}, '', url)
+  }, [])
   // Lives here (not inside DrillDownScreen) because its trigger button
   // moved into the shared header, next to Settings/Upload — see the
   // header's tab === 'night' branch below.
