@@ -77,7 +77,7 @@ export function NightDetailPanel({ night, metric, targets, onViewNight, activeEv
         <DetailFields fields={[
           { label: 'Leak rate', value: `${night.leak} L/min` },
           { label: 'Mask seal', value: night.seal, color: night.seal === 'Poor' ? SEV.bad : undefined },
-          { label: 'Vs. target', value: night.leak <= targets.leak ? 'Under' : `+${night.leak - targets.leak} L/min`, color: night.leak <= targets.leak ? SEV.good : SEV.bad },
+          { label: 'Vs. target', value: night.leak <= targets.leak ? 'Under' : `+${(night.leak - targets.leak).toFixed(1)} L/min`, color: night.leak <= targets.leak ? SEV.good : SEV.bad },
         ]} />
       )}
 
