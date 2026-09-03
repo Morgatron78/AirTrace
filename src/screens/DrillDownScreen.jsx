@@ -2,6 +2,7 @@ import { Fragment, useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
   ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff,
+  CalendarDays,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -21,6 +22,82 @@ import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandler
 import { getDetail } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration } from '../utils/dates'
+
+// Full-screen month/year grid, opened from the calendar button below.
+// The 90-chip rolling strip only ever covers ~3 months around the
+// selected night — CLAUDE.md flags that as a known gap for real history
+// running 18+ months (e.g. jumping back to when therapy started), and
+// this is the quick fix: skip straight to a month instead of scrolling
+// day-by-day. Built from the real `nights` array's own date range, not
+// a hardcoded span of years — a fresh install with two weeks of history
+// gets a two-week range, not an empty grid of mostly-disabled months.
+function JumpToDateOverlay({ nights, idx, setIdx, onClose }) {
+  const minYear = parseInt(nights[0].date.slice(0, 4), 10)
+  const maxYear = parseInt(nights[nights.length - 1].date.slice(0, 4), 10)
+  const currentYear = parseInt(nights[idx].date.slice(0, 4), 10)
+  const currentMonth = parseInt(nights[idx].date.slice(5, 7), 10) - 1
+  const [year, setYear] = useState(currentYear)
+
+  const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+  // A month "has data" only if some night's own date falls in it — not a
+  // blanket min/max-year range, so e.g. therapy starting mid-2025 doesn't
+  // light up Jan–May 2025 as if there were nights to jump to.
+  const monthHasData = (m) => nights.some((n) => n.date.slice(0, 4) === String(year) && parseInt(n.date.slice(5, 7), 10) - 1 === m)
+
+  const jumpToMonth = (m) => {
+    const prefix = `${year}-${String(m + 1).padStart(2, '0')}`
+    const found = nights.find((n) => n.date.startsWith(prefix))
+    if (found) {
+      setIdx(nights.indexOf(found))
+      onClose()
+    }
+  }
+
+  return (
+    <div style={{
+      position: 'fixed', inset: 0, background: T.bg, zIndex: 60,
+      padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(16px, env(safe-area-inset-right, 0px)) max(20px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px))',
+      display: 'flex', flexDirection: 'column',
+    }}>
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, flexShrink: 0 }}>
+        <div className="font-display" style={{ fontSize: 18, fontWeight: 800, color: T.ink }}>Jump to date</div>
+        <button onClick={onClose} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <X size={16} style={{ color: T.ink }} />
+        </button>
+      </div>
+
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 24, marginBottom: 24, flexShrink: 0 }}>
+        <button onClick={() => setYear((y) => Math.max(minYear, y - 1))} disabled={year <= minYear}
+          style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year <= minYear ? 0.3 : 1 }}>
+          <ChevronLeft size={16} style={{ color: T.ink }} />
+        </button>
+        <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: T.ink, minWidth: 64, textAlign: 'center' }}>{year}</div>
+        <button onClick={() => setYear((y) => Math.min(maxYear, y + 1))} disabled={year >= maxYear}
+          style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year >= maxYear ? 0.3 : 1 }}>
+          <ChevronRight size={16} style={{ color: T.ink }} />
+        </button>
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+        {monthNames.map((m, i) => {
+          const has = monthHasData(i)
+          const isCurrent = year === currentYear && i === currentMonth
+          return (
+            <button key={m} disabled={!has} onClick={() => jumpToMonth(i)} style={{
+              height: 64, borderRadius: 16, display: 'flex', alignItems: 'center', justifyContent: 'center',
+              background: isCurrent ? T.ink : (has ? T.surface : T.bg),
+              border: has && !isCurrent ? `1px solid ${T.line}` : 'none',
+              opacity: has ? 1 : 0.35,
+            }}>
+              <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: isCurrent ? '#FFFFFF' : T.ink }}>{m}</span>
+            </button>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
 
 // Rolling date-chip strip at the top of Night View — shared by both the
 // normal (used) and not-used-this-night variants below, so navigating
@@ -49,8 +126,15 @@ function NightDatePicker({ nights, idx, setIdx, targets }) {
   useEffect(() => {
     activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [idx])
+  const [showJump, setShowJump] = useState(false)
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 8 }}>
+        <button onClick={() => setShowJump(true)} style={{ width: 28, height: 28, borderRadius: '50%', background: T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <CalendarDays size={13} style={{ color: T.ink }} />
+        </button>
+      </div>
+      {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} onClose={() => setShowJump(false)} />}
       <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
         {recentWindow.map((n, i) => {
           const ni = nights.indexOf(n)
