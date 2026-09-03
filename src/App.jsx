@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import { Home, TrendingUp, Lightbulb, BarChart3, Moon, LayoutGrid, Settings, Upload } from 'lucide-react'
-import { T, C } from './constants/theme'
+import { T, C, applyTheme } from './constants/theme'
 import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
 import { getMeta, setMeta } from './db/meta.js'
@@ -50,6 +50,30 @@ export default function App() {
   // the SD card could ever know a patient's name, same reasoning as
   // equipment's own make/model/serial fields above.
   const [profile, setProfile] = useState({ patientName: '', patientNumber: '', clinicPhone: '' })
+  // 'system' (default) | 'light' | 'dark'. Resolved against the OS
+  // preference when 'system', applied by mutating T's own properties in
+  // place (see theme.js) rather than threading a theme value through
+  // every component — every screen already reads T.bg/T.surface/etc.
+  // fresh on each render, so mutating the shared object and forcing one
+  // re-render here is enough for the whole tree to pick it up. The
+  // `key` on the root wrapper below is that forced re-render: React
+  // remounts everything under it whenever resolvedTheme changes, so
+  // components that only read T once during an early effect (rather
+  // than on every render) still end up correct.
+  const [themeMode, setThemeMode] = useState('system')
+  const [systemPrefersDark, setSystemPrefersDark] = useState(
+    typeof window !== 'undefined' && window.matchMedia?.('(prefers-color-scheme: dark)').matches
+  )
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)')
+    if (!mq) return
+    const onChange = (e) => setSystemPrefersDark(e.matches)
+    mq.addEventListener('change', onChange)
+    return () => mq.removeEventListener('change', onChange)
+  }, [])
+  const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode
+  applyTheme(resolvedTheme)
+  const updateThemeMode = (next) => { setThemeMode(next); setMeta('themeMode', next) }
   // targets/equipment/profile previously lived only in memory — any change
   // (a custom AHI target, a logged filter-change date) was silently lost
   // on every reload. All three persist via the same generic meta store
@@ -61,6 +85,7 @@ export default function App() {
     getMeta('targets').then((v) => v && setTargets(v))
     getMeta('equipment').then((v) => v && setEquipment(v))
     getMeta('profile').then((v) => v && setProfile(v))
+    getMeta('themeMode').then((v) => v && setThemeMode(v))
   }, [])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
@@ -142,14 +167,15 @@ export default function App() {
     return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} />
   }
   if (showImport) {
-    return <ImportScreen onBack={closeImport} />
+    return <ImportScreen key={resolvedTheme} onBack={closeImport} />
   }
   if (showSettings) {
-    return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile} />
+    return <SettingsScreen key={resolvedTheme} onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile}
+      themeMode={themeMode} onChangeThemeMode={updateThemeMode} />
   }
   if (status === 'empty') {
     return (
-      <div style={{ minHeight: '100vh', width: '100%', background: T.bg, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 18px', boxSizing: 'border-box' }}>
+      <div key={resolvedTheme} style={{ minHeight: '100vh', width: '100%', background: T.bg, display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: '0 18px', boxSizing: 'border-box' }}>
         <div style={{ maxWidth: 448, margin: '0 auto', width: '100%' }}>
           <NavCard icon={Upload} dot={`linear-gradient(135deg,${C.blue},${C.purple})`}
             title="Import your CPAP data" subtitle="Plug in your SD card to get started"
@@ -160,7 +186,7 @@ export default function App() {
   }
 
   return (
-    <div style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
+    <div key={resolvedTheme} style={{ minHeight: '100vh', width: '100%', paddingBottom: 96, background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", color: T.ink }}>
       <header style={{ maxWidth: 448, margin: '0 auto', padding: 'max(20px, calc(env(safe-area-inset-top, 0px) + 24px)) max(18px, env(safe-area-inset-right, 0px)) 8px max(18px, env(safe-area-inset-left, 0px))', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <button onClick={() => setShowSettings(true)} style={{ width: 36, height: 36, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <Settings size={17} style={{ color: T.ink }} />

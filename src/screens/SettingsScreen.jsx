@@ -3,6 +3,7 @@ import { T } from '../constants/theme'
 import { formatClock } from '../utils/dates'
 import { CardTitle } from '../components/CardTitle'
 import { TextEditRow } from '../components/TextEditRow'
+import { Segmented } from '../components/Segmented'
 
 function StepperRow({ label, value, unit, onChange, step, min, max, last, formatValue }) {
   return (
@@ -23,7 +24,7 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
   )
 }
 
-export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile }) {
+export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
   const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
 
@@ -37,6 +38,15 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
       </div>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '16px 18px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="System follows your device's own setting automatically">Appearance</CardTitle>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+            <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>Theme</span>
+            <Segmented options={[{ key: 'system', label: 'System' }, { key: 'light', label: 'Light' }, { key: 'dark', label: 'Dark' }]}
+              active={themeMode} onChange={onChangeThemeMode} />
+          </div>
+        </div>
+
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
           <CardTitle sub="Drives your streak goal, Stats targets, and the warning-triangle flags throughout the app">Targets</CardTitle>
           <StepperRow label="AHI target" value={targets.ahi} unit="events/hr" step={0.5} min={1} max={15} onChange={set('ahi')} />
