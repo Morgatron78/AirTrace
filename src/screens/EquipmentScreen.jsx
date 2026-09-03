@@ -89,7 +89,16 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
             </p>
           )}
           <div style={{ display: 'flex', gap: 8 }}>
-            <input type="date" value={dateStr} max={today} onChange={(e) => onChange(e.target.value)}
+            {/* A native date input fires onChange on every intermediate
+                keystroke while its day/month/year segments are only
+                partly filled in — not just once a full date is picked —
+                and reports value="" for those in-progress states. Committing
+                that empty string straight to onChange overwrote the stored
+                date mid-selection, before the user finished picking, which
+                is why a new date looked selectable but never actually
+                saved. Only commit once the browser reports a complete,
+                valid date. */}
+            <input type="date" value={dateStr} max={today} onChange={(e) => { if (e.target.value) onChange(e.target.value) }}
               style={{ flex: 1, padding: '9px 10px', borderRadius: 10, border: `1px solid ${T.line}`, fontFamily: "'Plus Jakarta Sans'", fontSize: 13, color: T.ink, background: T.bg }} />
             <button onClick={() => onChange(today)} className="font-display"
               style={{ padding: '9px 14px', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
