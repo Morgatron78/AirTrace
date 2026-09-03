@@ -1,13 +1,21 @@
 import { useState, useEffect } from 'react'
 import {
-  ChevronRight, TriangleAlert, Fan, VenetianMask, Hash, RefreshCw, Gauge, Wind,
-  TrendingUp, Shield, Droplets, Thermometer, Package, Zap,
+  ChevronRight, TriangleAlert, VenetianMask, Hash, RefreshCw, Gauge, Wind,
+  TrendingUp, Shield, Droplets, Thermometer, Package, Zap, Ruler,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { daysAgo } from '../utils/dates'
 import { dueColor, currentSetPressure, mostRecentValue, filterIntervalDays } from '../utils/scoring'
 import { getMeta } from '../db/meta.js'
+// Real product photos of this user's own confirmed hardware (AirSense 10
+// Elite; mask style per S.Mask confirmed elsewhere in this file) — used
+// in place of the generic Fan/VenetianMask header icons specifically,
+// per direct request. Those two icons stay as the fallback/default
+// everywhere else they're used (e.g. Mask type's own StatRow below),
+// this is only about the big circular header avatar on each card.
+import machinePhoto from '../assets/equipment-machine.jpg'
+import maskPhoto from '../assets/equipment-mask.jpg'
 
 // Enum meanings confirmed against OSCAR's own resmed_loader.cpp (channel/
 // addOption definitions, and for EPR specifically its actual STR.edf
@@ -31,12 +39,15 @@ function labelOr(rawValue, labelMap, fallbackLabel) {
 import { StatRow } from '../components/StatRow'
 import { Segmented } from '../components/Segmented'
 
-function SelectRow({ label, value, children, last }) {
+function SelectRow({ icon: Icon, iconColor, label, value, children, last }) {
   const [open, setOpen] = useState(false)
   return (
     <div style={{ borderBottom: last ? 'none' : `1px solid ${T.line}` }}>
       <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44, boxSizing: 'border-box', cursor: 'pointer' }}>
-        <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>{label}</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          {Icon && <Icon size={18} style={{ color: iconColor }} strokeWidth={1.8} />}
+          <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>{label}</span>
+        </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <span className="font-display" style={{ fontSize: 18, fontWeight: 700, color: T.ink }}>{value}</span>
           <ChevronRight size={14} style={{ color: T.muted, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
@@ -126,8 +137,8 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: `linear-gradient(135deg,${C.blue},${C.purple})`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-            <Fan size={30} style={{ color: '#FFFFFF' }} strokeWidth={1.8} />
+          <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginBottom: 10 }}>
+            <img src={machinePhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <span className="font-display" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.muted, marginBottom: 2 }}>CPAP machine</span>
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.machine.brand} {EQUIPMENT.machine.model}</div>
@@ -155,15 +166,15 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
 
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
-          <div style={{ width: 72, height: 72, borderRadius: '50%', background: `linear-gradient(135deg,${C.pink},${C.purple})`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 10 }}>
-            <VenetianMask size={30} style={{ color: '#FFFFFF' }} strokeWidth={1.8} />
+          <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginBottom: 10 }}>
+            <img src={maskPhoto} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
           </div>
           <span className="font-display" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '0.05em', textTransform: 'uppercase', color: T.muted, marginBottom: 2 }}>Mask</span>
           <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink }}>{EQUIPMENT.mask.brand} {EQUIPMENT.mask.model}</div>
         </div>
         {maskTypeLabel && <StatRow icon={VenetianMask} iconColor={T.muted} label="Mask type" value={maskTypeLabel}
           description="The style your machine has recorded (Pillows, Full Face, or Nasal) — the exact model above is still a placeholder, since the device only records the style, not the specific product." />}
-        <SelectRow label="Cushion size" value={equipment.cushionSize}>
+        <SelectRow icon={Ruler} iconColor={T.muted} label="Cushion size" value={equipment.cushionSize}>
           <Segmented options={[{ key: 'Small', label: 'S' }, { key: 'Medium', label: 'M' }, { key: 'Large', label: 'L' }]} active={equipment.cushionSize} onChange={set('cushionSize')} />
         </SelectRow>
         <MaintenanceRow icon={RefreshCw} label="Cushion changed" dateStr={equipment.cushionChanged} onChange={set('cushionChanged')} intervalDays={90}
