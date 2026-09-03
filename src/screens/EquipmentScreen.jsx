@@ -135,18 +135,17 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
   // itself writes and reads — not a fake "lastSynced" placeholder.
   const [lastSynced, setLastSynced] = useState(null)
   useEffect(() => { getMeta('lastImport').then((v) => v && setLastSynced(v.date)) }, [])
+  // Rarely used and deliberately placed at the very bottom of the page —
+  // an easy-to-reach button up top risked an accidental dial while
+  // scrolling past. Tapping it opens a confirm step rather than dialing
+  // immediately, both as a second guard against that and because the
+  // patient number needs to be visible and stay on screen to read out to
+  // the clinic — showing it only in a fleeting toast or mid-dial wouldn't
+  // actually be "to hand" the way this request asked for.
+  const [showCallInfo, setShowCallInfo] = useState(false)
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Only rendered once a number's actually set (Settings) — a "Call
-          clinic" button that does nothing when tapped is worse than no
-          button at all. Plain tel: href via window.location.href, not a
-          dedicated <a> tag — same native call-dialer behavior on mobile,
-          reusing NavCard's existing button-when-onClick shape as-is. */}
-      {profile.clinicPhone && (
-        <NavCard icon={Phone} dot={`linear-gradient(135deg,${C.blue},${SEV.good})`} title="Call clinic"
-          subtitle={profile.clinicPhone} onClick={() => { window.location.href = `tel:${profile.clinicPhone}` }} />
-      )}
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginBottom: 10 }}>
@@ -208,6 +207,47 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
         <MaintenanceRow icon={Droplets} label="Headgear washed" dateStr={equipment.headgearWashed} onChange={set('headgearWashed')} intervalDays={14} last
           description="Headgear straps lose elasticity with sweat and oils over time, which can show up as a gradually worsening seal even with a fresh cushion. Most guidance suggests washing every 1-2 weeks." />
       </div>
+
+      {/* Only rendered once a number's actually set (Settings) — a "Call
+          clinic" button that does nothing when tapped is worse than no
+          button at all. */}
+      {profile.clinicPhone && (
+        <NavCard icon={Phone} dot={`linear-gradient(135deg,${C.blue},${SEV.good})`} title="Call clinic"
+          subtitle={profile.clinicPhone} onClick={() => setShowCallInfo(true)} />
+      )}
+
+      {showCallInfo && (
+        <div onClick={() => setShowCallInfo(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,12,0.5)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: T.surface, borderRadius: 20, padding: 20, maxWidth: 340, width: '100%' }}>
+            <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: T.ink, marginBottom: 4 }}>Call clinic</div>
+            <div style={{ fontSize: 13, color: T.muted, marginBottom: 16, lineHeight: 1.4 }}>Have your patient number ready — it's shown below so it's to hand for the call.</div>
+            <div style={{ background: T.bg, borderRadius: 14, padding: 14, marginBottom: 10 }}>
+              <div className="font-display" style={{ fontSize: 11, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Clinic phone</div>
+              <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: T.ink, marginTop: 2 }}>{profile.clinicPhone}</div>
+            </div>
+            {profile.patientNumber && (
+              <div style={{ background: T.bg, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+                <div className="font-display" style={{ fontSize: 11, fontWeight: 600, color: T.muted, textTransform: 'uppercase', letterSpacing: '0.03em' }}>Your patient number</div>
+                <div className="font-display" style={{ fontSize: 20, fontWeight: 800, color: T.ink, marginTop: 2 }}>{profile.patientNumber}</div>
+              </div>
+            )}
+            {/* tel: via window.location.href, not a dedicated <a> tag —
+                same native call-dialer behavior on mobile. Deliberately
+                doesn't close this panel on its own afterward — if the
+                call doesn't connect (or gets cancelled) and the user
+                lands back here, the number staying visible is exactly
+                the point. */}
+            <button onClick={() => { window.location.href = `tel:${profile.clinicPhone}` }} className="font-display"
+              style={{ width: '100%', padding: '12px 0', borderRadius: 12, background: C.blue, color: '#FFFFFF', fontSize: 14, fontWeight: 700, marginBottom: 8 }}>
+              Call now
+            </button>
+            <button onClick={() => setShowCallInfo(false)} className="font-display"
+              style={{ width: '100%', padding: '12px 0', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 14, fontWeight: 700 }}>
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
