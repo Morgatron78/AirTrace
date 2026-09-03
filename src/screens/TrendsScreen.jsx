@@ -3,7 +3,7 @@ import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar } f
 import { T, C, SEV } from '../constants/theme'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
-import { scoreOf } from '../utils/scoring'
+import { scoreOf, nightsForExtremes } from '../utils/scoring'
 import { formatDuration, formatClock } from '../utils/dates'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
@@ -62,7 +62,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // night's zeroed AHI would otherwise win "best night" trivially every
   // time it appears. Index lookup stays reference-based (data.indexOf),
   // same reason as the comment below: data's entries are spread copies.
-  const usedNights = data.filter((n) => !n.noUsage)
+  const usedNights = nightsForExtremes(data)
   const best = usedNights.length ? usedNights.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
   const worst = usedNights.length ? usedNights.reduce((a, b) => (b.ahi > a.ahi ? b : a)) : null
   // best/worst need an index into rawData/nights, not just the data object —

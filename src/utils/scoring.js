@@ -89,6 +89,20 @@ export function scoreColor(ahi, targets) {
   return ahi < targets.ahi * 0.6 ? SEV.good : ahi < targets.ahi ? SEV.fair : SEV.bad
 }
 
+// A night with only a minute or two of real usage — a brief "fit check"
+// mask contact rather than a real overnight session (see CLAUDE.md) —
+// can trivially win "best night" purely by having too little time worn
+// to register any events at all: 0 AHI off 1 minute of use isn't a good
+// night, it's not really a night. Deliberately not folded into the
+// plain !noUsage filter used everywhere else (averages, tag
+// correlation, etc.) — diluting one such outlier into an average is
+// harmless, but PICKING it as THE single best/worst night is far more
+// sensitive to exactly this kind of degenerate short session.
+export const MIN_USAGE_FOR_EXTREME_HOURS = 1
+export function nightsForExtremes(nights) {
+  return nights.filter((n) => !n.noUsage && n.usage >= MIN_USAGE_FOR_EXTREME_HOURS)
+}
+
 export function dueColor(days, intervalDays) {
   if (days >= intervalDays) return SEV.bad
   if (days >= intervalDays * 0.75) return SEV.fair

@@ -4,7 +4,7 @@ import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, TAG_ICON, TAG_GRADIENT, AUTO_TAGS } from '../constants/tags'
 import { daysAgo, formatDuration } from '../utils/dates'
-import { currentSetPressure } from '../utils/scoring'
+import { currentSetPressure, nightsForExtremes } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
 import { NavCard } from '../components/NavCard'
 
@@ -127,7 +127,7 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   // still show the same fixed claim right next to the contradicting
   // numbers).
   const weekendHigherShowing = weekday.length >= 3 && weekend.length >= 3 && weekdayAhi > 0 && (weekendAhi - weekdayAhi) / weekdayAhi >= 0.15
-  const usedNights = nights.filter((n) => !n.noUsage)
+  const usedNights = nightsForExtremes(nights)
   const best = usedNights.length ? usedNights.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
   const compliance = Math.round((last30.filter((n) => n.usage >= targets.usage).length / last30.length) * 100)
   // Same fix as Troubleshooter's own totalMaskOff — "this month" means

@@ -4,7 +4,7 @@ import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { daysAgo, formatDuration } from '../utils/dates'
-import { currentSetPressure } from '../utils/scoring'
+import { currentSetPressure, nightsForExtremes } from '../utils/scoring'
 
 function ReportRow({ label, value }) {
   return (
@@ -156,8 +156,15 @@ export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
   // (30/90/365 days), and these two silently didn't, which could show a
   // night from 18 months ago as "best" with nothing marking it as such.
   const obs = avgUsed(windows[1].data, 'obstructive'), cen = avgUsed(windows[1].data, 'central'), hyp = avgUsed(windows[1].data, 'hypopnea')
-  const best = tagBase.length ? tagBase.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
-  const worst = tagBase.length ? tagBase.reduce((a, b) => (b.ahi > a.ahi ? b : a)) : null
+  // Deliberately its own filter, not tagBase — a night with only a
+  // minute or two of real usage (see nightsForExtremes) can trivially
+  // win "best" purely by having too little time worn to register any
+  // events, which tagBase's plain !noUsage filter alone doesn't guard
+  // against. tagBase itself stays as-is for the averages above, where
+  // diluting one such outlier is harmless.
+  const extremeBase = nightsForExtremes(windows[1].data)
+  const best = extremeBase.length ? extremeBase.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
+  const worst = extremeBase.length ? extremeBase.reduce((a, b) => (b.ahi > a.ahi ? b : a)) : null
   const cushionDays = daysAgo(equipment.cushionChanged)
   const filterDays = daysAgo(equipment.filterChanged)
 
