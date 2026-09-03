@@ -38,6 +38,17 @@ const MASK_TYPE_LABEL = { 0: 'Pillows', 1: 'Full Face', 2: 'Nasal', 3: 'Unknown'
 function labelOr(rawValue, labelMap, fallbackLabel) {
   return rawValue == null ? fallbackLabel : (labelMap[rawValue] ?? fallbackLabel)
 }
+
+// The 4 maintenance dates below (icon/label kept in sync with each
+// MaintenanceRow instance) — used both to log a history entry whenever
+// one changes and to render that history's own icon/label later, so
+// there's exactly one place that pairing is defined.
+const MAINTENANCE_META = {
+  filterChanged: { label: 'Filter changed', icon: Wind },
+  cushionChanged: { label: 'Cushion changed', icon: RefreshCw },
+  lastCleaned: { label: 'Last cleaned', icon: Droplets },
+  headgearWashed: { label: 'Headgear washed', icon: Droplets },
+}
 import { StatRow } from '../components/StatRow'
 import { Segmented } from '../components/Segmented'
 
@@ -118,6 +129,29 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
 
 export function EquipmentScreen({ equipment, onChange, nights, profile }) {
   const set = (key) => (val) => onChange({ ...equipment, [key]: val })
+  // Same as set(), but for the 4 maintenance dates specifically — also
+  // appends to the running log the history card below reads. equipment
+  // only ever stored the single most-recent date per type before this,
+  // so there was nothing to show a real history from; this is what
+  // starts building one, going forward from whenever it's first used.
+  const setMaintenance = (key) => (val) => {
+    const entry = { type: key, date: val, loggedAt: new Date().toISOString() }
+    onChange({ ...equipment, [key]: val, maintenanceHistory: [...(equipment.maintenanceHistory || []), entry] })
+  }
+  // One-time seed, not a live sync: equipment.maintenanceHistory being
+  // undefined (never set at all, as opposed to set-and-empty) means this
+  // has never run before. Backfills one entry per type from whatever
+  // dates already exist, so the log isn't oddly empty the first time
+  // it's opened despite clearly having real maintenance data — but only
+  // ever runs once, so it can't clobber real entries logged since.
+  useEffect(() => {
+    if (equipment.maintenanceHistory) return
+    const seed = Object.keys(MAINTENANCE_META)
+      .filter((key) => equipment[key])
+      .map((key) => ({ type: key, date: equipment[key], loggedAt: new Date().toISOString() }))
+    onChange({ ...equipment, maintenanceHistory: seed })
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- deliberately one-time; re-running on every equipment/onChange change would re-seed after every edit
+  }, [])
   // Real per-night data (see parseSummaries.js) wherever a confirmed
   // signal exists. Machine identity (brand/model/serial), specific mask
   // product, cushion size, and Essentials tier stay EQUIPMENT's mockup
@@ -157,6 +191,12 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
   // the clinic — showing it only in a fleeting toast or mid-dial wouldn't
   // actually be "to hand" the way this request asked for.
   const [showCallInfo, setShowCallInfo] = useState(false)
+  // Collapsed by default — a simple log of every maintenance date ever
+  // recorded, deliberately kept out of the way so it doesn't compete
+  // with this screen's actual purpose (current equipment status), same
+  // reasoning as Call clinic's own bottom placement above.
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const maintenanceHistory = [...(equipment.maintenanceHistory || [])].sort((a, b) => (a.date < b.date ? 1 : -1))
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -185,7 +225,7 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
         <StatRow icon={TrendingUp} iconColor={T.muted} label="Ramp" value={rampLabel} />
         {smartStartLabel != null && <StatRow icon={Zap} iconColor={T.muted} label="Smart Start" value={smartStartLabel}
           description="Starts therapy automatically when it detects you've put the mask on and begun breathing into it, rather than needing a button press." />}
-        <MaintenanceRow icon={Wind} label="Filter changed" dateStr={equipment.filterChanged} onChange={set('filterChanged')} intervalDays={filterInterval}
+        <MaintenanceRow icon={Wind} label="Filter changed" dateStr={equipment.filterChanged} onChange={setMaintenance('filterChanged')} intervalDays={filterInterval}
           description="Most manufacturers recommend a reusable filter be rinsed monthly and replaced roughly every 6 months, or sooner in dusty environments. A disposable filter is generally replaced monthly." />
         <StatRow icon={Shield} iconColor={T.muted} label="Antibacterial filter" value={antibacterialLabel} />
         <StatRow icon={Droplets} iconColor={T.muted} label="Humidity level" value={humidityLevel} />
@@ -214,11 +254,11 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
         <SelectRow icon={Ruler} iconColor={T.muted} label="Cushion size" value={equipment.cushionSize}>
           <Segmented options={[{ key: 'Small', label: 'S' }, { key: 'Medium', label: 'M' }, { key: 'Large', label: 'L' }]} active={equipment.cushionSize} onChange={set('cushionSize')} />
         </SelectRow>
-        <MaintenanceRow icon={RefreshCw} label="Cushion changed" dateStr={equipment.cushionChanged} onChange={set('cushionChanged')} intervalDays={90}
+        <MaintenanceRow icon={RefreshCw} label="Cushion changed" dateStr={equipment.cushionChanged} onChange={setMaintenance('cushionChanged')} intervalDays={90}
           description="Cushions lose their seal over time as the silicone breaks down. Most manufacturers suggest replacing every 2-3 months — sooner if you're noticing rising leak rates." />
-        <MaintenanceRow icon={Droplets} label="Last cleaned" dateStr={equipment.lastCleaned} onChange={set('lastCleaned')} intervalDays={7}
+        <MaintenanceRow icon={Droplets} label="Last cleaned" dateStr={equipment.lastCleaned} onChange={setMaintenance('lastCleaned')} intervalDays={7}
           description="A daily rinse and a weekly proper wash keeps the silicone supple and free of skin oils, which extends the cushion's actual seal life — not just hygiene." />
-        <MaintenanceRow icon={Droplets} label="Headgear washed" dateStr={equipment.headgearWashed} onChange={set('headgearWashed')} intervalDays={14} last
+        <MaintenanceRow icon={Droplets} label="Headgear washed" dateStr={equipment.headgearWashed} onChange={setMaintenance('headgearWashed')} intervalDays={14} last
           description="Headgear straps lose elasticity with sweat and oils over time, which can show up as a gradually worsening seal even with a fresh cushion. Most guidance suggests washing every 1-2 weeks." />
       </div>
 
@@ -229,6 +269,45 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
         <NavCard icon={Phone} dot={`linear-gradient(135deg,${C.blue},${SEV.good})`} title="Call clinic"
           subtitle={profile.clinicPhone} onClick={() => setShowCallInfo(true)} />
       )}
+
+      {/* Collapsed by default (see historyOpen's own comment above) — a
+          plain reverse-chronological log, deliberately read-only for now.
+          Every maintenance date change from here on adds its own entry;
+          anything from before this existed is backfilled once as a
+          single best-effort starting point, not a real history. */}
+      <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+        <div onClick={() => setHistoryOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+          <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+            <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Maintenance history</span>
+            <span className="font-display" style={{ fontSize: 12, fontWeight: 600, color: T.muted }}>{maintenanceHistory.length}</span>
+          </div>
+          <ChevronRight size={16} style={{ color: T.muted, transform: historyOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+        </div>
+        {historyOpen && (
+          maintenanceHistory.length === 0 ? (
+            <div style={{ fontSize: 12.5, color: T.muted, marginTop: 12, lineHeight: 1.4 }}>No maintenance changes logged yet — every date change above will appear here.</div>
+          ) : (
+            <div style={{ marginTop: 12 }}>
+              {maintenanceHistory.map((entry, i) => {
+                const meta = MAINTENANCE_META[entry.type]
+                const Icon = meta?.icon ?? RefreshCw
+                return (
+                  <div key={`${entry.type}-${entry.date}-${entry.loggedAt}`} style={{
+                    display: 'flex', alignItems: 'center', gap: 12, height: 44, boxSizing: 'border-box',
+                    borderTop: i === 0 ? 'none' : `1px solid ${T.line}`,
+                  }}>
+                    <Icon size={16} style={{ color: T.muted, flexShrink: 0 }} strokeWidth={1.8} />
+                    <span className="font-display" style={{ fontSize: 13.5, color: T.ink, flex: 1 }}>{meta?.label ?? entry.type}</span>
+                    <span className="font-display" style={{ fontSize: 13, fontWeight: 600, color: T.muted }}>
+                      {new Date(`${entry.date}T00:00:00`).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )
+        )}
+      </div>
 
       {showCallInfo && (
         <div onClick={() => setShowCallInfo(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,12,0.5)', zIndex: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
