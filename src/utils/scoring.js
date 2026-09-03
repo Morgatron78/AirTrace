@@ -129,13 +129,33 @@ export function computeStreak(nights, targets) {
 // The single most relevant thing to surface right now — used for Today's
 // proactive banner. Insights itself shows the fuller list.
 export function getPrimaryInsight(nights, targets, equipment) {
-  const avg = (arr, k) => arr.reduce((s, n) => s + n[k], 0) / arr.length
+  const avgUsed = (arr, k) => {
+    const used = arr.filter((n) => !n.noUsage)
+    return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
+  }
   const last = nights[nights.length - 1]
-  const last4 = nights.slice(-4)
-  const leakUp = last4.length >= 4 && last4.every((n, i) => i === 0 || n.leak >= last4[i - 1].leak - 1)
-  const half = Math.floor(nights.length / 2)
-  const firstHalf = nights.slice(0, half), secondHalf = nights.slice(half)
-  const trajDiff = firstHalf.length && secondHalf.length ? Math.round(((avg(secondHalf, 'ahi') - avg(firstHalf, 'ahi')) / avg(firstHalf, 'ahi')) * 100) : 0
+  // Same two fixes as InsightsScreen.jsx's own copies of this exact
+  // logic (a separate implementation here, never got the same pass):
+  // "4 nights running" needs 4 real *used* nights, not the last 4
+  // calendar entries — a no-usage night's zeroed leak landing at the
+  // front made the non-decreasing check trivially true forever after.
+  const last4Used = nights.filter((n) => !n.noUsage).slice(-4)
+  const leakUp = last4Used.length === 4 && last4Used.every((n, i) => i === 0 || n.leak >= last4Used[i - 1].leak - 1)
+  // Trajectory: recent window (last ~60 nights) split in half, not the
+  // entire import history — "this window"/"recently" in the banner text
+  // below means recently, not "the first half of 18 months of history
+  // vs the second". avgUsed (not a plain avg) so no-usage nights' zeroed
+  // AHI doesn't drag either half down.
+  const recentWindow = nights.slice(-60)
+  const half = Math.floor(recentWindow.length / 2)
+  const firstHalf = recentWindow.slice(0, half), secondHalf = recentWindow.slice(half)
+  const firstHalfAhi = avgUsed(firstHalf, 'ahi')
+  // Same minimum-sample guard Trends already has for this identical
+  // comparison (its own MIN_HALF_FOR_TREND) — a newer user with only a
+  // handful of nights imported would otherwise get a confident "trending
+  // in the wrong direction" banner off a 2-3-night half, indistinguishable
+  // from ordinary noise at that size.
+  const trajDiff = half >= 6 && firstHalfAhi ? Math.round(((avgUsed(secondHalf, 'ahi') - firstHalfAhi) / firstHalfAhi) * 100) : 0
   const cushionDays = daysAgo(equipment.cushionChanged)
   const headgearDays = daysAgo(equipment.headgearWashed)
   const filterDays = daysAgo(equipment.filterChanged)

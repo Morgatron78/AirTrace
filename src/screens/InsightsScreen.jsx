@@ -155,7 +155,11 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   const half = Math.floor(recentWindow.length / 2)
   const firstHalf = recentWindow.slice(0, half), secondHalf = recentWindow.slice(half)
   const firstHalfAhi = avgUsed(firstHalf, 'ahi')
-  const trajDiff = firstHalfAhi ? Math.round(((avgUsed(secondHalf, 'ahi') - firstHalfAhi) / firstHalfAhi) * 100) : 0
+  // Same minimum-sample guard Trends' own equivalent comparison already
+  // has (its MIN_HALF_FOR_TREND) — without it, a newer user with only a
+  // handful of nights imported gets a confident "trending" card off a
+  // 2-3-night half, indistinguishable from ordinary noise at that size.
+  const trajDiff = half >= 6 && firstHalfAhi ? Math.round(((avgUsed(secondHalf, 'ahi') - firstHalfAhi) / firstHalfAhi) * 100) : 0
   const improving = trajDiff < -5, worsening = trajDiff > 5
 
   // combined-tag effect: alcohol + late meal together vs either alone
