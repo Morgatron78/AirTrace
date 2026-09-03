@@ -150,7 +150,17 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
               background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, minWidth: 150, maxWidth: 220,
             }}>
               {openCluster.items.map((it, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', borderTop: i > 0 ? `1px solid ${T.line}` : 'none' }}>
+                // Two events close enough in time to still overlap into one
+                // cluster even at this chart's own deepest zoom (rare, but
+                // real — events seconds apart) previously had no way to
+                // pick one: the cluster popover listed them but tapping a
+                // row did nothing. Each row is now its own tap target,
+                // using the exact same onSelectEvent a genuine single dot
+                // fires — the type/time/duration already shown here is
+                // exactly what's needed to tell two near-simultaneous
+                // events apart.
+                <div key={i} onPointerDown={(ev) => ev.stopPropagation()} onClick={() => onSelectEvent?.(it)}
+                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', borderTop: i > 0 ? `1px solid ${T.line}` : 'none', cursor: onSelectEvent ? 'pointer' : 'default' }}>
                   <span style={{ width: 8, height: 8, borderRadius: 4, background: EVENT_COLOR[it.type], flexShrink: 0 }} />
                   <div>
                     <div className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{it.type}</div>
