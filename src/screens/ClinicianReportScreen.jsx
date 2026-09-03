@@ -119,7 +119,11 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
   const overallAhi90 = tagBase.length ? tagBase.reduce((s, n) => s + n.ahi, 0) / tagBase.length : 0
   const tagRows = Object.keys(TAG_LABEL).map((tk) => {
     const withTag = tagBase.filter((n) => n.tags.includes(tk))
-    if (!withTag.length) return null
+    // A single tagged night isn't a real pattern — same minimum InsightsScreen's
+    // own per-tag cards already use, applied here too since a report meant for
+    // a clinician showing an n=1 "+45%" with the same confident phrasing as an
+    // established finding is worse, not better, than the casual in-app version.
+    if (withTag.length < 3) return null
     const a = withTag.reduce((s, n) => s + n.ahi, 0) / withTag.length
     const diff = overallAhi90 ? Math.round(((a - overallAhi90) / overallAhi90) * 100) : 0
     return { tk, diff, n: withTag.length }
@@ -129,10 +133,13 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
   }
-  const obs = avgUsed(nights, 'obstructive'), cen = avgUsed(nights, 'central'), hyp = avgUsed(nights, 'hypopnea')
-  const usedNights = nights.filter((n) => !n.noUsage)
-  const best = usedNights.length ? usedNights.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
-  const worst = usedNights.length ? usedNights.reduce((a, b) => (b.ahi > a.ahi ? b : a)) : null
+  // Scoped to the same 90-day window as tag correlation above, not all-time
+  // history — every other section on this report states an explicit window
+  // (30/90/365 days), and these two silently didn't, which could show a
+  // night from 18 months ago as "best" with nothing marking it as such.
+  const obs = avgUsed(windows[1].data, 'obstructive'), cen = avgUsed(windows[1].data, 'central'), hyp = avgUsed(windows[1].data, 'hypopnea')
+  const best = tagBase.length ? tagBase.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
+  const worst = tagBase.length ? tagBase.reduce((a, b) => (b.ahi > a.ahi ? b : a)) : null
   const cushionDays = daysAgo(equipment.cushionChanged)
   const filterDays = daysAgo(equipment.filterChanged)
 
@@ -196,12 +203,12 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
           <ReportRow label="No tagged nights yet" value="—" />
         )}
 
-        <ReportHeading>Event breakdown (avg/hr)</ReportHeading>
+        <ReportHeading>Event breakdown (avg/hr, last 90 days)</ReportHeading>
         <ReportRow label="Obstructive" value={obs.toFixed(1)} />
         <ReportRow label="Central" value={cen.toFixed(1)} />
         <ReportRow label="Hypopnea" value={hyp.toFixed(1)} />
 
-        <ReportHeading>Best / worst night</ReportHeading>
+        <ReportHeading>Best / worst night (last 90 days)</ReportHeading>
         {best && worst ? (
           <>
             <ReportRow label={`Best (${best.label})`} value={`AHI ${best.ahi}`} />
