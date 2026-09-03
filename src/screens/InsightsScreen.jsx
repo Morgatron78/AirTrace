@@ -95,35 +95,65 @@ function Troubleshooter({ nights, equipment }) {
 }
 
 export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight, targets, equipment }) {
-  const last4 = nights.slice(-4)
-  const leakUp = last4.every((n, i) => i === 0 || n.leak >= last4[i - 1].leak - 1)
-  const cushionDaysForLeak = daysAgo(equipment.cushionChanged)
+  // Every "recent"/"this month" claim on this screen needs an actual
+  // recent window behind it, not the full (potentially 18-month)
+  // history — the exact bug already found and fixed once on Stats (see
+  // its own comment) turned out to have several more unfixed instances
+  // here: weekday/weekend, compliance, and the trajectory cards below
+  // were all silently computed over all-time history too.
+  const last30 = nights.slice(-30)
   const avg = (arr, k) => arr.reduce((s, n) => s + n[k], 0) / arr.length
   const avgUsed = (arr, k) => {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
   }
+  // "4 nights running" needs 4 real used nights, not just the last 4
+  // calendar entries — a no-usage night's leak is a zeroed placeholder
+  // (see avgUsed's own reasoning above), and one landing at the front of
+  // a plain last-4 slice made the non-decreasing check trivially true
+  // forever afterward (anything >= -1 passes).
+  const last4Used = nights.filter((n) => !n.noUsage).slice(-4)
+  const leakUp = last4Used.length === 4 && last4Used.every((n, i) => i === 0 || n.leak >= last4Used[i - 1].leak - 1)
+  const cushionDaysForLeak = daysAgo(equipment.cushionChanged)
   const overall = avgUsed(nights, 'ahi')
-  const weekday = nights.filter((n) => !n.weekend), weekend = nights.filter((n) => n.weekend)
+  const weekday = last30.filter((n) => !n.weekend), weekend = last30.filter((n) => n.weekend)
+  const weekdayAhi = avgUsed(weekday, 'ahi'), weekendAhi = avgUsed(weekend, 'ahi')
+  // Only worth surfacing when the weekend really does run meaningfully
+  // higher, with enough real nights on each side to mean something —
+  // every other card on this screen already stays silent rather than
+  // asserting a pattern that isn't actually there; this one and
+  // "Compliance is solid" below previously didn't (rendered
+  // unconditionally, so a lower weekend AHI or a poor compliance % would
+  // still show the same fixed claim right next to the contradicting
+  // numbers).
+  const weekendHigherShowing = weekday.length >= 3 && weekend.length >= 3 && weekdayAhi > 0 && (weekendAhi - weekdayAhi) / weekdayAhi >= 0.15
   const usedNights = nights.filter((n) => !n.noUsage)
   const best = usedNights.length ? usedNights.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
-  const compliance = Math.round((nights.filter((n) => n.usage >= targets.usage).length / nights.length) * 100)
-  // Same fix as Troubleshooter's own totalMaskOff above — "this month"
-  // means the last 30 nights, not every night ever imported.
-  const totalMaskOff = nights.slice(-30).reduce((s, n) => s + n.maskOff, 0)
+  const compliance = Math.round((last30.filter((n) => n.usage >= targets.usage).length / last30.length) * 100)
+  // Same fix as Troubleshooter's own totalMaskOff — "this month" means
+  // the last 30 nights, not every night ever imported.
+  const totalMaskOff = last30.reduce((s, n) => s + n.maskOff, 0)
 
   const tagInsights = Object.keys(TAG_LABEL).map((tk) => {
     const withTag = nights.filter((n) => !n.noUsage && n.tags.includes(tk))
-    if (!withTag.length) return null
+    // A single tagged night isn't a real pattern yet — matches the
+    // alcohol+lateMeal combo insight's own n>=3 minimum further below,
+    // which every per-tag card here previously didn't have.
+    if (withTag.length < 3) return null
     const a = avg(withTag, 'ahi')
     const diff = overall ? Math.round(((a - overall) / overall) * 100) : 0
     if (Math.abs(diff) < 10) return null
     return { tk, diff, n: withTag.length }
   }).filter(Boolean)
 
-  // trajectory: first half of the window vs second half
-  const half = Math.floor(nights.length / 2)
-  const firstHalf = nights.slice(0, half), secondHalf = nights.slice(half)
+  // Trajectory: recent window (last ~60 nights), first half vs second —
+  // "recently" in this card's own copy means recently, not "the first
+  // half of your entire import history vs the second", which a plain
+  // nights.length/2 split silently became for anyone with months of
+  // history (their "first half" could be the better part of a year ago).
+  const recentWindow = nights.slice(-60)
+  const half = Math.floor(recentWindow.length / 2)
+  const firstHalf = recentWindow.slice(0, half), secondHalf = recentWindow.slice(half)
   const firstHalfAhi = avgUsed(firstHalf, 'ahi')
   const trajDiff = firstHalfAhi ? Math.round(((avgUsed(secondHalf, 'ahi') - firstHalfAhi) / firstHalfAhi) * 100) : 0
   const improving = trajDiff < -5, worsening = trajDiff > 5
@@ -164,9 +194,13 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
           title={`${TAG_LABEL[ti.tk]} raises your AHI`}
           subtitle={`${ti.diff > 0 ? '+' : ''}${ti.diff}% vs. baseline, based on ${ti.n} nights${AUTO_TAGS.has(ti.tk) ? ' · auto-detected' : ''}`} onClick={() => onNavigate('stats')} />
       ))}
-      <NavCard icon={Calendar} dot={`linear-gradient(135deg,${C.blue},${C.pink})`} title="Weekends run higher"
-        subtitle={`Weekday AHI ${avg(weekday, 'ahi').toFixed(1)} vs. weekend ${avg(weekend, 'ahi').toFixed(1)} — worth noticing what's different about your weekend routine`} onClick={() => onNavigate('stats')} />
-      <NavCard icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title="Compliance is solid" subtitle={`Hitting 4+ hours on ${compliance}% of nights — usage isn't the thing to focus on right now`} onClick={() => onNavigate('stats')} />
+      {weekendHigherShowing && (
+        <NavCard icon={Calendar} dot={`linear-gradient(135deg,${C.blue},${C.pink})`} title="Weekends run higher"
+          subtitle={`Weekday AHI ${weekdayAhi.toFixed(1)} vs. weekend ${weekendAhi.toFixed(1)} (last 30 nights) — worth noticing what's different about your weekend routine`} onClick={() => onNavigate('stats')} />
+      )}
+      {compliance >= targets.compliance && (
+        <NavCard icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title="Compliance is solid" subtitle={`Hitting 4+ hours on ${compliance}% of nights (last 30) — usage isn't the thing to focus on right now`} onClick={() => onNavigate('stats')} />
+      )}
       {best && (
         <NavCard icon={Trophy} dot={`linear-gradient(135deg,${C.orange},${C.red})`} title="Your best night" subtitle={`${best.label} — AHI ${best.ahi}. Worth remembering what was different that night`} onClick={() => onSelectNight(nights.indexOf(best))} />
       )}
