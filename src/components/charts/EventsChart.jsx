@@ -35,7 +35,7 @@ const EVENTS_SUB = "Every obstructive, central, and hypopnea event during the ni
 // events are genuinely seconds apart, not just visually close because
 // we're zoomed out — opens a small stacked list of every event in it.
 // A single (unclustered) dot always just opens that one event's detail.
-export function EventsChart({ events, usageHours, startHour, onExpand, big = false }) {
+export function EventsChart({ events, usageHours, startHour, onExpand, onSelectEvent, big = false }) {
   const [zoom, setZoom] = useState(1)
   const [panStart, setPanStart] = useState(0)
   const [openCluster, setOpenCluster] = useState(null) // { px, items } | null
@@ -81,7 +81,19 @@ export function EventsChart({ events, usageHours, startHour, onExpand, big = fal
     return EVENT_COLOR[top]
   }
   function handleClusterClick(c) {
-    if (c.items.length === 1 || atDeepestZoom) {
+    if (c.items.length === 1) {
+      // Unambiguous — exactly one event, so alongside the usual
+      // type/time popover this is also the point where a caller can
+      // drill every other channel to this same moment (Individual
+      // channels' own "Sync zoom" state, driven from DrillDownScreen).
+      // Deliberately not fired for a still-overlapping cluster at
+      // deepest zoom (the branch below) — several events seconds apart
+      // is still genuinely ambiguous about which one is meant.
+      setOpenCluster(c)
+      onSelectEvent?.(c.items[0])
+      return
+    }
+    if (atDeepestZoom) {
       setOpenCluster(c)
       return
     }

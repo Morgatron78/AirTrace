@@ -17,7 +17,7 @@ import { MiniMap } from '../components/charts/MiniMap'
 import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { EventsChart } from '../components/charts/EventsChart'
-import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA } from '../components/charts/chartHelpers'
+import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration } from '../utils/dates'
@@ -192,6 +192,41 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   const [syncShowInfo, setSyncShowInfo] = useState(false)
   const [linkedZoom, setLinkedZoom] = useState(1)
   const [linkedPan, setLinkedPan] = useState(0)
+  const individualChannelsRef = useRef(null)
+
+  // Fires when a single (unambiguous) event dot is tapped in the Events
+  // panel — turns "I found an event" into "show me everything else that
+  // happened at that exact moment," by driving the Individual channels
+  // grid's own shared zoom/pan (normally a manual "Sync zoom" toggle)
+  // straight to that event, at the same deepest-zoom preset its own
+  // per-channel event dots already use. Deliberately only wired to a
+  // single dot, not a cluster — a cluster is inherently ambiguous about
+  // which event you mean. Math mirrors jumpToEvent (see chartHelpers.js)
+  // but works directly in continuous 0-1 fraction space rather than a
+  // sample-count total, since it's driving a zoom shared across channels
+  // that don't all sample at the same rate (see the Synchronized-view
+  // fix earlier this session for exactly what goes wrong if you don't).
+  const handleSelectEvent = (event) => {
+    const winLen = ZOOM_PRESETS[ZOOM_PRESETS.length - 1]
+    const maxStart = Math.max(0, 1 - winLen)
+    const desiredStart = event.x - winLen / 2
+    const clampedStart = Math.max(0, Math.min(maxStart, desiredStart))
+    setChartsLinked(true)
+    setLinkedZoom(winLen)
+    setLinkedPan(maxStart > 0 ? clampedStart / maxStart : 0)
+    setExpandedChart(null) // in case this came from the fullscreen Events view
+    // Double rAF, not a plain call — the state updates above haven't
+    // committed to the DOM yet (React batches them, applying after this
+    // handler returns), and each zoomed-in channel's own layout shifts
+    // once it re-renders (a "Full night" reset button appears that
+    // wasn't there before). Scrolling immediately would target the
+    // pre-jump layout, before that shift happens. Two rAFs is the
+    // standard way to wait for an actual browser paint of the updated
+    // DOM rather than just the next JS tick.
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      individualChannelsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }))
+  }
 
   // Real per-night waveform detail + events, loaded from IndexedDB (see
   // src/edf/parseNight.js for what actually populates it, and CLAUDE.md
@@ -737,9 +772,9 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           when Flow is one of them) are easy to lose on a busy night; this
           always shows every event, deliberately starting at its own
           zoomed-out view rather than following Synchronized view's zoom. */}
-      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} />
+      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent} />
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
+      <div ref={individualChannelsRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Individual channels</span>
         <div style={{ display: 'flex', gap: 8 }}>
           {!reorderMode && (
@@ -879,7 +914,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                   </>
                 ) : expandedChart === 'events' ? (
                   <div style={{ flex: 1, minHeight: 0 }}>
-                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big />
+                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big onSelectEvent={handleSelectEvent} />
                   </div>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>
