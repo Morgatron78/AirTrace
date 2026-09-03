@@ -125,7 +125,16 @@ export function parseSummaries(arrayBuffer) {
     // yet — flagged in the implementation plan as approximate.
     const maskOff = Math.max(0, validSlotCount - 1)
 
-    const leak = +leak95Arr[r].toFixed(1)
+    // STR.edf's own header declares this channel's dimension as "L/s",
+    // not L/min — confirmed by reading the real field directly (parseEdfHeader's
+    // sig.dimension), same underlying unit PLD.edf's per-night Leak.2s
+    // already needed ×60 for (see parseNight.js) — this summary-level
+    // read was missing that conversion entirely, silently showing every
+    // leak value in the app at ~1/60th its real size. Small negative
+    // raw readings are real (sensor noise right around zero on a good
+    // night), clamped to 0 here since a negative leak rate is physically
+    // meaningless to display.
+    const leak = Math.max(0, +(leak95Arr[r] * 60).toFixed(1))
     // UAI (unclassified apnea) folded into obstructive — a deliberate,
     // easily-revisited judgment call (see CLAUDE.md / plan), not a gap.
     const obstructive = +(oaiArr[r] + uaiArr[r]).toFixed(2)
