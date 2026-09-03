@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import {
   ChevronRight, TriangleAlert, VenetianMask, Hash, RefreshCw, Gauge, Wind,
-  TrendingUp, Shield, Droplets, Thermometer, Package, Zap, Ruler, Tag, Box,
+  TrendingUp, Shield, Droplets, Thermometer, Package, Zap, Ruler, Tag, Box, Phone,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { daysAgo } from '../utils/dates'
 import { dueColor, currentSetPressure, mostRecentValue, filterIntervalDays } from '../utils/scoring'
 import { getMeta } from '../db/meta.js'
+import { TextEditRow } from '../components/TextEditRow'
+import { NavCard } from '../components/NavCard'
 // Real product photos of this user's own confirmed hardware (AirSense 10
 // Elite; mask style per S.Mask confirmed elsewhere in this file) — used
 // in place of the generic Fan/VenetianMask header icons specifically,
@@ -58,42 +60,6 @@ function SelectRow({ icon: Icon, iconColor, label, value, children, last }) {
   )
 }
 
-// Free-text fields the device itself can never report over the SD card
-// (make, model, serial number) — same tap-to-expand shape as
-// MaintenanceRow's date picker, but a plain text input + explicit Save
-// rather than an immediate-apply control, since a stray keystroke
-// shouldn't overwrite a real value the way a date/dropdown pick can't.
-function TextEditRow({ icon: Icon, iconColor, label, value, onChange, placeholder, last }) {
-  const [open, setOpen] = useState(false)
-  const [draft, setDraft] = useState(value)
-  useEffect(() => { setDraft(value) }, [value])
-  const save = () => { onChange(draft.trim()); setOpen(false) }
-  return (
-    <div style={{ borderBottom: last ? 'none' : `1px solid ${T.line}` }}>
-      <div onClick={() => setOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44, boxSizing: 'border-box', cursor: 'pointer' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          {Icon && <Icon size={18} style={{ color: iconColor }} strokeWidth={1.8} />}
-          <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>{label}</span>
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-          <span className="font-display" style={{ fontSize: 18, fontWeight: 700, color: T.ink }}>{value || placeholder}</span>
-          <ChevronRight size={14} style={{ color: T.muted, transform: open ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
-        </div>
-      </div>
-      {open && (
-        <div style={{ paddingBottom: 14, display: 'flex', gap: 8 }}>
-          <input type="text" value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') save() }}
-            style={{ flex: 1, padding: '9px 10px', borderRadius: 10, border: `1px solid ${T.line}`, fontFamily: "'Plus Jakarta Sans'", fontSize: 13, color: T.ink, background: T.bg }} />
-          <button onClick={save} className="font-display"
-            style={{ padding: '9px 14px', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
-            Save
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
 
 function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, description, last }) {
   const [open, setOpen] = useState(false)
@@ -136,7 +102,7 @@ function MaintenanceRow({ icon: Icon, label, dateStr, onChange, intervalDays, de
   )
 }
 
-export function EquipmentScreen({ equipment, onChange, nights }) {
+export function EquipmentScreen({ equipment, onChange, nights, profile }) {
   const set = (key) => (val) => onChange({ ...equipment, [key]: val })
   // Real per-night data (see parseSummaries.js) wherever a confirmed
   // signal exists. Machine identity (brand/model/serial), specific mask
@@ -172,6 +138,15 @@ export function EquipmentScreen({ equipment, onChange, nights }) {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Only rendered once a number's actually set (Settings) — a "Call
+          clinic" button that does nothing when tapped is worse than no
+          button at all. Plain tel: href via window.location.href, not a
+          dedicated <a> tag — same native call-dialer behavior on mobile,
+          reusing NavCard's existing button-when-onClick shape as-is. */}
+      {profile.clinicPhone && (
+        <NavCard icon={Phone} dot={`linear-gradient(135deg,${C.blue},${SEV.good})`} title="Call clinic"
+          subtitle={profile.clinicPhone} onClick={() => { window.location.href = `tel:${profile.clinicPhone}` }} />
+      )}
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: 16 }}>
           <div style={{ width: 72, height: 72, borderRadius: '50%', overflow: 'hidden', flexShrink: 0, marginBottom: 10 }}>

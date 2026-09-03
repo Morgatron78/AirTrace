@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { ChevronLeft } from 'lucide-react'
 import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -83,7 +84,24 @@ function ReportLegendDot({ color, label }) {
   )
 }
 
-export function ClinicianReportScreen({ nights, onBack, equipment }) {
+export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
+  // window.print() is a real no-op in an installed Home Screen PWA on
+  // iOS — standalone mode strips the browser chrome print/share depends
+  // on entirely (same failure class already documented for Wake Lock in
+  // this exact project — an API that silently does nothing specifically
+  // in this context, not something a try/catch or feature-check can
+  // detect, since the call itself doesn't error). navigator.standalone is
+  // the classic iOS-specific flag; the media query is the general modern
+  // one — checking both covers older and newer engines alike. Full PDF
+  // export (a real client-side PDF library, bypassing window.print
+  // entirely) would work around this properly, but is real added
+  // complexity/bundle weight for what's explicitly an acceptable-to-skip
+  // feature — this is the cheap fix: explain the dead end and the actual
+  // workaround (this same report, opened in a regular Safari tab, isn't
+  // restricted the same way) instead of a button that just does nothing.
+  const isStandalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator?.standalone)
+  const [showPrintHelp, setShowPrintHelp] = useState(false)
+  const handlePrint = () => { if (isStandalone) setShowPrintHelp(true); else window.print() }
   const pctl = (arr, p) => {
     if (!arr.length) return 0
     const sorted = [...arr].sort((a, b) => a - b)
@@ -153,13 +171,36 @@ export function ClinicianReportScreen({ nights, onBack, equipment }) {
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: '#0A0A0C' }}>
           <ChevronLeft size={16} /> Back
         </button>
-        <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
+        <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
           Print / Save PDF
         </button>
       </div>
 
+      {showPrintHelp && (
+        <div className="no-print" onClick={() => setShowPrintHelp(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,12,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
+          <div onClick={(e) => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: 16, padding: 20, maxWidth: 360 }}>
+            <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: '#0A0A0C', marginBottom: 8 }}>Printing isn't available here</div>
+            <p style={{ fontSize: 13, color: '#57575F', lineHeight: 1.5, margin: 0 }}>
+              Apps installed to the Home Screen can't open the print/PDF sheet — that's an iOS limitation, not something this app controls. To print or save this report as a PDF, open AirTrace in Safari itself (not the Home Screen icon) and come back to this report from there.
+            </p>
+            <button onClick={() => setShowPrintHelp(false)} className="font-display"
+              style={{ marginTop: 16, width: '100%', padding: '10px 0', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px 60px' }}>
         <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, color: '#0A0A0C', marginBottom: 4 }}>CPAP Therapy Summary</h1>
+        {/* Always rendered, not just when set — a blank patient line on a
+            clinical document is itself worth surfacing, not silently
+            omitting, so an unset name reads as a clear prompt to fill it
+            in via Settings rather than just vanishing. */}
+        <p className="font-display" style={{ fontSize: 15, fontWeight: 700, color: profile.patientName ? '#0A0A0C' : '#9A9AA5', marginBottom: 2 }}>
+          {profile.patientName || 'Patient name not set — add in Settings'}
+          {profile.patientNumber ? ` · ID ${profile.patientNumber}` : ''}
+        </p>
         <p style={{ fontSize: 13, color: '#7C7C88', marginBottom: 4 }}>{equipment.machineBrand} {equipment.machineModel}, SN {equipment.machineSerial}</p>
         <p style={{ fontSize: 12, color: '#9A9AA5' }}>Generated {new Date().toLocaleDateString()} · Not a substitute for clinical review</p>
 

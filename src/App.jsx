@@ -44,19 +44,27 @@ export default function App() {
     maskBrand: EQUIPMENT.mask.brand,
     maskModel: EQUIPMENT.mask.model,
   })
-  // targets/equipment previously lived only in memory — any change (a
-  // custom AHI target, a logged filter-change date) was silently lost on
-  // every reload. Both persist via the same generic meta store nights'
-  // own import bookkeeping already uses. Loaded once on mount; the
+  // Patient identity + clinic contact — genuinely distinct from targets
+  // (therapy goals) and equipment (hardware/maintenance), so its own
+  // top-level state rather than folded into either. Nothing imported from
+  // the SD card could ever know a patient's name, same reasoning as
+  // equipment's own make/model/serial fields above.
+  const [profile, setProfile] = useState({ patientName: '', patientNumber: '', clinicPhone: '' })
+  // targets/equipment/profile previously lived only in memory — any change
+  // (a custom AHI target, a logged filter-change date) was silently lost
+  // on every reload. All three persist via the same generic meta store
+  // nights' own import bookkeeping already uses. Loaded once on mount; the
   // hardcoded values above stay as the seed shown until a real stored
   // value (if any) arrives, same brief-flash-then-settle pattern as the
   // rest of the app's IndexedDB-backed state.
   useEffect(() => {
     getMeta('targets').then((v) => v && setTargets(v))
     getMeta('equipment').then((v) => v && setEquipment(v))
+    getMeta('profile').then((v) => v && setProfile(v))
   }, [])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
+  const updateProfile = (next) => { setProfile(next); setMeta('profile', next) }
   // Merges the raw (imported, IndexedDB-backed) nights with the tag log by
   // date. Any night before tagStartDate is exempt from review-state
   // tracking entirely — first-import history can span a year or more, so
@@ -131,13 +139,13 @@ export default function App() {
     return <SplashScreen fadingOut={splashStage === 'fading'} />
   }
   if (showReport) {
-    return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} />
+    return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} />
   }
   if (showImport) {
     return <ImportScreen onBack={closeImport} />
   }
   if (showSettings) {
-    return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} />
+    return <SettingsScreen onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile} />
   }
   if (status === 'empty') {
     return (
@@ -169,7 +177,7 @@ export default function App() {
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate} />}
         {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
-        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} />}
+        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} profile={profile} />}
       </main>
 
       {tagEntryDate && (

@@ -1,7 +1,8 @@
-import { ChevronLeft, Minus, Plus } from 'lucide-react'
+import { ChevronLeft, Minus, Plus, User, Hash, Phone } from 'lucide-react'
 import { T } from '../constants/theme'
 import { formatClock } from '../utils/dates'
 import { CardTitle } from '../components/CardTitle'
+import { TextEditRow } from '../components/TextEditRow'
 
 function StepperRow({ label, value, unit, onChange, step, min, max, last, formatValue }) {
   return (
@@ -22,8 +23,9 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
   )
 }
 
-export function SettingsScreen({ onBack, targets, onChange }) {
+export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
+  const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", paddingBottom: 'max(40px, env(safe-area-inset-bottom, 0px))' }}>
@@ -54,6 +56,16 @@ export function SettingsScreen({ onBack, targets, onChange }) {
         </div>
         <div style={{ fontSize: 12, color: T.muted, padding: '0 4px', lineHeight: 1.5 }}>
           A session starting more than 2 hours after this is tagged "Late start" automatically — no logging needed, since your machine already records when a session began.
+        </div>
+
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Nothing in your imported data could ever know these — pure user-entered fields">Patient & clinic</CardTitle>
+          <TextEditRow icon={User} iconColor={T.muted} label="Patient name" value={profile.patientName} placeholder="Not set" onChange={setProfile('patientName')} />
+          <TextEditRow icon={Hash} iconColor={T.muted} label="Patient number" value={profile.patientNumber} placeholder="Not set" onChange={setProfile('patientNumber')} />
+          <TextEditRow icon={Phone} iconColor={T.muted} label="Clinic phone" value={profile.clinicPhone} placeholder="Not set" type="tel" onChange={setProfile('clinicPhone')} last />
+        </div>
+        <div style={{ fontSize: 12, color: T.muted, padding: '0 4px', lineHeight: 1.5 }}>
+          Patient name and number appear on the Clinician visit report. Clinic phone adds a one-tap "Call clinic" button to the Equipment page.
         </div>
       </main>
     </div>
