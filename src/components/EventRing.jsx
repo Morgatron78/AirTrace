@@ -19,7 +19,18 @@ export function EventRing({ night, size = 158 }) {
       </div>
     )
   }
-  const total = night.obstructive + night.central + night.hypopnea || 1
+  // Segment proportions come from the three sub-categories (each its own
+  // independently-rounded STR.edf value), but the number shown at center
+  // is the device's own real AHI (same field Today's "Events/hr" reads) —
+  // not a re-sum of those already-rounded parts. The two used to be
+  // computed two different ways and could differ by ~0.1 purely from
+  // independent rounding at each step, which read as a real data
+  // contradiction sitting right next to each other on Today. AHI is the
+  // authoritative clinical number either way; the sub-categories are only
+  // needed here for how the ring's colors are proportioned, not for what
+  // the center digit says.
+  const segTotal = night.obstructive + night.central + night.hypopnea || 1
+  const displayAhi = night.ahi ?? segTotal
   const r = 42, strokeW = 16, c = 2 * Math.PI * r
   const segs = [
     { label: 'Obstructive', v: night.obstructive, color: C.red,
@@ -38,7 +49,7 @@ export function EventRing({ night, size = 158 }) {
           {(() => {
             let dCum = 0
             return segs.map((s, i) => {
-              const len = (s.v / total) * c
+              const len = (s.v / segTotal) * c
               const el = <circle key={i} cx="50" cy="50" r={r} fill="none" stroke={s.color} strokeWidth={strokeW} strokeDasharray={`${len} ${c - len}`} strokeDashoffset={-dCum} />
               dCum += len
               return el
@@ -46,7 +57,7 @@ export function EventRing({ night, size = 158 }) {
           })()}
         </svg>
         <div style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-          <span className="font-display" style={{ fontSize: size * 0.28, fontWeight: 800, color: T.ink, lineHeight: 1 }}>{total.toFixed(1)}</span>
+          <span className="font-display" style={{ fontSize: size * 0.28, fontWeight: 800, color: T.ink, lineHeight: 1 }}>{displayAhi.toFixed(1)}</span>
           <span style={{ fontSize: size * 0.065, fontWeight: 600, color: T.muted, marginTop: 4, maxWidth: size * 0.65, textAlign: 'center', lineHeight: 1.3 }}>AHI Event Mix</span>
         </div>
       </button>
