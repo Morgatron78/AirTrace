@@ -612,7 +612,14 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronLeft size={16} style={{ color: T.ink }} />
         </button>
-        <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{new Date(`${night.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long' })} {night.fullLabel}</div>
+        {/* Spelled out with its own weekday/day/month/year here (not
+            night.fullLabel, which deliberately omits the year — it's
+            reused in tighter chart-header contexts where the year would
+            just be clutter). This is the one place the year actually
+            matters: jump-to-date can land you on a night a full year or
+            more away, where "18 September" alone is ambiguous about
+            which September. */}
+        <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{new Date(`${night.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <button onClick={() => setIdx((i) => Math.min(nights.length - 1, i + 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronRight size={16} style={{ color: T.ink }} />
         </button>
@@ -890,7 +897,14 @@ function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagE
         <button onClick={() => setIdx((i) => Math.max(0, i - 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronLeft size={16} style={{ color: T.ink }} />
         </button>
-        <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{new Date(`${night.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long' })} {night.fullLabel}</div>
+        {/* Spelled out with its own weekday/day/month/year here (not
+            night.fullLabel, which deliberately omits the year — it's
+            reused in tighter chart-header contexts where the year would
+            just be clutter). This is the one place the year actually
+            matters: jump-to-date can land you on a night a full year or
+            more away, where "18 September" alone is ambiguous about
+            which September. */}
+        <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{new Date(`${night.date}T00:00:00`).toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}</div>
         <button onClick={() => setIdx((i) => Math.min(nights.length - 1, i + 1))} style={{ width: 32, height: 32, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
           <ChevronRight size={16} style={{ color: T.ink }} />
         </button>
