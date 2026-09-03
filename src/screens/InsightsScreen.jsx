@@ -22,7 +22,11 @@ function Troubleshooter({ nights, equipment }) {
   const usageAvg = avg(last7, 'usage')
   const cushionDays = daysAgo(equipment.cushionChanged)
   const headgearDays = daysAgo(equipment.headgearWashed)
-  const totalMaskOff = nights.reduce((s, n) => s + n.maskOff, 0)
+  // "This month" means the last 30 nights, not the whole imported
+  // history — nights.reduce with no slice was summing every night ever
+  // imported (500+ for a real multi-year card) and calling that "this
+  // month", wildly inflating the real recent count.
+  const totalMaskOff = nights.slice(-30).reduce((s, n) => s + n.maskOff, 0)
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
 
   const SYMPTOMS = [
@@ -104,7 +108,9 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   const usedNights = nights.filter((n) => !n.noUsage)
   const best = usedNights.length ? usedNights.reduce((a, b) => (b.ahi < a.ahi ? b : a)) : null
   const compliance = Math.round((nights.filter((n) => n.usage >= targets.usage).length / nights.length) * 100)
-  const totalMaskOff = nights.reduce((s, n) => s + n.maskOff, 0)
+  // Same fix as Troubleshooter's own totalMaskOff above — "this month"
+  // means the last 30 nights, not every night ever imported.
+  const totalMaskOff = nights.slice(-30).reduce((s, n) => s + n.maskOff, 0)
 
   const tagInsights = Object.keys(TAG_LABEL).map((tk) => {
     const withTag = nights.filter((n) => !n.noUsage && n.tags.includes(tk))

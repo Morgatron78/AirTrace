@@ -103,19 +103,31 @@ export function parseSummaries(arrayBuffer) {
 
     // Up to 10 matched-index on/off slots, in minutes since *noon* of this
     // record's date (confirmed, not midnight) — see CLAUDE.md. A day can
-    // have several brief mask contacts alongside the real session; the
-    // longest valid slot is treated as the night's actual session for
-    // startHour, total usage sums every valid slot.
-    let longestIdx = -1, longestDurationMin = -1, totalUsageMin = 0, validSlotCount = 0
+    // have several brief mask contacts alongside the real session (a
+    // seconds-long "fit check" is the documented example); the longest
+    // valid slot is treated as the night's actual session for startHour,
+    // total usage sums every valid slot regardless of length — even a
+    // trivial contact is genuine device-on time, immaterial at
+    // hours-precision.
+    //
+    // maskOff, below, is a different question: "how many times did the
+    // mask genuinely come off and go back on overnight" — every extra
+    // slot used to count equally toward that, so a handful of seconds-long
+    // fit-check contacts (nothing to do with sleep) inflated it exactly
+    // like a real mid-sleep removal would. realSlotCount filters to only
+    // slots at least FIT_CHECK_MAX_MIN long before counting them there,
+    // while totalUsageMin/startHour above still see every slot untouched.
+    const FIT_CHECK_MAX_MIN = 2
+    let longestIdx = -1, longestDurationMin = -1, totalUsageMin = 0, realSlotCount = 0
     for (let i = 0; i < MASK_SLOTS; i++) {
       const on = maskOnArr[r * MASK_SLOTS + i]
       const off = maskOffArr[r * MASK_SLOTS + i]
       if (on === SENTINEL || off === SENTINEL) continue
       const durationMin = off - on
       if (durationMin <= 0) continue
-      validSlotCount++
       totalUsageMin += durationMin
       if (durationMin > longestDurationMin) { longestDurationMin = durationMin; longestIdx = i }
+      if (durationMin >= FIT_CHECK_MAX_MIN) realSlotCount++
     }
     const startHour = longestIdx === -1 ? 22 : 12 + maskOnArr[r * MASK_SLOTS + longestIdx] / 60
     const usage = +(totalUsageMin / 60).toFixed(2)
@@ -123,7 +135,7 @@ export function parseSummaries(arrayBuffer) {
     // i.e. how many times the mask came off and went back on. Not
     // validated against a real night with an actual mid-sleep removal
     // yet — flagged in the implementation plan as approximate.
-    const maskOff = Math.max(0, validSlotCount - 1)
+    const maskOff = Math.max(0, realSlotCount - 1)
 
     // STR.edf's own header declares this channel's dimension as "L/s",
     // not L/min — confirmed by reading the real field directly (parseEdfHeader's
