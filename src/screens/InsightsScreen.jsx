@@ -162,11 +162,37 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   const trajDiff = half >= 6 && firstHalfAhi ? Math.round(((avgUsed(secondHalf, 'ahi') - firstHalfAhi) / firstHalfAhi) * 100) : 0
   const improving = trajDiff < -5, worsening = trajDiff > 5
 
-  // combined-tag effect: alcohol + late meal together vs either alone
-  const alcoholOnly = nights.filter((n) => n.tags.includes('alcohol') && !n.tags.includes('lateMeal'))
-  const bothTags = nights.filter((n) => n.tags.includes('alcohol') && n.tags.includes('lateMeal'))
-  const comboWorthShowing = bothTags.length >= 3 && alcoholOnly.length >= 3
-  const comboDiff = comboWorthShowing ? Math.round(((avg(bothTags, 'ahi') - avg(alcoholOnly, 'ahi')) / avg(alcoholOnly, 'ahi')) * 100) : 0
+  // Combined-tag effect, generalized: every pairwise combination of the
+  // 6 tags (5 logged + auto-detected Late start — a logged behavior
+  // compounding with an auto-detected one is just as real a combo as two
+  // logged ones), not just the one pair (alcohol + late meal) that used
+  // to be hardcoded here as its own special case.
+  //
+  // "Compounds" specifically means worse than EITHER tag alone, not just
+  // worse than the population average — that's what tagInsights below
+  // already shows per tag, so a combo card needs to earn its own slot by
+  // saying something those don't: the two together are worse than either
+  // one by itself. Comparing against whichever solo group has the LOWER
+  // (better) average AHI is the conservative choice — it's a real
+  // compounding claim regardless of which of the two tags happens to run
+  // worse on its own, rather than picking one side arbitrarily.
+  const TAG_KEYS = Object.keys(TAG_LABEL)
+  const tagPairs = []
+  for (let i = 0; i < TAG_KEYS.length; i++) {
+    for (let j = i + 1; j < TAG_KEYS.length; j++) tagPairs.push([TAG_KEYS[i], TAG_KEYS[j]])
+  }
+  const comboInsights = tagPairs.map(([a, b]) => {
+    const aOnly = nights.filter((n) => !n.noUsage && n.tags.includes(a) && !n.tags.includes(b))
+    const bOnly = nights.filter((n) => !n.noUsage && n.tags.includes(b) && !n.tags.includes(a))
+    const both = nights.filter((n) => !n.noUsage && n.tags.includes(a) && n.tags.includes(b))
+    if (aOnly.length < 3 || bOnly.length < 3 || both.length < 3) return null
+    const avgA = avg(aOnly, 'ahi'), avgB = avg(bOnly, 'ahi'), avgBoth = avg(both, 'ahi')
+    const [lowerTag, lowerAvg] = avgA <= avgB ? [a, avgA] : [b, avgB]
+    if (!lowerAvg || avgBoth <= avgA || avgBoth <= avgB) return null
+    const diff = Math.round(((avgBoth - lowerAvg) / lowerAvg) * 100)
+    if (diff < 15) return null
+    return { a, b, lowerTag, diff, n: both.length }
+  }).filter(Boolean).sort((x, y) => y.diff - x.diff).slice(0, 2) // top 2 — a scrolling list of every qualifying pair would bury the rest of the screen for anyone with several overlapping tags
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -189,10 +215,10 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
         <NavCard icon={PowerOff} dot={`linear-gradient(135deg,${C.purple},${C.pink})`} title="Mask coming off overnight"
           subtitle={`${totalMaskOff} mask-off events this month — if it's discomfort rather than accident, a different cushion size or style is worth trying`} onClick={() => onNavigate('equipment')} />
       )}
-      {comboWorthShowing && Math.abs(comboDiff) >= 15 && (
-        <NavCard icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title="Alcohol + late meal compounds"
-          subtitle={`AHI runs ${comboDiff > 0 ? '+' : ''}${comboDiff}% higher when both happen the same night, vs. alcohol alone — worth avoiding the combination specifically`} onClick={() => onNavigate('stats')} />
-      )}
+      {comboInsights.map((ci) => (
+        <NavCard key={`${ci.a}-${ci.b}`} icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title={`${TAG_LABEL[ci.a]} + ${TAG_LABEL[ci.b]} compounds`}
+          subtitle={`AHI runs +${ci.diff}% higher when both happen the same night, vs. ${TAG_LABEL[ci.lowerTag]} alone — worth avoiding the combination specifically`} onClick={() => onNavigate('stats')} />
+      ))}
       {tagInsights.map((ti) => (
         <NavCard key={ti.tk} icon={TAG_ICON[ti.tk]} dot={TAG_GRADIENT[ti.tk]}
           title={`${TAG_LABEL[ti.tk]} raises your AHI`}
