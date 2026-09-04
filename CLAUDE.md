@@ -272,7 +272,14 @@ Full design, agreed before any of it was built:
   architecture narrative. **Accepted limitation, not a bug**: GitHub
   silently disables scheduled workflows after 60 days of repo inactivity,
   with no notification — Settings says to check the Actions tab if nags
-  stop.
+  stop. **Confirmed working end-to-end on the real device**: the actual
+  scheduled cron (not a manual `workflow_dispatch` test) delivered a
+  correctly-worded tagging nag after the installed PWA had been
+  force-quit and wasn't running at all overnight — the subscription
+  survives a force-quit fine. (An earlier same-night theory that
+  force-quitting kills the subscription was wrong; the real cause of
+  that night's flakiness was almost certainly repeated service-worker
+  redeploys during active debugging, not how the app was closed.)
 
 ## Known research items for the real build (flagged, not resolved)
 
