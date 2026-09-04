@@ -9,7 +9,7 @@ import { StatRow } from '../components/StatRow'
 import { MiniDots } from '../components/MiniDots'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
-import { formatDuration } from '../utils/dates'
+import { formatDuration, formatClock } from '../utils/dates'
 
 export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport }) {
   const last = nights[nights.length - 1]
@@ -40,7 +40,8 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
         </div>
         <div style={{ marginTop: 24 }}>
           {prev && <div className="font-display" style={{ fontSize: 11, fontWeight: 600, color: T.muted, marginBottom: 4, textAlign: 'right' }}>Change vs. last night</div>}
-          <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(last.usage)} warn={!last.noUsage && isConcern('usage', last, targets)} delta={prev ? pctDelta(last.usage, prev.usage) : undefined} />
+          <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(last.usage)} warn={!last.noUsage && isConcern('usage', last, targets)} delta={prev ? pctDelta(last.usage, prev.usage) : undefined}
+            description={!last.noUsage ? `Started ${formatClock(last.startHour)}, finished ${formatClock(last.startHour + last.usage)}.` : undefined} />
           <StatRow icon={Activity} iconColor={C.pink} label="Events/hr" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
             description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal." />

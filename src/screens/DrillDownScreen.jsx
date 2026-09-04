@@ -20,7 +20,7 @@ import { EventsChart } from '../components/charts/EventsChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
-import { formatDuration } from '../utils/dates'
+import { formatDuration, formatClock } from '../utils/dates'
 
 // Full-screen month/year grid, opened from the calendar button below.
 // The 90-chip rolling strip only ever covers ~3 months around the
@@ -683,7 +683,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           <EventRing night={night} size={140} />
         </div>
         <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(night.usage)}
-          description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
+          description={`${!night.noUsage ? `Started ${formatClock(night.startHour)}, finished ${formatClock(night.startHour + night.usage)}. ` : ''}Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use.`} />
         <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${night.leak} L/min`}
