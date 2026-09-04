@@ -732,6 +732,25 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
         </div>
       ) : (
       <>
+      {/* Standalone events-only lane — the overlay dots elsewhere (tied to
+          whichever channels happen to be selected in Synchronized view
+          below, and only shown at all when Flow is one of them) are easy
+          to lose on a busy night; this always shows every event,
+          deliberately starting at its own zoomed-out view rather than
+          following Synchronized view's zoom. Placed first among these
+          panels — Night summary/Tags/Events/Sleep stages are all things
+          you just look at; Synchronized view/Individual channels/
+          Statistics are the tools for exploring further yourself. */}
+      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
+        date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
+
+      {/* APPLE-HEALTH: only renders when a matched entry actually exists —
+          no data, no card, same pattern as Time in apnea's detailStatus
+          gate elsewhere in this app. See docs/apple-health-integration.md. */}
+      {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
+        <HypnogramChart night={night} stages={healthEntry.stages} events={events} />
+      )}
+
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Synchronized view</span>
@@ -778,21 +797,6 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
         </div>
         <LegendRow />
       </div>
-
-      {/* Standalone events-only lane — the overlay dots above (tied to
-          whichever channels happen to be selected, and only shown at all
-          when Flow is one of them) are easy to lose on a busy night; this
-          always shows every event, deliberately starting at its own
-          zoomed-out view rather than following Synchronized view's zoom. */}
-      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
-        date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
-
-      {/* APPLE-HEALTH: only renders when a matched entry actually exists —
-          no data, no card, same pattern as Time in apnea's detailStatus
-          gate elsewhere in this app. See docs/apple-health-integration.md. */}
-      {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
-        <HypnogramChart night={night} stages={healthEntry.stages} events={events} />
-      )}
 
       <div ref={individualChannelsRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Individual channels</span>
