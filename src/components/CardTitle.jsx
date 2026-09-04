@@ -17,7 +17,7 @@ export function CardTitle({ children, sub, info }) {
         <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{children}</div>
         {info && <ChartInfoButton show={showInfo} onToggle={() => setShowInfo((s) => !s)} size={24} iconSize={12} />}
       </div>
-      {sub && <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{sub}</div>}
+      {sub && <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{sub}</div>}
       {info && showInfo && <div style={{ fontSize: 12, color: T.muted, marginTop: 8, lineHeight: 1.5 }}>{info}</div>}
     </div>
   )
