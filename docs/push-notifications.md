@@ -6,13 +6,27 @@ design rationale live in `CLAUDE.md`; this is the copy-paste reference.
 
 ## How it works, in one paragraph
 
-A GitHub Actions cron job (`.github/workflows/notify.yml`) sends one
-content-free push a day via `scripts/send-push.mjs`. It carries no
-personal data — it can't, since Actions has no access to your phone's
-IndexedDB. The service worker (`src/sw.js`) is what actually decides
-whether to show anything, and what it says, by reading your real data
-locally when the push arrives. A day that's already fully caught up shows
-nothing at all.
+A GitHub Actions cron job (`.github/workflows/notify.yml`) sends
+content-free pushes via `scripts/send-push.mjs`, three times a week at
+three different times of day. They carry no personal data — can't,
+since Actions has no access to your phone's IndexedDB. The service
+worker (`src/sw.js`) is what actually decides whether to show anything,
+and what it says, by reading your real data locally when a push
+arrives — and it also decides *which* of its three checks a given push
+is for, purely from the device's own local clock (each cron time lands
+in its own non-overlapping hour window, see the table in `notify.yml`'s
+own header comment). The three checks:
+
+| When | What | Behavior |
+|---|---|---|
+| Morning (~7am) | Tagging + equipment | Tagging nags every day it's due; equipment nags at most once a week |
+| Evening (~8pm) | Tagging only | Only fires if still untagged since the morning — no repeat if you've already done it |
+| Saturday midday | Weekly summary | Always sends something — AHI vs. last week, plus how many nights got tagged |
+
+A day (or week) that's already fully caught up on the nag checks shows
+nothing at all; the weekly summary is the one exception — it's a recap,
+not a nag, so it sends every Saturday regardless of whether the news is
+good, bad, or steady.
 
 ## One-time setup
 
@@ -58,13 +72,18 @@ Same place as step 2:
 
 Repo → Actions → "Send push notification" → Run workflow
 (`workflow_dispatch`) — don't wait on the cron schedule for a first
-test. If nothing arrives, check the workflow's own logs first (they
-never contain the subscription or payload by design, but they do show
-whether the send itself succeeded or failed), then reread step 3 — a
-mismatched or stale subscription is the most likely cause.
+test. There's a **force_kind** dropdown (auto/morning/evening/weekly) —
+leave it as `auto` to see what a real scheduled run would decide right
+now, or force a specific check so you don't have to wait for the real
+clock to land in its window (e.g. force `weekly` to test the Saturday
+summary on a Tuesday). If nothing arrives, check the workflow's own logs
+first (they never contain the subscription or payload by design, but
+they do show whether the send itself succeeded or failed), then reread
+step 3 — a mismatched or stale subscription is the most likely cause.
 
-From then on it runs automatically once a day, off-the-hour, landing in
-a UK morning (see the cron schedule and comment in `notify.yml`).
+From then on it runs automatically, off-the-hour, on the three schedules
+described above (see `notify.yml`'s own header comment for the exact
+cron times).
 
 ## Resubscribing
 
@@ -93,8 +112,13 @@ workflow:
 VAPID_PUBLIC_KEY="<public key>" \
 VAPID_PRIVATE_KEY="<private key>" \
 PUSH_SUBSCRIPTION='<subscription JSON, single-quoted>' \
+FORCE_KIND="weekly" \
 node scripts/send-push.mjs
 ```
+
+`FORCE_KIND` is optional — `morning`, `evening`, or `weekly` forces that
+check regardless of the real clock; omit it (or leave GitHub's dropdown
+on `auto`) to test what a real scheduled run would decide right now.
 
 A `410` response means the subscription's expired or doesn't exist —
 expected if you're testing against a fake one, a real bug if it happens

@@ -1,7 +1,7 @@
 import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind, Upload } from 'lucide-react'
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
-import { isOverdue, isApproaching } from './nagLogic.js'
+import { isOverdue, isApproaching, filterIntervalDays } from './nagLogic.js'
 
 // Several real machine settings (STR.edf's S.C.Press, S.RampEnable, etc —
 // see parseSummaries.js) aren't fixed constants — they genuinely change
@@ -24,15 +24,12 @@ export function currentSetPressure(nights, fallback) {
   return mostRecentValue(nights, 'setPressure', fallback)
 }
 
-// Antibacterial filter changes what kind of filter this actually is, and
-// that changes its real lifespan: no antibacterial filter fitted (the
-// common case, confirmed via STR.edf's S.ABFilter) means a disposable
-// filter, replaced monthly; a reusable one is rinsed monthly but only
-// fully replaced every ~6 months. Defaults to the disposable/shorter
-// interval when unknown — the safer assumption to warn early on, not late.
-export function filterIntervalDays(nights) {
-  return mostRecentValue(nights, 'antibacterialFilter', 0) === 1 ? 180 : 30
-}
+// Defined in nagLogic.js (imported above), not here — the service worker
+// needs it too. Re-exported under this same name so EquipmentScreen.jsx's
+// existing `import { filterIntervalDays } from '../utils/scoring'` keeps
+// working unchanged. One implementation now, not two independent copies
+// of the same antibacterial-filter-lifespan arithmetic.
+export { filterIntervalDays }
 
 export function status(ahi, targets) {
   if (ahi < targets.ahi * 0.4) return ['Excellent score!', 'Your therapy is working really well.']

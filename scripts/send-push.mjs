@@ -1,14 +1,21 @@
 // Runs only under Node in GitHub Actions (.github/workflows/notify.yml) —
 // never shipped to the client. Sends one content-free push: no personal
 // data crosses the wire, ever. All real decision-making (is yesterday
-// tagged? is equipment overdue? what should the notification say?)
+// tagged? is equipment overdue? what should the weekly summary say?)
 // happens entirely on-device, in src/sw.js's own `push` event handler,
 // which has access to this browser's real IndexedDB — something this
 // script, running on GitHub's servers, never does and never will. See
 // docs/push-notifications.md for the one-time setup this depends on.
+//
+// The one exception to "no payload at all": FORCE_KIND, set only by a
+// manual workflow_dispatch test run (never by the real schedule
+// trigger) — still not personal data, just a label telling the service
+// worker which of its three checks to run instead of inferring one from
+// local time, so any of them can be tested on demand. See sw.js's own
+// resolveKind for how it's read.
 import webpush from 'web-push'
 
-const { VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, PUSH_SUBSCRIPTION } = process.env
+const { VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, PUSH_SUBSCRIPTION, FORCE_KIND } = process.env
 
 if (!VAPID_PRIVATE_KEY || !VAPID_PUBLIC_KEY || !PUSH_SUBSCRIPTION) {
   console.error('Missing one or more required env vars: VAPID_PRIVATE_KEY, VAPID_PUBLIC_KEY, PUSH_SUBSCRIPTION')
@@ -36,12 +43,15 @@ webpush.setVapidDetails(
 )
 
 try {
-  // No payload body at all — the point of the split architecture (see
-  // CLAUDE.md / docs/push-notifications.md) is that this trigger carries
-  // zero personal data. src/sw.js's `push` handler ignores event.data
-  // entirely and decides everything itself from local IndexedDB.
-  await webpush.sendNotification(subscription)
-  console.log('Push sent.')
+  // No payload at all on a real scheduled run — the point of the split
+  // architecture (see CLAUDE.md / docs/push-notifications.md) is that
+  // this trigger carries zero personal data, and src/sw.js's `push`
+  // handler decides everything itself from local IndexedDB. FORCE_KIND
+  // is the one deliberate exception, and only ever set by hand — see
+  // this file's own header comment.
+  const payload = FORCE_KIND && FORCE_KIND !== 'auto' ? JSON.stringify({ forceKind: FORCE_KIND }) : undefined
+  await webpush.sendNotification(subscription, payload)
+  console.log(payload ? `Push sent (forceKind: ${FORCE_KIND}).` : 'Push sent.')
 } catch (err) {
   // A 404/410 here means the subscription has expired or been revoked —
   // expected eventually, not a script bug. The app's own

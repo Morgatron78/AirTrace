@@ -1,5 +1,9 @@
 import { Wine, UtensilsCrossed, Plane, Zap, Thermometer, Moon } from 'lucide-react'
 import { C } from './theme'
+// TAG_LABEL/AUTO_TAGS live in tagLabels.js, not here — this file pulls in
+// lucide-react (for TAG_ICON below), which the service worker must never
+// bundle. Re-exported so no other call site in the app needs to know.
+export { TAG_LABEL, AUTO_TAGS } from './tagLabels'
 
 // lateStart deliberately uses fixed literals, not T.muted/T.ink — T's
 // values mutate in place when dark mode toggles (see theme.js), but a
@@ -13,7 +17,6 @@ import { C } from './theme'
 const LATE_START_MUTED = '#7C7C88'
 const LATE_START_INK = '#0A0A0C'
 
-export const TAG_LABEL = { alcohol: 'Alcohol', lateMeal: 'Late meal', awayFromHome: 'Away from home', highStress: 'High stress', illness: 'Congestion/illness', lateStart: 'Late start' }
 export const TAG_ICON = { alcohol: Wine, lateMeal: UtensilsCrossed, awayFromHome: Plane, highStress: Zap, illness: Thermometer, lateStart: Moon }
 export const TAG_COLOR = { alcohol: C.purple, lateMeal: C.orange, awayFromHome: C.blue, highStress: C.red, illness: C.pink, lateStart: LATE_START_MUTED }
 export const TAG_GRADIENT = {
@@ -24,12 +27,6 @@ export const TAG_GRADIENT = {
   illness: `linear-gradient(135deg,${C.pink},${C.red})`,
   lateStart: `linear-gradient(135deg,${LATE_START_MUTED},${LATE_START_INK})`,
 }
-
-// Auto-detected from the machine's own data (session start vs. Target
-// bedtime) — never logged by the user, always known, never part of the
-// review/nag flow. Flagged separately so anywhere tags are shown can mark
-// it as computed rather than something the user reported.
-export const AUTO_TAGS = new Set(['lateStart'])
 
 // Alcohol is graded (dose-dependent effect on airway muscle relaxation);
 // the rest are flat yes/no — grading them wouldn't earn its complexity.

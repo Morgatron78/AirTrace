@@ -1,12 +1,25 @@
 name: Send push notification
 
-# Runs once a day, at an off-the-hour minute (GitHub's own docs recommend
-# avoiding :00 — everyone's cron jobs pile up there). 17 6 * * * lands
-# around 6:17am GMT / 7:17am BST — a UK morning, not chased to
-# per-user-timezone precision since this nag tolerates being a day late
-# (see CLAUDE.md). workflow_dispatch is for manual testing, e.g. right
-# after setting up the PUSH_SUBSCRIPTION/VAPID secrets for the first
-# time — see docs/push-notifications.md.
+# Three checks, three schedules — each cron time lands in its own
+# non-overlapping local-hour bucket (device local time, not UTC) so
+# src/sw.js's push handler can tell them apart from nothing but its own
+# clock, with no personal data (or even a "which check" label) in the
+# push payload for real scheduled runs. All times off-the-hour minute,
+# per GitHub's own recommendation (everyone's cron jobs pile up at :00):
+#
+#   morning (tagging + equipment)  17 6  UTC  ~7:17am BST / 6:17am GMT
+#   weekly summary, Saturdays only 47 11 UTC ~12:47pm BST / 11:47am GMT
+#   evening "last call" tagging    47 19 UTC  ~8:47pm BST / 7:47pm GMT
+#
+# Not chased to per-user-timezone precision — these nags tolerate being
+# a bit late (see CLAUDE.md) — a fixed reasonable UTC time is the right
+# amount of engineering for a single-user app.
+#
+# workflow_dispatch is for manual testing — force_kind overrides the
+# local-time inference so any of the three checks can be tested on
+# demand rather than waiting for the real clock to land in its bucket.
+# Leave it as "auto" to test what a real scheduled run would actually
+# decide right now.
 #
 # Known, accepted limitation: GitHub silently disables scheduled
 # workflows after 60 days without any repository activity, with no
@@ -14,7 +27,15 @@ name: Send push notification
 on:
   schedule:
     - cron: '17 6 * * *'
+    - cron: '47 11 * * 6'
+    - cron: '47 19 * * *'
   workflow_dispatch:
+    inputs:
+      force_kind:
+        description: Force which check to run (bypasses local-time inference)
+        type: choice
+        options: [auto, morning, evening, weekly]
+        default: auto
 
 jobs:
   send:
@@ -34,3 +55,7 @@ jobs:
           VAPID_PUBLIC_KEY: BBYcjT8DoAHZeuBrnUBCQVCNdO3qdqKKgA3CNGzYoh3gBoNrC61HuLfz9x634SARZjcp4ZuHnVH3tsKIuOKm9XY
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}
+          # Only present (and only ever non-"auto") on a manual
+          # workflow_dispatch test run — never set by the schedule
+          # trigger, so a real cron push never carries this at all.
+          FORCE_KIND: ${{ github.event.inputs.force_kind }}

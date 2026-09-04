@@ -280,6 +280,29 @@ Full design, agreed before any of it was built:
   force-quitting kills the subscription was wrong; the real cause of
   that night's flakiness was almost certainly repeated service-worker
   redeploys during active debugging, not how the app was closed.)
+- **Expanded to three checks, all still one push handler**: an evening
+  "last call" tagging nag (only fires if still untagged since the
+  morning — no congratulatory notification if it's already done), and a
+  Saturday-midday weekly summary (AHI vs. last week, plus a tag
+  correlate if `ahiTrend` finds one, plus tagging completion for the
+  week) — the one nag/summary that's deliberately *not* conditional on
+  anything being wrong, since it's a ritual recap, not an alert. Equipment
+  stays morning-only; its own 7-day cooldown already gives it a sane
+  cadence, so it didn't need a schedule of its own. The three checks
+  still carry zero personal data on real scheduled runs — each cron time
+  in `notify.yml` lands in its own non-overlapping local-hour bucket
+  (device local time, not UTC), so `src/sw.js`'s `resolveKind` tells them
+  apart from nothing but its own clock; a `FORCE_KIND` payload label
+  exists purely for manual `workflow_dispatch` testing and is never set
+  by a real schedule trigger. `ahiTrend` and `computeNightTags`
+  (`src/utils/nagLogic.js`) are the same "one implementation, not two
+  that can drift" extraction the tagging/equipment logic already used —
+  `TrendsScreen.jsx`'s own trend-banner-to-tags feature (v0.1.49) and the
+  weekly push now share the exact same algorithm, so they can never
+  disagree about the same nights. `TAG_LABEL`/`AUTO_TAGS` live in a new
+  `src/constants/tagLabels.js`, split out of `tags.js` for the same
+  service-worker-safety reason nagLogic.js exists at all — `tags.js`
+  itself still imports `lucide-react` for `TAG_ICON`.
 
 ## Known research items for the real build (flagged, not resolved)
 

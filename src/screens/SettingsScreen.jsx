@@ -244,7 +244,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="A daily check for untagged nights and overdue equipment — silent unless there's actually something to say">Notifications</CardTitle>
+          <CardTitle sub="Morning and evening checks for untagged nights and overdue equipment, plus a Saturday weekly summary — silent unless there's actually something to say">Notifications</CardTitle>
 
           {!notifSupported && (
             <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.5 }}>
@@ -312,7 +312,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
           )}
         </div>
         <div style={{ fontSize: 12, color: T.muted, padding: '0 4px', lineHeight: 1.5 }}>
-          Sent at most once a day, and only when there's something worth saying — a night you haven't tagged yet, or equipment that's genuinely overdue. If nags ever stop arriving, check this repo's Actions tab: GitHub silently disables scheduled workflows after 60 days without any repository activity.
+          Tagging is checked morning and evening — the evening one only shows up if you still haven't tagged by then. Equipment is checked each morning, at most once a week. The Saturday weekly summary always sends something, even on a steady week — a quick AHI-vs-last-week recap. If nags ever stop arriving, check this repo's Actions tab: GitHub silently disables scheduled workflows after 60 days without any repository activity.
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>

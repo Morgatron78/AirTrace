@@ -4,7 +4,7 @@ import { T, C, applyTheme } from './constants/theme'
 import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
 import { getMeta, setMeta } from './db/meta.js'
-import { getUntaggedDates, toDateStr } from './utils/nagLogic.js'
+import { getUntaggedDates, toDateStr, computeNightTags } from './utils/nagLogic.js'
 import { SplashScreen } from './screens/SplashScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { TrendsScreen } from './screens/TrendsScreen'
@@ -108,20 +108,12 @@ export default function App() {
     // user can still choose to retroactively tag older history via Night
     // View. Exemption only controls whether an *unedited* date counts
     // toward the nag/review tracking, not whether editing it works.
-    let tags = entry ? [
-      ...(entry.alcohol ? ['alcohol'] : []),
-      ...(entry.lateMeal ? ['lateMeal'] : []),
-      ...(entry.awayFromHome ? ['awayFromHome'] : []),
-      ...(entry.highStress ? ['highStress'] : []),
-      ...(entry.illness ? ['illness'] : []),
-    ] : []
-    // Late start is auto-detected from the machine's own data (session
-    // start vs. Target bedtime), independent of tagStartDate/review status
-    // entirely — there's nothing to review for a number the device
-    // already recorded, so it's just always there once a night has data.
-    if (!n.noUsage && n.startHour > targets.bedtime + 2) tags = [...tags, 'lateStart']
+    // The tag array itself (manual tags + auto-detected 'lateStart') is
+    // computeNightTags in nagLogic.js — the weekly-summary push needs the
+    // exact same computation and can't run this component's own useMemo.
+    const tags = computeNightTags(n, tagLog, targets)
     return { ...n, tags, tagStatus: status, alcoholLevel: entry ? entry.alcohol : null, note: entry?.note || null }
-  }), [rawNights, tagLog, tagStartDate, targets.bedtime])
+  }), [rawNights, tagLog, tagStartDate, targets])
   // Every date from tagStartDate through yesterday with no tagLog entry —
   // computed independent of rawNights entirely, since the whole point is
   // catching up on a date even if that night hasn't been imported yet.
