@@ -9,7 +9,7 @@ import { TAG_LABEL, TAG_ICON, TAG_COLOR, AUTO_TAGS } from '../constants/tags'
 import { scoreColor, currentSetPressure } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
 import { EventRing } from '../components/EventRing'
-import { StatRow } from '../components/StatRow'
+import { StatRow, StatDetailRow } from '../components/StatRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
 import { Segmented } from '../components/Segmented'
 import { LeakIcon } from '../components/icons/LeakIcon'
@@ -683,7 +683,13 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           <EventRing night={night} size={140} />
         </div>
         <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(night.usage)}
-          description={`${!night.noUsage ? `Started ${formatClock(night.startHour)}, finished ${formatClock(night.startHour + night.usage)}. ` : ''}Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use.`} />
+          detail={!night.noUsage ? (
+            <>
+              <StatDetailRow label="Start" value={formatClock(night.startHour)} />
+              <StatDetailRow label="Finish" value={formatClock(night.startHour + night.usage)} />
+            </>
+          ) : undefined}
+          description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
         <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${night.leak} L/min`}
