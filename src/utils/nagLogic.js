@@ -67,8 +67,16 @@ function mostRecentValue(nights, field, fallback) {
 // layers its own UI-only fields (tagStatus, alcoholLevel, note) on top.
 // Manual tags come from a tagLog entry's booleans; 'lateStart' is always
 // auto-detected from the machine's own recorded session start vs.
-// targets.bedtime, independent of whether there's a tagLog entry at all.
-export function computeNightTags(night, tagLog, targets) {
+// bedtime, independent of whether there's a tagLog entry at all.
+//
+// Takes bedtime as its own primitive rather than the whole targets
+// object — this is the only field of targets it actually reads, and
+// App.jsx's own useMemo depends on whatever gets passed in here. Passing
+// the whole object would force a full-history tag recompute on every
+// unrelated Settings change (AHI/leak/usage/compliance/mask-off targets
+// all have nothing to do with 'lateStart'), not just the one field that
+// matters.
+export function computeNightTags(night, tagLog, bedtime) {
   const entry = tagLog[night.date]
   let tags = entry ? [
     ...(entry.alcohol ? ['alcohol'] : []),
@@ -77,7 +85,7 @@ export function computeNightTags(night, tagLog, targets) {
     ...(entry.highStress ? ['highStress'] : []),
     ...(entry.illness ? ['illness'] : []),
   ] : []
-  if (!night.noUsage && night.startHour > targets.bedtime + 2) tags = [...tags, 'lateStart']
+  if (!night.noUsage && night.startHour > bedtime + 2) tags = [...tags, 'lateStart']
   return tags
 }
 

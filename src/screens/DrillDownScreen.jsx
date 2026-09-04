@@ -19,7 +19,7 @@ import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { EventsChart } from '../components/charts/EventsChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
-import { getDetail } from '../db/detail.js'
+import { useNightDetail } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
@@ -234,20 +234,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   // for why it may not exist: pruned past the 90-day retention window,
   // or this night predates any DATALOG import even though its summary
   // is still available from STR.edf).
-  const [nightData, setNightData] = useState(null)
-  const [detailStatus, setDetailStatus] = useState('loading') // 'loading' | 'unavailable' | 'ready'
-  useEffect(() => {
-    let cancelled = false
-    setDetailStatus('loading')
-    setNightData(null)
-    getDetail(night.date).then((row) => {
-      if (cancelled) return
-      if (!row) { setDetailStatus('unavailable'); return }
-      setNightData(row)
-      setDetailStatus('ready')
-    })
-    return () => { cancelled = true }
-  }, [night.date])
+  const { status: detailStatus, detail: nightData } = useNightDetail(night.date)
   // Safe empty fallbacks so CHANNEL_REGISTRY etc. below can be built
   // unconditionally (keeps every hook in this component running every
   // render, regardless of load state) — the actual detailStatus gate on

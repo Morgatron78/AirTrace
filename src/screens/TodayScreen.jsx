@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { Clock, Activity, Gauge, LockKeyhole, PowerOff, Moon, ChevronRight, Sparkles, Flame, Pencil } from 'lucide-react'
 import { T, C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -10,44 +9,25 @@ import { StatRow, StatDetailRow } from '../components/StatRow'
 import { MiniDots } from '../components/MiniDots'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
-import { getDetail } from '../db/detail.js'
+import { useNightDetail } from '../db/detail.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
 export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport }) {
   const last = nights[nights.length - 1]
   const prev = nights[nights.length - 2]
-  // Same detail-fetch pattern Night View uses for Time in apnea — "last
+  // Same useNightDetail hook Night View uses (db/detail.js) — "last
   // night" is always inside the 90-day waveform-detail retention window,
   // so detailStatus here should realistically only ever land on 'ready'
   // or 'loading', never the pruned/never-imported 'unavailable' case
   // Night View has to handle for older history — but the same three
-  // states are checked regardless, rather than assuming.
-  const [detailStatus, setDetailStatus] = useState('loading')
-  const [timeInApneaSec, setTimeInApneaSec] = useState(0)
-  // null = not loaded yet / no previous night's detail to compare against
-  // (distinct from 0, a real "previous night had none" value) — only
-  // used for the delta below, never for the row's own displayed value.
-  const [prevTimeInApneaSec, setPrevTimeInApneaSec] = useState(null)
-  const prevDate = prev?.date
-  useEffect(() => {
-    let cancelled = false
-    setDetailStatus('loading')
-    getDetail(last.date).then((row) => {
-      if (cancelled) return
-      if (!row) { setDetailStatus('unavailable'); return }
-      setTimeInApneaSec(row.timeInApneaSec ?? 0)
-      setDetailStatus('ready')
-    })
-    if (prevDate) {
-      getDetail(prevDate).then((row) => {
-        if (cancelled) return
-        setPrevTimeInApneaSec(row ? (row.timeInApneaSec ?? 0) : null)
-      })
-    } else {
-      setPrevTimeInApneaSec(null)
-    }
-    return () => { cancelled = true }
-  }, [last.date, prevDate])
+  // states are checked regardless, rather than assuming. A second call
+  // for the previous night is only ever used for the delta below, never
+  // for the row's own displayed value — its own 'unavailable' (e.g. no
+  // previous night exists yet, on day one) just means no delta shows.
+  const { status: detailStatus, detail: lastDetail } = useNightDetail(last.date)
+  const { detail: prevDetail } = useNightDetail(prev?.date)
+  const timeInApneaSec = lastDetail?.timeInApneaSec ?? 0
+  const prevTimeInApneaSec = prevDetail ? (prevDetail.timeInApneaSec ?? 0) : null
   const apneaPct = (timeInApneaSec / (last.usage * 3600)) * 100
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)

@@ -1,11 +1,7 @@
 name: Send push notification
 
-# Three checks, three schedules — each cron time lands in its own
-# non-overlapping local-hour bucket (device local time, not UTC) so
-# src/sw.js's push handler can tell them apart from nothing but its own
-# clock, with no personal data (or even a "which check" label) in the
-# push payload for real scheduled runs. All times off-the-hour minute,
-# per GitHub's own recommendation (everyone's cron jobs pile up at :00):
+# Three checks, three schedules. All times off-the-hour minute, per
+# GitHub's own recommendation (everyone's cron jobs pile up at :00):
 #
 #   morning (tagging + equipment)  17 6  UTC  ~7:17am BST / 6:17am GMT
 #   weekly summary, Saturdays only 47 11 UTC ~12:47pm BST / 11:47am GMT
@@ -15,11 +11,21 @@ name: Send push notification
 # a bit late (see CLAUDE.md) — a fixed reasonable UTC time is the right
 # amount of engineering for a single-user app.
 #
+# Each cron entry below is mapped to a plain 'morning'/'weekly'/'evening'
+# label by the "Determine push kind" step and sent to src/sw.js in the
+# push payload — still zero personal data, just naming which of these
+# three fixed public schedules fired. This used to be left for sw.js to
+# guess from the device's own local clock instead; that broke on a
+# delayed scheduled run (GitHub documents these happen) or genuine
+# device-timezone travel, silently running the wrong check. If you ever
+# change one of the three cron times below, update the matching case in
+# the "Determine push kind" step to match — they're two views of the
+# same three schedules and must stay in sync.
+#
 # workflow_dispatch is for manual testing — force_kind overrides the
-# local-time inference so any of the three checks can be tested on
-# demand rather than waiting for the real clock to land in its bucket.
-# Leave it as "auto" to test what a real scheduled run would actually
-# decide right now.
+# schedule-derived kind so any of the three checks can be tested on
+# demand rather than waiting for its real cron time. Leave it as "auto"
+# to test what a real scheduled run right now would actually decide.
 #
 # Known, accepted limitation: GitHub silently disables scheduled
 # workflows after 60 days without any repository activity, with no
@@ -32,7 +38,7 @@ on:
   workflow_dispatch:
     inputs:
       force_kind:
-        description: Force which check to run (bypasses local-time inference)
+        description: Force which check to run (overrides the schedule-derived kind)
         type: choice
         options: [auto, morning, evening, weekly]
         default: auto
@@ -47,6 +53,21 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      # Maps which cron entry actually triggered this run to the plain
+      # label src/sw.js's resolveKind() reads. Empty on a workflow_dispatch
+      # run (github.event.schedule is unset there) — send-push.mjs falls
+      # back to FORCE_KIND in that case, or to "auto" if that's not set
+      # either.
+      - id: kind
+        run: |
+          case "$GITHUB_EVENT_SCHEDULE" in
+            '17 6 * * *') echo "value=morning" >> "$GITHUB_OUTPUT" ;;
+            '47 11 * * 6') echo "value=weekly" >> "$GITHUB_OUTPUT" ;;
+            '47 19 * * *') echo "value=evening" >> "$GITHUB_OUTPUT" ;;
+            *) echo "value=" >> "$GITHUB_OUTPUT" ;;
+          esac
+        env:
+          GITHUB_EVENT_SCHEDULE: ${{ github.event.schedule }}
       - run: node scripts/send-push.mjs
         env:
           # Not a secret — the same value committed in
@@ -55,7 +76,9 @@ jobs:
           VAPID_PUBLIC_KEY: BBYcjT8DoAHZeuBrnUBCQVCNdO3qdqKKgA3CNGzYoh3gBoNrC61HuLfz9x634SARZjcp4ZuHnVH3tsKIuOKm9XY
           VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
           PUSH_SUBSCRIPTION: ${{ secrets.PUSH_SUBSCRIPTION }}
-          # Only present (and only ever non-"auto") on a manual
-          # workflow_dispatch test run — never set by the schedule
-          # trigger, so a real cron push never carries this at all.
+          # KIND: derived from the real cron match above — set on every
+          # real scheduled run. FORCE_KIND: only present (and only ever
+          # non-"auto") on a manual workflow_dispatch test run, and takes
+          # priority over KIND when set — see send-push.mjs.
+          KIND: ${{ steps.kind.outputs.value }}
           FORCE_KIND: ${{ github.event.inputs.force_kind }}

@@ -21,6 +21,15 @@ export const EVENT_TYPE_MAP = {
   'Hypopnea': 'hypopnea',
 }
 
+// Which mapped types count as a full apnea for aggregate "time in
+// apnea" style stats (parseNight.js's timeInApneaSec) — not Hypopnea,
+// a partial obstruction rather than a full one, matching OSCAR's own
+// "Total time in apnoea" convention. Lives here, next to EVENT_TYPE_MAP,
+// rather than hardcoded at whichever call site needs it — if a future
+// type gets added above (Unclassified Apnea, Cheyne-Stokes), this is
+// where that decision belongs, not silent staleness in an unrelated file.
+export const APNEA_TYPES = new Set(['obstructive', 'central'])
+
 // tal: { onset, duration, texts } from edfAnnotations.parseTALs.
 // Returns null for the housekeeping TAL every data record starts with
 // (no real annotation text — e.g. the confirmed `+0~0|Recording starts|`

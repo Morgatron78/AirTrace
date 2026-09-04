@@ -31,7 +31,8 @@ const CUSHION_INTERVAL_DAYS = 90
 const HEADGEAR_INTERVAL_DAYS = 14
 const EQUIPMENT_NAG_COOLDOWN_DAYS = 7
 
-// The GitHub Actions cron trigger sends a content-free push — no
+// The GitHub Actions cron trigger sends a push carrying, at most, a
+// label naming which of three fixed public schedules fired — no
 // personal data ever crosses the wire. Every decision about whether to
 // actually show a notification, and what it says, happens here, using
 // this device's own IndexedDB directly (a service worker shares
@@ -42,32 +43,46 @@ const EQUIPMENT_NAG_COOLDOWN_DAYS = 7
 //
 // Three checks share this one push handler, each triggered by its own
 // notify.yml cron entry at a different time of day — see that file's own
-// comment for the exact schedule. Rather than the trigger carrying any
-// personal data (or even a "which check is this" label) for real
-// scheduled runs, each check's cron time lands in its own non-overlapping
-// local-hour bucket, so resolveKind below can tell them apart from
-// nothing but the device's own clock. The one exception is manual
-// workflow_dispatch testing, which can force a specific kind — see
-// resolveKind's own comment.
+// comment for the exact schedule. notify.yml tells this handler which
+// check a real scheduled push is for (via github.event.schedule mapped to
+// a plain 'morning'/'weekly'/'evening' string — still zero personal data,
+// just a label for which of three fixed, public schedules fired) rather
+// than this file reconstructing it from the device's own clock — see
+// resolveKind's own comment for why guessing from wall-clock time turned
+// out not to be safe enough to rely on.
+//
+// Shared by both tagging checks below (morning's softer nudge, evening's
+// "last call") — fetches what's untagged and shows one notification if
+// anything's outstanding, silent otherwise. copy(count) returns this
+// check's own { title, body } wording for however many nights are
+// untagged; only the wording and the notification's own `tag` (so an
+// evening nag doesn't silently replace an unread morning one) differ
+// between the two callers.
+async function checkTagging(copy, notifTag) {
+  const [tagsMap, tagStartDate] = await Promise.all([getAllTags(), getMeta('tagStartDate')])
+  const untagged = getUntaggedDates(tagsMap, tagStartDate)
+  if (untagged.length === 0) return
+  const { title, body } = copy(untagged.length)
+  await self.registration.showNotification(title, {
+    body, tag: notifTag, icon: iconUrl,
+    data: { url: `${SCOPE}?tag=yesterday` },
+  })
+}
+
 async function handleMorningCheck() {
-  const [tagsMap, tagStartDate, equipment, summaries, lastEquipmentNag] = await Promise.all([
-    getAllTags(), getMeta('tagStartDate'), getMeta('equipment'), getAllSummaries(), getMeta('lastEquipmentNagDate'),
+  const [equipment, summaries, lastEquipmentNag] = await Promise.all([
+    getMeta('equipment'), getAllSummaries(), getMeta('lastEquipmentNagDate'),
   ])
 
   // --- Tagging nag: every day it's true, no cooldown — a day you
   // haven't tagged yesterday is worth a nudge every single time, not
   // just once. ---
-  const untagged = getUntaggedDates(tagsMap, tagStartDate)
-  if (untagged.length > 0) {
-    const title = untagged.length === 1 ? "You haven't tagged last night yet" : `${untagged.length} nights need tagging`
-    const body = untagged.length === 1
+  await checkTagging((n) => ({
+    title: n === 1 ? "You haven't tagged last night yet" : `${n} nights need tagging`,
+    body: n === 1
       ? 'Takes a few seconds — what happened before bed?'
-      : "A few have piled up — worth catching up when you've got a moment."
-    await self.registration.showNotification(title, {
-      body, tag: 'tag-nag', icon: iconUrl,
-      data: { url: `${SCOPE}?tag=yesterday` },
-    })
-  }
+      : "A few have piled up — worth catching up when you've got a moment.",
+  }), 'tag-nag')
 
   // --- Equipment nag: same thresholds already shown in-app (Equipment
   // screen's MaintenanceRow, Today's own getPrimaryInsight banner) —
@@ -118,17 +133,12 @@ async function handleMorningCheck() {
 // notification `tag` (not 'tag-nag') so it doesn't silently replace an
 // unread morning notification still sitting in Notification Center.
 async function handleEveningCheck() {
-  const [tagsMap, tagStartDate] = await Promise.all([getAllTags(), getMeta('tagStartDate')])
-  const untagged = getUntaggedDates(tagsMap, tagStartDate)
-  if (untagged.length === 0) return
-  const title = untagged.length === 1 ? 'Last call to tag last night' : `Last call — ${untagged.length} nights still need tagging`
-  const body = untagged.length === 1
-    ? 'A couple of minutes before bed — what happened?'
-    : "Still a backlog — worth catching up before it grows."
-  await self.registration.showNotification(title, {
-    body, tag: 'tag-nag-evening', icon: iconUrl,
-    data: { url: `${SCOPE}?tag=yesterday` },
-  })
+  await checkTagging((n) => ({
+    title: n === 1 ? 'Last call to tag last night' : `Last call — ${n} nights still need tagging`,
+    body: n === 1
+      ? 'A couple of minutes before bed — what happened?'
+      : "Still a backlog — worth catching up before it grows.",
+  }), 'tag-nag-evening')
 }
 
 // Saturday-midday weekly digest. Unlike the two nags above, this is
@@ -144,17 +154,22 @@ async function handleEveningCheck() {
 // push has no equivalent fallback, so it degrades to a "not enough
 // nights yet" clause rather than suppressing the whole notification.
 async function handleWeeklySummary() {
-  const [summaries, tagsMap, targets] = await Promise.all([
-    getAllSummaries(), getAllTags(), getMeta('targets'),
+  const [summaries, tagsMap, targets, tagStartDate] = await Promise.all([
+    getAllSummaries(), getAllTags(), getMeta('targets'), getMeta('tagStartDate'),
   ])
   const t = targets || DEFAULT_TARGETS
-  const merged = summaries.map((n) => ({ ...n, tags: computeNightTags(n, tagsMap, t) }))
 
   const yesterday = new Date(); yesterday.setHours(0, 0, 0, 0); yesterday.setDate(yesterday.getDate() - 1)
   const weekStart = new Date(yesterday); weekStart.setDate(weekStart.getDate() - 6)
   const priorWeekEnd = new Date(weekStart); priorWeekEnd.setDate(priorWeekEnd.getDate() - 1)
   const priorWeekStart = new Date(priorWeekEnd); priorWeekStart.setDate(priorWeekStart.getDate() - 6)
   const inRange = (n, start, end) => n.date >= toDateStr(start) && n.date <= toDateStr(end)
+  // Filtered to the ~14 nights actually needed before computeNightTags
+  // ever runs — summaries covers the device's entire lifetime history
+  // (500+ nights for 18 months of data), and tagging them all just to
+  // throw away everything outside these two weeks was pure waste.
+  const relevant = summaries.filter((n) => inRange(n, priorWeekStart, yesterday))
+  const merged = relevant.map((n) => ({ ...n, tags: computeNightTags(n, tagsMap, t.bedtime) }))
   const thisWeek = merged.filter((n) => inRange(n, weekStart, yesterday))
   const priorWeek = merged.filter((n) => inRange(n, priorWeekStart, priorWeekEnd))
 
@@ -171,8 +186,16 @@ async function handleWeeklySummary() {
   const tagClause = tagShift
     ? ` ${TAG_LABEL[tagShift.tk]}${AUTO_TAGS.has(tagShift.tk) ? ' (auto-detected)' : ''} came up ${tagShift.ptDiff > 0 ? 'more' : 'less'} often — may be part of it.`
     : ''
-  const taggedCount = thisWeek.filter((n) => tagsMap[n.date]).length
-  const tagCompletionClause = ` Tagged ${taggedCount} of ${thisWeek.length} nights.`
+  // Same exemption App.jsx and getUntaggedDates already apply — a night
+  // before tagStartDate was never eligible for tagging (first import can
+  // bring in a year+ of history at once), so it must not count against
+  // this week's completion any more than it counts toward the daily nag.
+  // Omitted entirely, not "0 of 0", if the whole week happens to predate
+  // tagStartDate (or nothing's been imported yet at all).
+  const taggedEligible = thisWeek.filter((n) => tagStartDate && n.date >= tagStartDate)
+  const tagCompletionClause = taggedEligible.length > 0
+    ? ` Tagged ${taggedEligible.filter((n) => tagsMap[n.date]).length} of ${taggedEligible.length} nights.`
+    : ''
 
   await self.registration.showNotification('Your week in review', {
     body: trendClause + tagClause + tagCompletionClause,
@@ -181,25 +204,37 @@ async function handleWeeklySummary() {
   })
 }
 
-// Figures out which of the three checks this push is for. Real scheduled
-// pushes carry no data at all (event.data is null) — the cron time
-// itself is the only signal, read here via the device's own local hour,
-// landing cleanly in one of three non-overlapping buckets (see notify.yml
-// for the actual cron times and why they don't overlap). The only
-// exception: scripts/send-push.mjs can optionally set a tiny non-personal
-// `forceKind` in the payload, purely so a workflow_dispatch test run can
-// force a specific branch on demand rather than waiting for the real
-// clock to land in its bucket — real scheduled runs never set this.
+// Figures out which of the three checks this push is for. notify.yml
+// maps github.event.schedule (which of the three cron entries actually
+// fired) to a plain 'morning'/'weekly'/'evening' string and sends that
+// in the payload — still zero personal data, just a label naming one of
+// three fixed public schedules, the same category of thing FORCE_KIND
+// already proved safe to send for manual testing.
+//
+// This used to be inferred from the device's own local clock hour
+// instead, with no day-of-week check and no tie to which cron actually
+// fired — looked safe (three cron times, three non-overlapping local-hour
+// buckets) but wasn't: GitHub Actions documents that scheduled runs can
+// be delayed, sometimes by hours, and a delayed morning push landing
+// after 10am local silently ran the Saturday-summary branch instead of
+// the real tagging/equipment check, on any day of the week. Travel adds
+// the same failure a different way — the cron times were tuned for UK
+// local time, so a genuine timezone difference (this app's own "Away
+// from home" tag scenario) shifts which bucket a push lands in. Kept as
+// a fallback below, not the primary signal, for the one real gap this
+// can't close: an old, cached service worker that predates this fix
+// receiving a `kind`-carrying payload it doesn't know to read.
 function resolveKind(event) {
-  let forced = null
+  let kind = null
   try {
-    if (event.data) forced = event.data.json()?.forceKind || null
+    if (event.data) kind = event.data.json()?.kind || null
   } catch {
-    // No payload on a real push — event.data is null and this never even
-    // runs. A malformed payload would land here too; either way, falling
-    // through to the real local-time inference is the safe default.
+    // No payload on a push from a build that predates this — event.data
+    // is null and this never even runs. A malformed payload would land
+    // here too; either way, falling through to the clock-based guess
+    // below is the safest available default, not a guaranteed-correct one.
   }
-  if (forced && forced !== 'auto') return forced
+  if (kind && kind !== 'auto') return kind
   const hour = new Date().getHours()
   if (hour < 10) return 'morning'
   if (hour < 16) return 'weekly'

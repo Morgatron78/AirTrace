@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { getDB } from './schema.js'
 import { toDateStr } from '../utils/dates.js'
 
@@ -21,6 +22,32 @@ export const DETAIL_SCHEMA_VERSION = 4 // 2: added therapyPressure. 3: added ins
 export async function getDetail(date) {
   const db = await getDB()
   return db.get('nightDetail', date)
+}
+
+// Shared fetch/cancel/status pattern, used by both DrillDownScreen
+// (whichever night is being browsed) and TodayScreen (last night, and
+// separately the previous night for its own delta) — one implementation
+// of "load this date's detail row, tracking loading/unavailable/ready,
+// ignoring a stale result if the date changes mid-fetch" instead of a
+// hand-copied version per call site. `date` may be null/undefined (e.g.
+// TodayScreen has no previous night on day one of tagged history) —
+// resolves straight to 'unavailable' without calling getDetail at all.
+export function useNightDetail(date) {
+  const [status, setStatus] = useState('loading') // 'loading' | 'unavailable' | 'ready'
+  const [detail, setDetail] = useState(null)
+  useEffect(() => {
+    if (!date) { setStatus('unavailable'); setDetail(null); return }
+    let cancelled = false
+    setStatus('loading')
+    getDetail(date).then((row) => {
+      if (cancelled) return
+      if (!row) { setStatus('unavailable'); setDetail(null); return }
+      setDetail(row)
+      setStatus('ready')
+    })
+    return () => { cancelled = true }
+  }, [date])
+  return { status, detail }
 }
 
 export async function getExistingDetailDates() {

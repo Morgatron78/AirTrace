@@ -111,9 +111,12 @@ export default function App() {
     // The tag array itself (manual tags + auto-detected 'lateStart') is
     // computeNightTags in nagLogic.js — the weekly-summary push needs the
     // exact same computation and can't run this component's own useMemo.
-    const tags = computeNightTags(n, tagLog, targets)
+    // Takes targets.bedtime specifically (not the whole targets object) so
+    // this memo doesn't recompute the entire history's tags whenever an
+    // unrelated target changes in Settings.
+    const tags = computeNightTags(n, tagLog, targets.bedtime)
     return { ...n, tags, tagStatus: status, alcoholLevel: entry ? entry.alcohol : null, note: entry?.note || null }
-  }), [rawNights, tagLog, tagStartDate, targets])
+  }), [rawNights, tagLog, tagStartDate, targets.bedtime])
   // Every date from tagStartDate through yesterday with no tagLog entry —
   // computed independent of rawNights entirely, since the whole point is
   // catching up on a date even if that night hasn't been imported yet.
