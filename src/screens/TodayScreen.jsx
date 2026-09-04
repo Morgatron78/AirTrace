@@ -24,6 +24,11 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   // states are checked regardless, rather than assuming.
   const [detailStatus, setDetailStatus] = useState('loading')
   const [timeInApneaSec, setTimeInApneaSec] = useState(0)
+  // null = not loaded yet / no previous night's detail to compare against
+  // (distinct from 0, a real "previous night had none" value) — only
+  // used for the delta below, never for the row's own displayed value.
+  const [prevTimeInApneaSec, setPrevTimeInApneaSec] = useState(null)
+  const prevDate = prev?.date
   useEffect(() => {
     let cancelled = false
     setDetailStatus('loading')
@@ -33,14 +38,36 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
       setTimeInApneaSec(row.timeInApneaSec ?? 0)
       setDetailStatus('ready')
     })
+    if (prevDate) {
+      getDetail(prevDate).then((row) => {
+        if (cancelled) return
+        setPrevTimeInApneaSec(row ? (row.timeInApneaSec ?? 0) : null)
+      })
+    } else {
+      setPrevTimeInApneaSec(null)
+    }
     return () => { cancelled = true }
-  }, [last.date])
+  }, [last.date, prevDate])
   const apneaPct = (timeInApneaSec / (last.usage * 3600)) * 100
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)
   const insight = getPrimaryInsight(nights, targets, equipment)
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
-  const pctDelta = (curr, prevVal) => (prevVal ? Math.round(((curr - prevVal) / prevVal) * 100) : undefined)
+  // prevVal == null means "no previous night to compare" (already
+  // guarded separately at each call site below) or "no previous data at
+  // all" — genuinely nothing to show either way. prevVal === 0 is
+  // different: a real reading of zero. curr === prevVal (both zero, or
+  // any other exact match) is an honest 0% — no change — rather than
+  // the "nothing to show" case. Only an actual zero-to-nonzero move has
+  // no sensible percentage (division by zero) and stays unshown, same
+  // as the app's existing "don't assert a number that doesn't mean
+  // anything" rule elsewhere (Trends' own insufficient-data fallback).
+  const pctDelta = (curr, prevVal) => {
+    if (prevVal == null) return undefined
+    if (curr === prevVal) return 0
+    if (prevVal === 0) return undefined
+    return Math.round(((curr - prevVal) / prevVal) * 100)
+  }
   const goToInsight = () => (
     insight.target === 'night' ? onSelectNight(nights.length - 1) :
     insight.target === 'import' ? onOpenImport() :
@@ -84,7 +111,8 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
               the same reason as there: "0s" would otherwise be
               indistinguishable from "not loaded yet". */}
           <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
-            value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
+            value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'}
+            delta={detailStatus === 'ready' ? pctDelta(timeInApneaSec, prevTimeInApneaSec) : undefined} last
             description={detailStatus === 'ready'
               ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside AHI's per-hour count. Hypopnea isn't included, matching OSCAR's own 'Total time in apnoea' convention."
               : "Per-event detail isn't stored for this night yet — the AHI above comes from your device's own permanent nightly summary, so it's still accurate regardless."} />
