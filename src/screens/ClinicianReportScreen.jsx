@@ -1,5 +1,4 @@
-import { useState } from 'react'
-import { ChevronLeft } from 'lucide-react'
+import { ChevronLeft, ExternalLink } from 'lucide-react'
 import { C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
@@ -92,16 +91,20 @@ export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
   // in this context, not something a try/catch or feature-check can
   // detect, since the call itself doesn't error). navigator.standalone is
   // the classic iOS-specific flag; the media query is the general modern
-  // one — checking both covers older and newer engines alike. Full PDF
-  // export (a real client-side PDF library, bypassing window.print
-  // entirely) would work around this properly, but is real added
-  // complexity/bundle weight for what's explicitly an acceptable-to-skip
-  // feature — this is the cheap fix: explain the dead end and the actual
-  // workaround (this same report, opened in a regular Safari tab, isn't
-  // restricted the same way) instead of a button that just does nothing.
+  // one — checking both covers older and newer engines alike.
+  //
+  // Originally handled by explaining the dead end and telling the user
+  // to manually reopen Safari, re-navigate here, and try again — real,
+  // but clunky enough in practice to replace outright: an "Open in
+  // Browser" link (real <a target="_blank">, not window.open — the
+  // reliable way to break out of the standalone shell into Safari on
+  // iOS) does that whole manual dance in one tap. ?nag=clinicianReport
+  // is the same deep-link vocabulary push notifications already use
+  // (App.jsx's mount-time query-param handler), extended by one value
+  // so the fresh Safari tab lands directly back on this exact report,
+  // not just the app's home screen.
   const isStandalone = typeof window !== 'undefined' && (window.matchMedia?.('(display-mode: standalone)').matches || window.navigator?.standalone)
-  const [showPrintHelp, setShowPrintHelp] = useState(false)
-  const handlePrint = () => { if (isStandalone) setShowPrintHelp(true); else window.print() }
+  const browserUrl = `${window.location.origin}${window.location.pathname}?nag=clinicianReport`
   const pctl = (arr, p) => {
     if (!arr.length) return 0
     const sorted = [...arr].sort((a, b) => a - b)
@@ -178,25 +181,17 @@ export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
         <button onClick={onBack} style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 13, fontWeight: 600, color: '#0A0A0C' }}>
           <ChevronLeft size={16} /> Back
         </button>
-        <button onClick={handlePrint} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
-          Print / Save PDF
-        </button>
+        {isStandalone ? (
+          <a href={browserUrl} target="_blank" rel="noopener noreferrer" className="font-display"
+            style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700, textDecoration: 'none' }}>
+            <ExternalLink size={14} /> Open in Browser
+          </a>
+        ) : (
+          <button onClick={() => window.print()} style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '9px 16px', borderRadius: 999, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
+            Print / Save PDF
+          </button>
+        )}
       </div>
-
-      {showPrintHelp && (
-        <div className="no-print" onClick={() => setShowPrintHelp(false)} style={{ position: 'fixed', inset: 0, background: 'rgba(10,10,12,0.5)', zIndex: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 20 }}>
-          <div onClick={(e) => e.stopPropagation()} style={{ background: '#FFFFFF', borderRadius: 16, padding: 20, maxWidth: 360 }}>
-            <div className="font-display" style={{ fontSize: 15, fontWeight: 800, color: '#0A0A0C', marginBottom: 8 }}>Printing isn't available here</div>
-            <p style={{ fontSize: 13, color: '#57575F', lineHeight: 1.5, margin: 0 }}>
-              Apps installed to the Home Screen can't open the print/PDF sheet — that's an iOS limitation, not something this app controls. To print or save this report as a PDF, open AirTrace in Safari itself (not the Home Screen icon) and come back to this report from there.
-            </p>
-            <button onClick={() => setShowPrintHelp(false)} className="font-display"
-              style={{ marginTop: 16, width: '100%', padding: '10px 0', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700 }}>
-              Got it
-            </button>
-          </div>
-        </div>
-      )}
 
       <div style={{ maxWidth: 600, margin: '0 auto', padding: '24px 20px 60px' }}>
         <h1 className="font-display" style={{ fontSize: 24, fontWeight: 800, color: '#0A0A0C', marginBottom: 4 }}>CPAP Therapy Summary</h1>

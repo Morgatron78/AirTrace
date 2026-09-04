@@ -155,7 +155,13 @@ export default function App() {
       const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1)
       setTagEntryDate(toDateStr(yesterday))
     }
-    if (nagParam) setTab(nagParam)
+    // clinicianReport isn't a tab key — it's the Open in Browser link on
+    // ClinicianReportScreen's own print button, breaking a standalone
+    // PWA out into a real Safari tab (window.print() is a no-op in
+    // standalone mode) and landing straight back on the report itself,
+    // not just the app's home screen.
+    if (nagParam === 'clinicianReport') setShowReport(true)
+    else if (nagParam) setTab(nagParam)
     if (healthTestParam) window.alert(`AirTrace received ?healthtest=\n\n${decodeURIComponent(healthTestParam)}`)
     const url = new URL(window.location.href)
     url.search = ''
