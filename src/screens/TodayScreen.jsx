@@ -68,7 +68,8 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
                 <StatDetailRow label="Start" value={formatClock(last.startHour)} />
                 <StatDetailRow label="Finish" value={formatClock(last.startHour + last.usage)} />
               </>
-            ) : undefined} />
+            ) : undefined}
+            description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
           <StatRow icon={Activity} iconColor={C.pink} label="Events/hr" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
             description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal." />
