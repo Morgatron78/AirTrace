@@ -6,11 +6,15 @@
 
 const ZERO_DURATION_DEFAULT_SEC = 10
 
-// Confirmed from real bytes: "Obstructive Apnea" and "Central Apnea".
-// "Hypopnea" is presumed (ResMed's documented event vocabulary) but not
-// yet seen in a real sample night — callers should treat an unmapped
+// All three confirmed from real bytes: "Obstructive Apnea", "Central
+// Apnea", and "Hypopnea" (the last one initially only presumed from
+// ResMed's documented event vocabulary — since confirmed against a real
+// night with 4 real Hypopnea annotations, each landing on the flat 10s
+// zero-duration default below). Callers should still treat an unmapped
 // `type` (undefined) as a loud signal to go verify against real data,
-// not silently drop the event.
+// not silently drop the event — Unclassified Apnea (see CLAUDE.md's
+// STR.edf UAI note) and Cheyne-Stokes Respiration text are both
+// plausible candidates for a still-unconfirmed fourth/fifth mapping.
 export const EVENT_TYPE_MAP = {
   'Obstructive Apnea': 'obstructive',
   'Central Apnea': 'central',

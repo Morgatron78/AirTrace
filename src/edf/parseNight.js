@@ -78,7 +78,18 @@ export function parseNight(files) {
   const events = [...eveResult.events, ...cslResult.events]
     .map((e) => ({ ...e, x: Math.max(0, Math.min(1, e.startSec / totalNightSec)) }))
     .sort((a, b) => a.startSec - b.startSec)
-  const timeInApneaSec = events.reduce((s, e) => s + e.durationSec, 0)
+  // Central + Obstructive only, not Hypopnea — matches OSCAR's own
+  // "Total time in apnoea" stat exactly (confirmed against a real
+  // night's byte-decoded EVE.edf: 11 Central Apnea events summing to
+  // 140s = OSCAR's 00:02:20, plus 4 Hypopnea events summing to a
+  // separate 40s that OSCAR doesn't count here — a hypopnea is a
+  // partial obstruction, not a full apnea). If EVENT_TYPE_MAP
+  // (resmedQuirks.js) ever grows a fourth mapped type (Unclassified
+  // Apnea — see CLAUDE.md's STR.edf UAI note — or Cheyne-Stokes from
+  // CSL.edf), decide then whether it belongs in this sum too.
+  const timeInApneaSec = events
+    .filter((e) => e.type === 'central' || e.type === 'obstructive')
+    .reduce((s, e) => s + e.durationSec, 0)
 
   // Derived, not a recorded signal — see deriveBreathTimes.js. Output on
   // the same per-night sample grid as every PLD-derived channel (leak's
