@@ -3,7 +3,12 @@
 import { T } from '../../constants/theme'
 import { STAGE_LABEL, STAGE_COLOR } from '../../constants/sleepStages'
 import { getNightWindowMs } from '../../health/nightWindow'
+import { computeAhiByStage } from '../../health/stageAhi'
 import { hourTicks } from './chartHelpers'
+
+// Fixed display order, matching the legend below — not insertion order,
+// which would otherwise depend on which stage happened to occur first.
+const STAGE_ORDER = ['awake', 'core', 'deep', 'rem']
 
 // Standalone card, deliberately not added to DrillDownScreen's own
 // CHANNEL_REGISTRY — same precedent EventsChart.jsx already set for a
@@ -12,7 +17,11 @@ import { hourTicks } from './chartHelpers'
 // no fullscreen `big` mode in this first pass, unlike EventsChart — the
 // whole night always renders at once, kept deliberately simple for a
 // proof of concept.
-export function HypnogramChart({ night, stages }) {
+//
+// `events` is optional and purely additive — passing it renders each
+// stage's own AHI underneath the band; omitting it (or a night with no
+// scored events) just shows the band and legend as before.
+export function HypnogramChart({ night, stages, events }) {
   if (!stages?.length) return null
 
   const { startMs, endMs } = getNightWindowMs(night)
@@ -23,6 +32,11 @@ export function HypnogramChart({ night, stages }) {
 
   const ticks = hourTicks(night.startHour, night.usage, 5)
   const stagesPresent = [...new Set(segments.map((s) => s.stage))]
+
+  const ahiByStage = computeAhiByStage(events, { stages }, night)
+  const ahiRows = ahiByStage
+    ? STAGE_ORDER.filter((s) => ahiByStage.some((r) => r.stage === s)).map((s) => ahiByStage.find((r) => r.stage === s))
+    : null
 
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
@@ -48,6 +62,23 @@ export function HypnogramChart({ night, stages }) {
           </span>
         ))}
       </div>
+
+      {ahiRows && ahiRows.length > 0 && (
+        <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
+          <span className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: T.ink }}>AHI by stage</span>
+          <div style={{ marginTop: 6 }}>
+            {ahiRows.map((r) => (
+              <div key={r.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 30 }}>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.ink }}>
+                  <span style={{ width: 8, height: 8, borderRadius: 4, background: STAGE_COLOR[r.stage] }} />{STAGE_LABEL[r.stage]}
+                  <span style={{ fontSize: 10.5, color: T.muted }}>({r.minutes < 60 ? `${Math.round(r.minutes)}m` : `${Math.floor(r.minutes / 60)}h ${Math.round(r.minutes % 60)}m`})</span>
+                </span>
+                <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{r.ahi.toFixed(1)}/hr</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

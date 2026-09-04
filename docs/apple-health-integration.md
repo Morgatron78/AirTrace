@@ -5,13 +5,19 @@ and SpO₂ from an Apple Watch — imported from a JSON file produced by the
 [Health Data Export](https://apps.apple.com/gb/app/health-data-export/id6758620223)
 iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
 
-- A "Sleep stages" hypnogram card, next to the Events chart.
+- A "Sleep stages" hypnogram card, next to the Events chart, including a
+  per-stage AHI breakdown (events/hour of time actually spent in each of
+  Awake/Core/Deep/REM, not just a proportional split of the night's own
+  AHI) — the direct answer to "is this worse in one stage than another,"
+  computed once per night rather than assumed from population averages.
 - Additive rows (sleep stage / heart rate / SpO₂) in the existing
   tap-an-event popover, showing what was happening at that exact moment.
 
 No server, no new backend — the export file is picked by hand from
-Settings → Health data → Import Health Data, same file-picker pattern as
-backup restore.
+Import → Health data → Import Health Data, right alongside the CPAP SD
+card import (moved there from Settings — a more natural home, since it's
+another data-import action rather than a preference). Same file-picker
+pattern as Settings' own backup restore.
 
 ## Deliberately out of scope for this pass
 
@@ -37,6 +43,10 @@ backup restore.
 - Popover values are the single nearest raw sample within a threshold
   (15min for heart rate, 60min for SpO₂, which is genuinely sparse) — no
   interpolation or averaging.
+- AHI-by-stage rates get noisy on a stage with very little time that
+  night — one event in 9 minutes of Awake reads as a dramatic-looking
+  "6.7/hr" that's really just one event. No minimum-minutes floor is
+  applied; read a stage's rate alongside its own minutes, not alone.
 - Sleep stage is decoded from HealthKit's numeric value only
   (`2=awake, 3=core, 4=deep, 5=rem`) — the export app's own `label`
   string is unreliable (confirmed against real exports: values 4 and 5
@@ -58,6 +68,7 @@ grep -rn "APPLE-HEALTH" src/
 - `src/health/nightWindow.js`
 - `src/health/matchNights.js`
 - `src/health/lookupAtTime.js`
+- `src/health/stageAhi.js`
 - `src/constants/sleepStages.js`
 - `src/db/health.js`
 - `src/components/charts/HypnogramChart.jsx`
@@ -65,9 +76,9 @@ grep -rn "APPLE-HEALTH" src/
 
 **2. Revert each marked block:**
 - `src/db/schema.js` — remove the whole `if (oldVersion < 2) { ... }` block (leave the `if (oldVersion < 1) { ... }` block for the original four stores untouched — it's now load-bearing, not just historical: a real bug surfaced during this feature's own build was `upgrade()` unconditionally recreating the original four stores on every version bump, which throws `ConstraintError` on any browser that already has them. The version-gating fixes that permanently, not just for this feature). **Do not decrement `DB_VERSION`** — any browser that has already opened the DB at version 2 throws a `VersionError` if the app later requests version 1. The version number stays at 2 forever, whether or not this feature exists.
-- `src/App.jsx` — remove the `nights={nights}` prop passed to `<SettingsScreen>`.
-- `src/screens/SettingsScreen.jsx` — remove the `nights` prop from the component signature, the `parseHealthExport`/`matchHealthDataToNights`/`setHealthEntry` imports, the `HeartPulse` icon import, the health-import state/handler block, and the whole "Health data" card.
-- `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, the `<HypnogramChart>` render block, and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
+- `src/App.jsx` — remove the `nights={nights}` prop passed to `<ImportScreen>`.
+- `src/screens/ImportScreen.jsx` — remove the `nights` prop from the component signature, the `parseHealthExport`/`matchHealthDataToNights`/`countEligibleNights`/`setHealthEntry` imports, the `HeartPulse` icon import, the health-import state/handler block, and the whole "Health data" card.
+- `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, the `<HypnogramChart>` render block (including the `events={events}` prop, which this file already has for its own purposes — only the prop itself is APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
 - `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
 
 **3. Optional, purely cosmetic:** the orphaned `healthData` IndexedDB

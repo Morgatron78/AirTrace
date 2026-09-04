@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar } from 'lucide-react'
+import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
@@ -8,6 +8,11 @@ import { upsertSummaries } from '../db/nights.js'
 import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { toDateStr } from '../utils/dates.js'
+// APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
+// strip-out list; this whole card + handler below is one of the entries.
+import { parseHealthExport } from '../health/parseHealthExport.js'
+import { matchHealthDataToNights, countEligibleNights } from '../health/matchNights.js'
+import { setHealthEntry } from '../db/health.js'
 
 // Ordered import stages — index also drives the checklist's done/current/pending
 // states, so the two can never drift out of sync with each other.
@@ -35,7 +40,7 @@ function ImportStageRow({ label, status }) {
   )
 }
 
-export function ImportScreen({ onBack }) {
+export function ImportScreen({ onBack, nights }) {
   // idle -> reading -> summaries -> waveform -> pruning -> done -> (back to idle)
   const [stage, setStage] = useState('idle')
   const [waveformDone, setWaveformDone] = useState(0)
@@ -56,6 +61,38 @@ export function ImportScreen({ onBack }) {
   // visible and re-clickable throughout (not swapped out) so a cancelled
   // picker never leaves the screen stuck with no way forward.
   const [picking, setPicking] = useState(false)
+
+  // APPLE-HEALTH (POC) — 'importing' -> 'done' (shows the match summary)
+  // | 'error'. No confirm-before-write step, unlike the CPAP import above:
+  // this only ever writes to the isolated healthData store via idempotent
+  // put, so nothing existing is at risk of being overwritten.
+  const [healthImportState, setHealthImportState] = useState(null)
+  const [healthImportSummary, setHealthImportSummary] = useState('')
+  const [healthImportError, setHealthImportError] = useState('')
+  const healthFileInputRef = useRef(null)
+
+  const handleHealthFileSelected = async (e) => {
+    // Same iOS Safari ordering as onFilesSelected below — capture the
+    // File before touching .value.
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setHealthImportState('importing')
+    try {
+      const parsed = parseHealthExport(JSON.parse(await file.text()))
+      const matched = matchHealthDataToNights(parsed, nights || [])
+      const dates = Object.keys(matched)
+      await Promise.all(dates.map((date) => setHealthEntry(date, { ...matched[date], importedAt: new Date().toISOString() })))
+      // Against the export's own actual date coverage, not the user's
+      // whole therapy history — see countEligibleNights's own comment.
+      const eligible = countEligibleNights(parsed, nights || [])
+      setHealthImportSummary(`Matched ${dates.length} of ${eligible} nights in this export's date range.`)
+      setHealthImportState('done')
+    } catch (err) {
+      setHealthImportError(err.message)
+      setHealthImportState('error')
+    }
+  }
 
   // Real prior-import state, loaded once from IndexedDB rather than the
   // hardcoded mock seed this screen used to ship with.
@@ -332,6 +369,30 @@ export function ImportScreen({ onBack }) {
             description="AHI, leak, usage, mask seal, tags and score — one lightweight record per night, from STR.edf. Small enough to keep your whole history without a second thought." />
           <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform detail" value="Last 90 days" last
             description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Anything older than 90 days is pruned automatically on each import; the summary for that night stays put, just without the full waveform to drill into." />
+        </div>
+
+        {/* APPLE-HEALTH (POC) — whole card is one self-contained block,
+            listed in docs/apple-health-integration.md's strip-out steps. */}
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Proof of concept — sleep stage, heart rate and SpO2 on Night View"
+            info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
+            Health data
+          </CardTitle>
+          <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
+            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Health Data'}
+          </button>
+          <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
+
+          {healthImportState === 'done' && (
+            <div style={{ marginTop: 12, fontSize: 12.5, color: SEV.good, textAlign: 'center', fontWeight: 600 }}>{healthImportSummary}</div>
+          )}
+          {healthImportState === 'error' && (
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              <TriangleAlert size={16} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 12.5, color: SEV.bad, lineHeight: 1.5 }}>{healthImportError}</span>
+            </div>
+          )}
         </div>
 
         {!isActive && lastImport && (

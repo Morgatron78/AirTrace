@@ -192,11 +192,11 @@ export default function App() {
     return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} />
   }
   if (showImport) {
-    return <ImportScreen key={resolvedTheme} onBack={closeImport} />
+    return <ImportScreen key={resolvedTheme} onBack={closeImport} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */ />
   }
   if (showSettings) {
     return <SettingsScreen key={resolvedTheme} onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile}
-      themeMode={themeMode} onChangeThemeMode={updateThemeMode} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */ />
+      themeMode={themeMode} onChangeThemeMode={updateThemeMode} />
   }
   if (status === 'empty') {
     return (

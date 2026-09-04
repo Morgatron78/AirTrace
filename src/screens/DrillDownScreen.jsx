@@ -791,7 +791,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           no data, no card, same pattern as Time in apnea's detailStatus
           gate elsewhere in this app. See docs/apple-health-integration.md. */}
       {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
-        <HypnogramChart night={night} stages={healthEntry.stages} />
+        <HypnogramChart night={night} stages={healthEntry.stages} events={events} />
       )}
 
       <div ref={individualChannelsRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
