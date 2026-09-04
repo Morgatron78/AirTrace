@@ -70,8 +70,8 @@ export function StatsScreen({ nights, targets }) {
           description="The share of nights your leak stayed under your target. A falling percentage over time often traces back to cushion or headgear wear — check Equipment if this looks low." />
         <StatRow icon={PowerOff} iconColor={T.muted} label={`Mask-off under ${targets.maskOff}`} value={`${maskOffUnder}%`} warn={maskOffUnder < targets.compliance}
           description="The share of nights you stayed at or under your mask-off target. Frequent mask-off events usually trace back to comfort — fit, pressure, or something disrupting sleep enough to prompt removal." />
-        <StatRow icon={Calendar} iconColor={T.muted} label="Weekday AHI avg" value={avgUsed(weekday, 'ahi').toFixed(1)} />
-        <StatRow icon={Calendar} iconColor={T.muted} label="Weekend AHI avg" value={avgUsed(weekend, 'ahi').toFixed(1)} />
+        <StatRow icon={Calendar} iconColor={T.muted} label="Avg weekday AHI" value={avgUsed(weekday, 'ahi').toFixed(1)} />
+        <StatRow icon={Calendar} iconColor={T.muted} label="Avg weekend AHI" value={avgUsed(weekend, 'ahi').toFixed(1)} />
         <StatRow icon={Flame} iconColor={C.orange} label="Current streak" value={streak > 0 ? `${streak} night${streak === 1 ? '' : 's'}` : 'None active'}
           description={`Consecutive nights at or above your ${targets.usage}h usage target — the one thing on this list that's entirely within your control, night to night.`} />
         <StatRow icon={Calendar} iconColor={SEV.bad} label="Nights not used" value={noUsageCount} warn={noUsageCount > 0} last

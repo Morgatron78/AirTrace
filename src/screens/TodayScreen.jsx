@@ -70,14 +70,14 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
               </>
             ) : undefined}
             description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
-          <StatRow icon={Activity} iconColor={C.pink} label="Events/hr" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
+          <StatRow icon={Activity} iconColor={C.pink} label="AHI" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
             description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal." />
           <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
             description={`Your machine is set to a fixed pressure of ${setPressure} cmH₂O rather than auto-adjusting. This confirms it held steady overnight.`} />
           <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={last.seal} warn={isConcern('seal', last, targets)}
             description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
-          <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} />
+          <StatRow icon={PowerOff} iconColor={T.muted} label="Mask-off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} />
           {/* Same stat Night View shows, added here since "last night" is
               always inside the 90-day retention window — no reason to
               wait until you drill in to see it. detailStatus-gated for
@@ -86,7 +86,7 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
           <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
             value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
             description={detailStatus === 'ready'
-              ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside Events/hr's per-hour count. Hypopnea isn't included, matching OSCAR's own 'Total time in apnoea' convention."
+              ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside AHI's per-hour count. Hypopnea isn't included, matching OSCAR's own 'Total time in apnoea' convention."
               : "Per-event detail isn't stored for this night yet — the AHI above comes from your device's own permanent nightly summary, so it's still accurate regardless."} />
         </div>
         <button onClick={() => onSelectNight(nights.length - 1)} style={{

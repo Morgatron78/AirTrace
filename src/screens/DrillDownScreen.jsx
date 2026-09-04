@@ -705,7 +705,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
             couldn't show for any night, not just the most recent one. */}
         <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={night.seal} warn={isConcern('seal', night, targets)}
           description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
-        <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={night.maskOff} warn={isConcern('maskOff', night, targets)} />
+        <StatRow icon={PowerOff} iconColor={T.muted} label="Mask-off events" value={night.maskOff} warn={isConcern('maskOff', night, targets)} />
         {/* detailStatus-gated, not just timeInApneaSec's own ?? 0 fallback —
             "0s" otherwise reads as a genuinely clean night, indistinguishable
             from "we don't have per-event detail for this one at all" (pruned
