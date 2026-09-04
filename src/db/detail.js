@@ -12,7 +12,11 @@ import { toDateStr } from '../utils/dates.js'
 // re-parsed on the next import instead of skipped, then the meta key is
 // updated to match — a one-time catch-up, self-healing the same way for
 // whatever field gets added next, no manual IndexedDB wipe ever needed.
-export const DETAIL_SCHEMA_VERSION = 3 // 2: added therapyPressure. 3: added inspTime/expTime
+// Also bumped for a value-computation change, not just a new field: an
+// already-stored night's timeInApneaSec was computed with the old (buggy)
+// logic and won't self-correct just because the code changed — a version
+// mismatch is what actually forces it to be re-parsed instead of skipped.
+export const DETAIL_SCHEMA_VERSION = 4 // 2: added therapyPressure. 3: added inspTime/expTime. 4: timeInApneaSec excludes Hypopnea (matches OSCAR)
 
 export async function getDetail(date) {
   const db = await getDB()
