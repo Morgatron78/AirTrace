@@ -31,3 +31,25 @@ export function matchHealthDataToNights(parsed, nights) {
   }
   return result
 }
+
+// How many CPAP nights even *could* have matched — i.e. had real usage
+// and fall within the timespan the export actually covers. Each of
+// parsed's three arrays is already sorted (parseHealthExport.js), so its
+// own first/last entries bound that timespan without re-scanning
+// everything. Used only for the Settings import result message: without
+// this, "Matched N of nights.length" compares against the user's entire
+// therapy history (often 1+ years) rather than the export's real ~90-day
+// window, making a perfectly normal match rate look alarmingly low.
+export function countEligibleNights(parsed, nights) {
+  const bounds = []
+  if (parsed.stages.length) bounds.push(parsed.stages[0].startMs, parsed.stages[parsed.stages.length - 1].endMs)
+  if (parsed.heartRate.length) bounds.push(parsed.heartRate[0].ts, parsed.heartRate[parsed.heartRate.length - 1].ts)
+  if (parsed.spo2.length) bounds.push(parsed.spo2[0].ts, parsed.spo2[parsed.spo2.length - 1].ts)
+  if (!bounds.length) return 0
+  const minMs = Math.min(...bounds), maxMs = Math.max(...bounds)
+  return nights.filter((n) => {
+    if (n.noUsage) return false
+    const { startMs } = getNightWindowMs(n)
+    return startMs >= minMs && startMs <= maxMs
+  }).length
+}

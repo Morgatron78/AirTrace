@@ -11,7 +11,7 @@ import { VAPID_PUBLIC_KEY } from '../constants/push.js'
 // APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
 // strip-out list; this whole card + handler below is one of the entries.
 import { parseHealthExport } from '../health/parseHealthExport.js'
-import { matchHealthDataToNights } from '../health/matchNights.js'
+import { matchHealthDataToNights, countEligibleNights } from '../health/matchNights.js'
 import { setHealthEntry } from '../db/health.js'
 
 // Standard Web Push conversion — pushManager.subscribe wants the VAPID
@@ -82,7 +82,10 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
       const matched = matchHealthDataToNights(parsed, nights || [])
       const dates = Object.keys(matched)
       await Promise.all(dates.map((date) => setHealthEntry(date, { ...matched[date], importedAt: new Date().toISOString() })))
-      setHealthImportSummary(`Matched ${dates.length} of ${(nights || []).length} nights.`)
+      // Against nights.length (the whole therapy history, often 1+ years),
+      // not the export's own ~90-day window — countEligibleNights instead.
+      const eligible = countEligibleNights(parsed, nights || [])
+      setHealthImportSummary(`Matched ${dates.length} of ${eligible} nights in this export's date range.`)
       setHealthImportState('done')
     } catch (err) {
       setHealthImportError(err.message)
