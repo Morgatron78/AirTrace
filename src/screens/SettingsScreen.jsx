@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ChevronLeft, Minus, Plus, User, Hash, Phone, Download, Upload, TriangleAlert, Copy, Check } from 'lucide-react'
+import { ChevronLeft, Minus, Plus, User, Hash, Phone, Download, Upload, TriangleAlert, Copy, Check, HeartPulse } from 'lucide-react'
 import { T, SEV } from '../constants/theme'
 import { daysAgo, formatClock } from '../utils/dates'
 import { CardTitle } from '../components/CardTitle'
@@ -8,6 +8,11 @@ import { Segmented } from '../components/Segmented'
 import { buildBackup, parseBackup, restoreBackup } from '../db/backup.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { VAPID_PUBLIC_KEY } from '../constants/push.js'
+// APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
+// strip-out list; this whole card + handler below is one of the entries.
+import { parseHealthExport } from '../health/parseHealthExport.js'
+import { matchHealthDataToNights } from '../health/matchNights.js'
+import { setHealthEntry } from '../db/health.js'
 
 // Standard Web Push conversion — pushManager.subscribe wants the VAPID
 // public key as a raw Uint8Array, not the base64url string it's
@@ -38,7 +43,7 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
   )
 }
 
-export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode }) {
+export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode, nights }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
   const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
 
@@ -55,6 +60,35 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
   // since nothing else on the app needs this value.
   const [lastBackup, setLastBackup] = useState(null)
   useEffect(() => { getMeta('lastBackupExport').then((v) => v && setLastBackup(v)) }, [])
+
+  // APPLE-HEALTH (POC) — 'importing' -> 'done' (shows the match summary)
+  // | 'error'. No confirm-before-write step, unlike backup restore: this
+  // only ever writes to the isolated healthData store via idempotent put,
+  // so nothing existing is at risk of being overwritten.
+  const [healthImportState, setHealthImportState] = useState(null)
+  const [healthImportSummary, setHealthImportSummary] = useState('')
+  const [healthImportError, setHealthImportError] = useState('')
+  const healthFileInputRef = useRef(null)
+
+  const handleHealthFileSelected = async (e) => {
+    // Same iOS Safari ordering as handleFileSelected below — capture the
+    // File before touching .value.
+    const file = e.target.files[0]
+    e.target.value = ''
+    if (!file) return
+    setHealthImportState('importing')
+    try {
+      const parsed = parseHealthExport(JSON.parse(await file.text()))
+      const matched = matchHealthDataToNights(parsed, nights || [])
+      const dates = Object.keys(matched)
+      await Promise.all(dates.map((date) => setHealthEntry(date, { ...matched[date], importedAt: new Date().toISOString() })))
+      setHealthImportSummary(`Matched ${dates.length} of ${(nights || []).length} nights.`)
+      setHealthImportState('done')
+    } catch (err) {
+      setHealthImportError(err.message)
+      setHealthImportState('error')
+    }
+  }
 
   const handleExport = async () => {
     const data = await buildBackup()
@@ -360,6 +394,30 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
             <div style={{ marginTop: 14, display: 'flex', gap: 8 }}>
               <TriangleAlert size={16} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
               <span style={{ fontSize: 12.5, color: SEV.bad, lineHeight: 1.5 }}>{errorMsg}</span>
+            </div>
+          )}
+        </div>
+
+        {/* APPLE-HEALTH (POC) — whole card is one self-contained block,
+            listed in docs/apple-health-integration.md's strip-out steps. */}
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Proof of concept — sleep stage, heart rate and SpO2 on Night View"
+            info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
+            Health data
+          </CardTitle>
+          <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
+            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Health Data'}
+          </button>
+          <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
+
+          {healthImportState === 'done' && (
+            <div style={{ marginTop: 12, fontSize: 12.5, color: SEV.good, textAlign: 'center', fontWeight: 600 }}>{healthImportSummary}</div>
+          )}
+          {healthImportState === 'error' && (
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              <TriangleAlert size={16} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 12.5, color: SEV.bad, lineHeight: 1.5 }}>{healthImportError}</span>
             </div>
           )}
         </div>

@@ -3,6 +3,11 @@ import { ZoomOut, Maximize2, MoreHorizontal, Info } from 'lucide-react'
 import { T } from '../../constants/theme'
 import { formatClock } from '../../utils/dates'
 import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS } from './chartHelpers'
+// APPLE-HEALTH: additive corroborating-context rows in the popover below —
+// see docs/apple-health-integration.md for the full strip-out list.
+import { STAGE_LABEL } from '../../constants/sleepStages'
+import { getNightWindowMs } from '../../health/nightWindow'
+import { stageAt, nearestReading } from '../../health/lookupAtTime'
 
 // Same Description affordance every other channel chart offers (the "..."
 // menu in MiniChart/BigChannelChart) — this chart doesn't come from
@@ -35,7 +40,7 @@ const EVENTS_SUB = "Every obstructive, central, and hypopnea event during the ni
 // events are genuinely seconds apart, not just visually close because
 // we're zoomed out — opens a small stacked list of every event in it.
 // A single (unclustered) dot always just opens that one event's detail.
-export function EventsChart({ events, usageHours, startHour, onExpand, onSelectEvent, big = false }) {
+export function EventsChart({ events, usageHours, startHour, onExpand, onSelectEvent, big = false, date, healthEntry }) {
   const [zoom, setZoom] = useState(1)
   const [panStart, setPanStart] = useState(0)
   const [openCluster, setOpenCluster] = useState(null) // { px, items } | null
@@ -113,6 +118,9 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
   const t0 = winStartFrac * usageHours, t1 = winEndFrac * usageHours
   const ticks = hourTicks(startHour + t0, t1 - t0, big ? 9 : 5)
   const popoverLeftPct = openCluster ? Math.max(14, Math.min(86, (openCluster.px / w) * 100)) : 0
+  // APPLE-HEALTH: only computed when both a date and matched health data
+  // exist for this night — see the popover rows below.
+  const healthNightStartMs = date && healthEntry ? getNightWindowMs({ date, startHour, usage: usageHours }).startMs : null
 
   const body = (
     <div style={{ display: 'flex', gap: 8 }}>
@@ -165,6 +173,23 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                   <div>
                     <div className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{it.type}</div>
                     <div style={{ fontSize: 11, color: T.muted }}>{formatClock(startHour + it.x * usageHours)} · {formatEventDuration(it.durationSec)}</div>
+                    {/* APPLE-HEALTH: corroborating context from Apple
+                        Health at this same moment — additive only, no
+                        rows render at all when nothing is nearby. */}
+                    {healthNightStartMs != null && (() => {
+                      const ms = healthNightStartMs + it.x * usageHours * 3600000
+                      const stage = stageAt(healthEntry, ms)
+                      const hr = nearestReading(healthEntry.heartRate, ms, 15 * 60000)
+                      const spo2 = nearestReading(healthEntry.spo2, ms, 60 * 60000)
+                      if (!stage && !hr && !spo2) return null
+                      return (
+                        <div style={{ marginTop: 3 }}>
+                          {stage && <div style={{ fontSize: 10.5, color: T.muted }}>Sleep stage: {STAGE_LABEL[stage]}</div>}
+                          {hr && <div style={{ fontSize: 10.5, color: T.muted }}>Heart rate: {Math.round(hr.bpm)} bpm</div>}
+                          {spo2 && <div style={{ fontSize: 10.5, color: T.muted }}>SpO&#8322;: {Math.round(spo2.pct)}%</div>}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </div>
               ))}

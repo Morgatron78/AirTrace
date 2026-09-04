@@ -18,8 +18,11 @@ import { MiniMap } from '../components/charts/MiniMap'
 import { MiniChart } from '../components/charts/MiniChart'
 import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { EventsChart } from '../components/charts/EventsChart'
+// APPLE-HEALTH: see docs/apple-health-integration.md for the full strip-out list.
+import { HypnogramChart } from '../components/charts/HypnogramChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
 import { useNightDetail } from '../db/detail.js'
+import { useHealthEntry } from '../db/health.js' // APPLE-HEALTH
 import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
@@ -235,6 +238,10 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   // or this night predates any DATALOG import even though its summary
   // is still available from STR.edf).
   const { status: detailStatus, detail: nightData } = useNightDetail(night.date)
+  // APPLE-HEALTH: independent of nightDetail/EDF data entirely — a
+  // separate external source (Apple Health, via Settings' Import Health
+  // Data), own loading state. See docs/apple-health-integration.md.
+  const { status: healthStatus, entry: healthEntry } = useHealthEntry(night.date)
   // Safe empty fallbacks so CHANNEL_REGISTRY etc. below can be built
   // unconditionally (keeps every hook in this component running every
   // render, regardless of load state) — the actual detailStatus gate on
@@ -777,7 +784,15 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           when Flow is one of them) are easy to lose on a busy night; this
           always shows every event, deliberately starting at its own
           zoomed-out view rather than following Synchronized view's zoom. */}
-      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent} />
+      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
+        date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
+
+      {/* APPLE-HEALTH: only renders when a matched entry actually exists —
+          no data, no card, same pattern as Time in apnea's detailStatus
+          gate elsewhere in this app. See docs/apple-health-integration.md. */}
+      {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
+        <HypnogramChart night={night} stages={healthEntry.stages} />
+      )}
 
       <div ref={individualChannelsRef} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0 4px' }}>
         <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Individual channels</span>
@@ -919,7 +934,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                   </>
                 ) : expandedChart === 'events' ? (
                   <div style={{ flex: 1, minHeight: 0 }}>
-                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big onSelectEvent={handleSelectEvent} />
+                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big onSelectEvent={handleSelectEvent}
+                      date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
                   </div>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>

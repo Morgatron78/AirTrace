@@ -196,7 +196,7 @@ export default function App() {
   }
   if (showSettings) {
     return <SettingsScreen key={resolvedTheme} onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile}
-      themeMode={themeMode} onChangeThemeMode={updateThemeMode} />
+      themeMode={themeMode} onChangeThemeMode={updateThemeMode} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */ />
   }
   if (status === 'empty') {
     return (
