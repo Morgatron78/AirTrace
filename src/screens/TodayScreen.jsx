@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { Clock, Activity, Gauge, LockKeyhole, PowerOff, Moon, ChevronRight, Sparkles, Flame, Pencil } from 'lucide-react'
 import { T, C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -9,11 +10,32 @@ import { StatRow, StatDetailRow } from '../components/StatRow'
 import { MiniDots } from '../components/MiniDots'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
-import { formatDuration, formatClock } from '../utils/dates'
+import { getDetail } from '../db/detail.js'
+import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
 export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport }) {
   const last = nights[nights.length - 1]
   const prev = nights[nights.length - 2]
+  // Same detail-fetch pattern Night View uses for Time in apnea — "last
+  // night" is always inside the 90-day waveform-detail retention window,
+  // so detailStatus here should realistically only ever land on 'ready'
+  // or 'loading', never the pruned/never-imported 'unavailable' case
+  // Night View has to handle for older history — but the same three
+  // states are checked regardless, rather than assuming.
+  const [detailStatus, setDetailStatus] = useState('loading')
+  const [timeInApneaSec, setTimeInApneaSec] = useState(0)
+  useEffect(() => {
+    let cancelled = false
+    setDetailStatus('loading')
+    getDetail(last.date).then((row) => {
+      if (cancelled) return
+      if (!row) { setDetailStatus('unavailable'); return }
+      setTimeInApneaSec(row.timeInApneaSec ?? 0)
+      setDetailStatus('ready')
+    })
+    return () => { cancelled = true }
+  }, [last.date])
+  const apneaPct = (timeInApneaSec / (last.usage * 3600)) * 100
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)
   const insight = getPrimaryInsight(nights, targets, equipment)
@@ -48,13 +70,23 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
               </>
             ) : undefined} />
           <StatRow icon={Activity} iconColor={C.pink} label="Events/hr" value={last.ahi} warn={isConcern('ahi', last, targets)} delta={prev ? pctDelta(last.ahi, prev.ahi) : undefined} />
-          <StatRow icon={LeakIcon} iconColor={C.purple} label="Leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
+          <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${last.leak} L/min`} warn={isConcern('leak', last, targets)} delta={prev ? pctDelta(last.leak, prev.leak) : undefined}
             description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal." />
-          <StatRow icon={Gauge} iconColor={C.orange} label="Pressure" value={`${setPressure} cmH₂O`}
+          <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
             description={`Your machine is set to a fixed pressure of ${setPressure} cmH₂O rather than auto-adjusting. This confirms it held steady overnight.`} />
           <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={last.seal} warn={isConcern('seal', last, targets)}
-            description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check the Leak stat above alongside this." />
-          <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} last />
+            description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
+          <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} />
+          {/* Same stat Night View shows, added here since "last night" is
+              always inside the 90-day retention window — no reason to
+              wait until you drill in to see it. detailStatus-gated for
+              the same reason as there: "0s" would otherwise be
+              indistinguishable from "not loaded yet". */}
+          <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
+            value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
+            description={detailStatus === 'ready'
+              ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside Events/hr's per-hour count. Hypopnea isn't included, matching OSCAR's own 'Total time in apnoea' convention."
+              : "Per-event detail isn't stored for this night yet — the AHI above comes from your device's own permanent nightly summary, so it's still accurate regardless."} />
         </div>
         <button onClick={() => onSelectNight(nights.length - 1)} style={{
           display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, width: '100%',

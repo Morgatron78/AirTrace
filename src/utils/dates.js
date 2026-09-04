@@ -15,6 +15,15 @@ export function formatDuration(hoursDecimal) {
   return `${h}h ${m}m`
 }
 
+// Distinct from formatDuration above — that one's for an hours-decimal
+// measurement (usage), this is for a small seconds count (time in
+// apnea). Needed on both Today and Night View now that both show the
+// same stat, so it lives here rather than as a local function in either.
+export function formatDurationSec(totalSec) {
+  const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60)
+  return m > 0 ? `${m}m ${s}s` : `${s}s`
+}
+
 export function formatClock(hourFloat) {
   const h24 = ((hourFloat % 24) + 24) % 24
   const h = Math.floor(h24)

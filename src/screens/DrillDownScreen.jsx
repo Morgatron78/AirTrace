@@ -1,13 +1,14 @@
 import { Fragment, useState, useRef, useEffect } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
-  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff,
+  ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff, LockKeyhole,
 } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
 import { TAG_LABEL, TAG_ICON, TAG_COLOR, AUTO_TAGS } from '../constants/tags'
-import { scoreColor, currentSetPressure } from '../utils/scoring'
+import { scoreColor, currentSetPressure, isConcern } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
+import { ScoreRing } from '../components/ScoreRing'
 import { EventRing } from '../components/EventRing'
 import { StatRow, StatDetailRow } from '../components/StatRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
@@ -20,7 +21,7 @@ import { EventsChart } from '../components/charts/EventsChart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
 import { getDetail } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
-import { formatDuration, formatClock } from '../utils/dates'
+import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
 // Full-screen month/year grid, opened from the calendar button below.
 // The 90-chip rolling strip only ever covers ~3 months around the
@@ -367,10 +368,6 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
     (() => { const s = computeStats(CHANNEL_REGISTRY.flowLimit.values, CHANNEL_REGISTRY.flowLimit.axisMax); return { label: 'Flow limit', unit: '', decimals: 2, min: s.min, med: s.median, p95: s.p95, p995: s.p995 } })(),
   ]
   const apneaPct = (timeInApneaSec / (night.usage * 3600)) * 100
-  const fmtDuration = (totalSec) => {
-    const m = Math.floor(totalSec / 60), s = Math.round(totalSec % 60)
-    return m > 0 ? `${m}m ${s}s` : `${s}s`
-  }
   // The individual cards below the Synchronized view — same channels
   // that view's own picker offers, reorderable independently of it.
   // Persisted the same way hiddenChannels is (global preference, meta
@@ -679,8 +676,16 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
 
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
         <CardTitle>Night summary</CardTitle>
-        <div style={{ margin: '12px 0 4px' }}>
-          <EventRing night={night} size={140} />
+        {/* Same two-ring layout as Today's own summary card (ScoreRing +
+            EventRing side by side) — browsing an old night here used to
+            have no way to see that night's Score at all, only "today's". */}
+        <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'center', gap: 12, margin: '12px 0 4px' }}>
+          <div style={{ flex: 1 }}>
+            <ScoreRing night={night} size={140} />
+          </div>
+          <div style={{ flex: 1 }}>
+            <EventRing night={night} size={140} />
+          </div>
         </div>
         <StatRow icon={Clock} iconColor={C.blue} label="Usage" value={formatDuration(night.usage)}
           detail={!night.noUsage ? (
@@ -690,10 +695,17 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
             </>
           ) : undefined}
           description="Time your machine was actively delivering therapy. Most guidelines treat 4+ hours as a full night of therapeutic use." />
-        <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
-          description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${night.leak} L/min`}
           description="Air escaping around the mask edge rather than through it. Under ~24 L/min is generally considered an acceptable seal; consistently higher is worth checking your mask fit." />
+        <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
+          description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
+        {/* Mask seal/off, same as Today's own card — both come from the
+            permanent night-summary data (not the 90-day-pruned detail
+            store), so unlike Time in apnea below there's no reason they
+            couldn't show for any night, not just the most recent one. */}
+        <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={night.seal} warn={isConcern('seal', night, targets)}
+          description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
+        <StatRow icon={PowerOff} iconColor={T.muted} label="Mask off events" value={night.maskOff} warn={isConcern('maskOff', night, targets)} />
         {/* detailStatus-gated, not just timeInApneaSec's own ?? 0 fallback —
             "0s" otherwise reads as a genuinely clean night, indistinguishable
             from "we don't have per-event detail for this one at all" (pruned
@@ -702,7 +714,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
             straight from STR.edf's own permanent per-night summary, entirely
             independent of whether detail happens to still be stored. */}
         <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
-          value={detailStatus === 'ready' ? `${fmtDuration(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
+          value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
           description={detailStatus === 'ready'
             ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside AHI's per-hour event count. Hypopnea isn't included here, matching OSCAR's own 'Total time in apnoea' convention: a hypopnea is a partial obstruction, not a full apnea."
             : "Per-event detail isn't stored for this night — waveform detail is only kept for the last 90 days, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
