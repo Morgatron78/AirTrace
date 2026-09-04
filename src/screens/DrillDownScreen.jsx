@@ -698,7 +698,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
         <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
           value={detailStatus === 'ready' ? `${fmtDuration(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
           description={detailStatus === 'ready'
-            ? "Total time spent within a scored obstructive, central, or hypopnea event tonight — a duration-based view alongside AHI's per-hour event count."
+            ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside AHI's per-hour event count. Hypopnea isn't included here, matching OSCAR's own 'Total time in apnoea' convention: a hypopnea is a partial obstruction, not a full apnea."
             : "Per-event detail isn't stored for this night — waveform detail is only kept for the last 90 days, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
       </div>
 
