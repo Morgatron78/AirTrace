@@ -146,12 +146,15 @@ export default function App() {
     const tagParam = params.get('tag')
     const nagParam = params.get('nag')
     // Throwaway Phase 1 test hook for the Apple Health plan (see the
-    // published feasibility doc) — proves a Shortcut can actually reach
-    // the installed PWA with a payload at all, before any real
-    // Health-data code exists. No devtools access on the real device, so
-    // an alert is the most direct way to see exactly what arrived rather
-    // than something that'd need a console. Remove once Phase 1's
-    // questions are answered, whichever way they land.
+    // published feasibility doc). First pass (alert()) already confirmed
+    // on a real device that a Shortcut can reach the installed PWA with a
+    // payload at all — Safari foregrounding for that, not a modal, is the
+    // remaining noise. This pass tests how quiet that can get: log
+    // instead of alert (no blocking dialog to dismiss), then attempt
+    // window.close() to see whether the tab Shortcuts' Open URLs action
+    // opened can dismiss itself. If it can't, staying on the ordinary app
+    // (no popup) is still the quietest fallback available. Remove once
+    // Phase 1's questions are answered, whichever way they land.
     const healthTestParam = params.get('healthtest')
     if (!tagParam && !nagParam && !healthTestParam) return
     if (tagParam === 'yesterday') {
@@ -165,7 +168,10 @@ export default function App() {
     // not just the app's home screen.
     if (nagParam === 'clinicianReport') setShowReport(true)
     else if (nagParam) setTab(nagParam)
-    if (healthTestParam) window.alert(`AirTrace received ?healthtest=\n\n${decodeURIComponent(healthTestParam)}`)
+    if (healthTestParam) {
+      console.log(`AirTrace received ?healthtest=`, decodeURIComponent(healthTestParam))
+      window.close()
+    }
     const url = new URL(window.location.href)
     url.search = ''
     window.history.replaceState({}, '', url)
