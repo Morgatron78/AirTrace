@@ -115,7 +115,13 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   const last4Used = nights.filter((n) => !n.noUsage).slice(-4)
   const leakUp = last4Used.length === 4 && last4Used.every((n, i) => i === 0 || n.leak >= last4Used[i - 1].leak - 1)
   const cushionDaysForLeak = daysAgo(equipment.cushionChanged)
-  const overall = avgUsed(nights, 'ahi')
+  // Scoped to last30, not full history — tagged nights can only ever be
+  // recent (tagging didn't exist for older history), so comparing them
+  // against a lifetime baseline silently mixes in however much AHI has
+  // improved or worsened since therapy started, independent of the tag's
+  // own effect. Matches Stats' own tag correlation, which already scopes
+  // both sides to the same 30-night window for exactly this reason.
+  const overall = avgUsed(last30, 'ahi')
   const weekday = last30.filter((n) => !n.weekend), weekend = last30.filter((n) => n.weekend)
   const weekdayAhi = avgUsed(weekday, 'ahi'), weekendAhi = avgUsed(weekend, 'ahi')
   // Only worth surfacing when the weekend really does run meaningfully
@@ -135,7 +141,10 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   const totalMaskOff = last30.reduce((s, n) => s + n.maskOff, 0)
 
   const tagInsights = Object.keys(TAG_LABEL).map((tk) => {
-    const withTag = nights.filter((n) => !n.noUsage && n.tags.includes(tk))
+    // Same last30 scope as `overall` above — both sides of the
+    // comparison need to come from the same window, not just the
+    // baseline.
+    const withTag = last30.filter((n) => !n.noUsage && n.tags.includes(tk))
     // A single tagged night isn't a real pattern yet — matches the
     // alcohol+lateMeal combo insight's own n>=3 minimum further below,
     // which every per-tag card here previously didn't have.
