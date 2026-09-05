@@ -63,16 +63,24 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
         ))}
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
-        {stagesPresent.map((stage) => {
-          const Icon = STAGE_ICON[stage]
-          return (
-            <span key={stage} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted }}>
-              <Icon size={12} style={{ color: STAGE_COLOR[stage] }} />{STAGE_LABEL[stage]}
-            </span>
-          )
-        })}
-      </div>
+      {/* Only shown when AHI by stage isn't — its own rows already carry
+          the same icon+label mapping (plus real numbers), so a plain
+          legend here would just repeat it. Still needed on a night whose
+          waveform detail has aged out of the 90-day window: that's the
+          one case where hasEventDetail is false and this band is the
+          only content on the card. */}
+      {(!ahiRows || ahiRows.length === 0) && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
+          {stagesPresent.map((stage) => {
+            const Icon = STAGE_ICON[stage]
+            return (
+              <span key={stage} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted }}>
+                <Icon size={12} style={{ color: STAGE_COLOR[stage] }} />{STAGE_LABEL[stage]}
+              </span>
+            )
+          })}
+        </div>
+      )}
 
       {ahiRows && ahiRows.length > 0 && (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
