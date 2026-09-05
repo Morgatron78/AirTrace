@@ -116,14 +116,16 @@ export function jumpToEvent(origX, total, winLenFrac, targetZoomValue, setZoom, 
 // (1 = full night), and brush-select can land on any value; these presets
 // are only used now to define "fully zoomed in" for tap-an-event-to-jump.
 // The last value is the one that actually matters (see every call site:
-// always ZOOM_PRESETS[ZOOM_PRESETS.length - 1]) — deep enough that
-// hourTicks' finer step sizes kick in (5-minute ticks for a typical
-// night, versus the wider ~15-minute window this used to land on), while
-// still wide enough to see real context around the tapped event rather
-// than an isolated sliver. For tighter than that, drag-to-select
-// (the crosshair icon) zooms to any window you draw, no floor beyond
-// hourTicks' own 1-minute step.
-export const ZOOM_PRESETS = [1, 0.4, 0.05]
+// always ZOOM_PRESETS[ZOOM_PRESETS.length - 1]). A real scored event is
+// typically 10-30s — 0.05 of a ~7-8hr night (20+ minutes) made one of
+// those a barely-visible sliver at the edge of a much wider window, not
+// a useful "fully zoomed in" (flagged directly: didn't feel like it
+// reached a useful final level). 0.01 gives a ~4-5 minute window on a
+// typical night — the event still reads as a real feature with a little
+// real context either side, not a razor-thin mark. For tighter than
+// that, drag-to-select (the crosshair icon) zooms to any window you
+// draw, no floor beyond hourTicks' own 1-minute step.
+export const ZOOM_PRESETS = [1, 0.4, 0.01]
 
 // values are 0-1 fractions (see bandPath below); scale/offset reverse
 // that back to the channel's real display units. offset defaults to 0

@@ -198,6 +198,24 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   const [linkedPan, setLinkedPan] = useState(0)
   const individualChannelsRef = useRef(null)
 
+  // This screen isn't remounted when you move to a different night (no
+  // key on DrillDownScreenNight tied to idx/night.date) — it's the same
+  // component instance, just re-rendered with new props. Without this,
+  // Individual channels' own shared zoom/pan silently carried over from
+  // whichever night you last tapped an event on, including onto a night
+  // you'd never zoomed at all yourself (confirmed directly: a fresh
+  // night's Flow chart showed "Full night"'s own zoomed-in MiniMap on
+  // load). Deliberately scoped to just Individual channels' linked state
+  // — Synchronized view's own zoom/pan/channel selection (syncZoom,
+  // syncPan, syncSelectMode, syncBrushSel, activeGroup, syncShowInfo)
+  // isn't touched by event-tap in the first place, so there's nothing
+  // there to reset.
+  useEffect(() => {
+    setChartsLinked(false)
+    setLinkedZoom(1)
+    setLinkedPan(0)
+  }, [idx])
+
   // Fires when a single (unambiguous) event dot is tapped in the Events
   // panel — turns "I found an event" into "show me everything else that
   // happened at that exact moment," by driving the Individual channels
