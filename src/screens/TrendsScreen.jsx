@@ -452,7 +452,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
               { key: 'deepHr', color: STAGE_COLOR.deep },
               { key: 'remHr', color: STAGE_COLOR.rem },
             ]}
-            labelEvery={labelEvery}
+            labelEvery={labelEvery} axisUnit="h"
             onBarClick={handleArchBarClick} selectedIdx={archNightIdx}
             showInfo={showArchInfo} onCloseInfo={() => setShowArchInfo(false)}
             infoTitle={archTitle} infoDesc={archInfoDesc} infoColor={archFocus ? STAGE_COLOR[archFocus] : STAGE_COLOR.core} />

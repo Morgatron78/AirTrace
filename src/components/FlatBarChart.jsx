@@ -2,7 +2,7 @@ import { T, SEV } from '../constants/theme'
 import { NoUsageMarker } from './NoUsageMarker'
 import { ChartInfoOverlay } from './ChartInfoOverlay'
 
-export function FlatBarChart({ data, dataKey, color, colorFn, max, height = 130, labelEvery = 1, onBarClick, markFn, selectedIdx, stack, showInfo, onCloseInfo, infoTitle, infoDesc, infoColor }) {
+export function FlatBarChart({ data, dataKey, color, colorFn, max, height = 130, labelEvery = 1, onBarClick, markFn, selectedIdx, stack, showInfo, onCloseInfo, infoTitle, infoDesc, infoColor, axisUnit = '' }) {
   // stack (optional): [{ key, color }] — every bar renders as segments
   // summing to dataKey's total instead of a single flat color. The caller
   // decides when to pass this at all (e.g. only once a night is selected),
@@ -15,7 +15,7 @@ export function FlatBarChart({ data, dataKey, color, colorFn, max, height = 130,
       <div style={{ position: 'relative', width: 24, height, flexShrink: 0 }}>
         {ticks.map((t) => (
           <span key={t} style={{ position: 'absolute', top: `${(1 - t) * 100}%`, transform: 'translateY(-50%)', fontSize: 9, color: T.muted }}>
-            {Math.round(m * t)}
+            {Math.round(m * t)}{axisUnit}
           </span>
         ))}
       </div>
