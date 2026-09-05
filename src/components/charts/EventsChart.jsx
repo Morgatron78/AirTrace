@@ -161,7 +161,7 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
             <div onClick={() => setOpenCluster(null)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
             <div style={{
               position: 'absolute', left: `${popoverLeftPct}%`, bottom: '100%', marginBottom: 10, transform: 'translateX(-50%)', zIndex: 10,
-              background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, minWidth: 150, maxWidth: 220,
+              background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, minWidth: 150, maxWidth: 260,
             }}>
               {openCluster.items.map((it, i) => (
                 // Two events close enough in time to still overlap into one
@@ -200,13 +200,13 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                     return (
                       <div style={{ marginTop: 3, marginLeft: 16 }}>
                         {stage && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted, whiteSpace: 'nowrap' }}>
                             <StageIcon size={11} style={{ color: STAGE_COLOR[stage], flexShrink: 0 }} />
                             Sleep stage: {STAGE_LABEL[stage]}
                           </div>
                         )}
                         {hr && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted, whiteSpace: 'nowrap' }}>
                             <HeartPulse size={11} style={{ color: C.red, flexShrink: 0 }} />
                             Heart rate: {Math.round(hr.bpm)} bpm
                           </div>
@@ -217,7 +217,7 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                             report it" convention as isConcern() elsewhere.
                             Icon flips to the same flagged color as the text. */}
                         {spo2 && (
-                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: spo2Low ? SEV.bad : T.muted, fontWeight: spo2Low ? 700 : 400 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: spo2Low ? SEV.bad : T.muted, fontWeight: spo2Low ? 700 : 400, whiteSpace: 'nowrap' }}>
                             <Droplet size={11} style={{ color: spo2Low ? SEV.bad : C.blue, flexShrink: 0 }} />
                             SpO&#8322;: {Math.round(spo2.pct)}%
                           </div>
