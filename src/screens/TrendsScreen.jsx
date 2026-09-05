@@ -1,11 +1,18 @@
 import { useState, useEffect } from 'react'
-import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
+import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar, Eye, Waves } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreOf, nightsForExtremes } from '../utils/scoring'
 import { formatDuration, formatClock } from '../utils/dates'
 import { ahiTrend } from '../utils/nagLogic.js'
+// APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
+// strip-out list; this screen's whole Sleep architecture card is one of
+// the entries.
+import { getAllHealthData } from '../db/health.js'
+import { stagePercents } from '../health/stagePercents.js'
+import { architectureTrend } from '../health/architectureTrend.js'
+import { STAGE_COLOR } from '../constants/sleepStages.js'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
@@ -30,6 +37,15 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   const [showSessionInfo, setShowSessionInfo] = useState(false)
   const [showChartStats, setShowChartStats] = useState(false)
   const [showSessionStats, setShowSessionStats] = useState(false)
+  // APPLE-HEALTH: local self-fetch rather than a new App.jsx prop —
+  // DrillDownScreen already sources its own Health data locally too
+  // (useHealthEntry), never through App.jsx; this matches that, not
+  // breaks it. Whole-store fetch once, same as how `nights` itself is
+  // loaded once and then sliced per-range here, not re-fetched on range
+  // change. See docs/apple-health-integration.md.
+  const [healthData, setHealthData] = useState({})
+  useEffect(() => { getAllHealthData().then(setHealthData) }, [])
+  const [archTab, setArchTab] = useState('rem')
   // Bar indices are only meaningful for the current range/metric's data
   // array — a stale index would otherwise point at the wrong night (or
   // nothing) the moment either changes, so both panels close instead.
@@ -102,6 +118,21 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
     ? `AHI has improved ${Math.abs(summaryDiff)}% across this period — whatever's changed, it's working.${tagShiftClause}`
     : 'A steady period overall, no real drift either way.'
 
+  // APPLE-HEALTH: same range as every other chart on this screen, but
+  // only the nights that actually have Watch data for that night —
+  // sparser than CPAP usage, and "missing" here means "no Watch data,"
+  // not "no therapy," so a night without it is quietly left out of this
+  // chart entirely rather than shown as a gap/marker (same
+  // missing=omitted convention used throughout this feature). See
+  // docs/apple-health-integration.md.
+  const archData = data
+    .map((n) => {
+      const pct = stagePercents(healthData[n.date], n)
+      return pct ? { ...n, remPct: pct.rem ?? 0, deepPct: pct.deep ?? 0 } : null
+    })
+    .filter(Boolean)
+  const archTrend = architectureTrend(archData, archTab === 'rem' ? 'remPct' : 'deepPct')
+
   const wkLeakAvg = avgUsed(data, 'leak'), wkUsageAvg = avg(data, 'usage')
 
   const metricTabs = [
@@ -121,6 +152,14 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
       desc: 'A single number combining events, leak, usage and mask seal against your targets, out of 100.' },
   ]
   const active = metricTabs.find((tb) => tb.key === metric)
+  // APPLE-HEALTH: deliberately its own small tab set, not folded into
+  // metricTabs above — REM%/Deep% come from a separate, sparser store
+  // (only nights someone imported Health data for) with different
+  // missing-data semantics than the CPAP-derived metrics there.
+  const archTabs = [
+    { key: 'rem', label: 'REM', color: STAGE_COLOR.rem, icon: Eye },
+    { key: 'deep', label: 'Deep', color: STAGE_COLOR.deep, icon: Waves },
+  ]
   const viewNight = (i) => onSelectNight(nights.indexOf(rawData[i]))
   const handleChartBarClick = (i) => setChartDetailIdx((cur) => (cur === i ? null : i))
   const handleSessionBarClick = (i) => setSessionDetailIdx((cur) => (cur === i ? null : i))
@@ -329,6 +368,33 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           <StatRow icon={Calendar} iconColor={SEV.bad} label="Nights not used" value={noUsageCount} warn={noUsageCount > 0} last />
         </div>
       </div>
+
+      {/* APPLE-HEALTH: entirely absent, not a "no data" placeholder, when
+          zero nights in this range have Watch data — same quiet-omission
+          convention as Night View's Sleep stages card. See
+          docs/apple-health-integration.md. */}
+      {archData.length > 0 && (
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <IconTabRow tabs={archTabs} active={archTab} onChange={setArchTab} />
+          <div style={{ marginTop: 20 }}>
+            <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 2 }}>
+              {archTab === 'rem' ? 'REM' : 'Deep'} sleep — {archData.length} night{archData.length === 1 ? '' : 's'} with Health data
+            </div>
+            <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>
+              {archTrend.insufficientData
+                ? 'Not enough nights with Health data in this range for a trend — try a longer range.'
+                : archTrend.diffPct > 8
+                ? `${archTab === 'rem' ? 'REM' : 'Deep'}% has risen ${archTrend.diffPct}% across this period.`
+                : archTrend.diffPct < -8
+                ? `${archTab === 'rem' ? 'REM' : 'Deep'}% has fallen ${Math.abs(archTrend.diffPct)}% across this period.`
+                : 'A steady period overall, no real drift either way.'}
+            </div>
+            <FlatBarChart data={archData} dataKey={archTab === 'rem' ? 'remPct' : 'deepPct'}
+              color={STAGE_COLOR[archTab]} max={100} labelEvery={labelEvery} />
+            <BarChartLabels data={archData} labelEvery={labelEvery} />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

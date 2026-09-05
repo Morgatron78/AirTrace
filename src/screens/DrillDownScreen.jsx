@@ -257,8 +257,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   // is still available from STR.edf).
   const { status: detailStatus, detail: nightData } = useNightDetail(night.date)
   // APPLE-HEALTH: independent of nightDetail/EDF data entirely — a
-  // separate external source (Apple Health, via Settings' Import Health
-  // Data), own loading state. See docs/apple-health-integration.md.
+  // separate external source (Apple Health, via Import's own Import
+  // Health Data card), own loading state. See docs/apple-health-integration.md.
   const { status: healthStatus, entry: healthEntry } = useHealthEntry(night.date)
   // Safe empty fallbacks so CHANNEL_REGISTRY etc. below can be built
   // unconditionally (keeps every hook in this component running every
@@ -734,6 +734,19 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
 
       <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
 
+      {/* APPLE-HEALTH: Sleep stages only needs night.usage/startHour
+          (permanent, from nightSummaries) and healthEntry.stages (its own
+          store, never pruned) — neither depends on nightDetail, so this
+          keeps showing even once a night's waveform detail has aged out
+          of the 90-day window (the branch below, for detailStatus other
+          than 'unavailable', already covers 'loading' and 'ready' with
+          their own handling — 'ready' renders its own HypnogramChart
+          call further down, with real event detail available).
+          See docs/apple-health-integration.md. */}
+      {detailStatus === 'unavailable' && healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
+        <HypnogramChart night={night} stages={healthEntry.stages} events={events} hasEventDetail={false} />
+      )}
+
       {detailStatus !== 'ready' ? (
         <div style={{ background: T.surface, borderRadius: 22, padding: 32, textAlign: 'center' }}>
           {detailStatus === 'loading' ? (
@@ -766,7 +779,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           no data, no card, same pattern as Time in apnea's detailStatus
           gate elsewhere in this app. See docs/apple-health-integration.md. */}
       {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
-        <HypnogramChart night={night} stages={healthEntry.stages} events={events} />
+        <HypnogramChart night={night} stages={healthEntry.stages} events={events} hasEventDetail={true} />
       )}
 
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>

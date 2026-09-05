@@ -13,6 +13,16 @@ export async function setHealthEntry(date, entry) {
   await db.put('healthData', { ...entry, date })
 }
 
+// APPLE-HEALTH: bulk read for Trends' sleep-architecture card — mirrors
+// tags.js's getAllTags() shape exactly.
+export async function getAllHealthData() {
+  const db = await getDB()
+  const rows = await db.getAll('healthData')
+  const map = {}
+  for (const row of rows) map[row.date] = row
+  return map
+}
+
 // Same loading/unavailable/ready shape as useNightDetail (src/db/detail.js)
 // — independent store, independent fetch, deliberately not sharing that
 // hook's effect since nightDetail and healthData have nothing to do with

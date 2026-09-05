@@ -21,7 +21,15 @@ const STAGE_ORDER = ['awake', 'core', 'deep', 'rem']
 // `events` is optional and purely additive — passing it renders each
 // stage's own AHI underneath the band; omitting it (or a night with no
 // scored events) just shows the band and legend as before.
-export function HypnogramChart({ night, stages, events }) {
+//
+// `hasEventDetail` distinguishes "no nightDetail exists for this night at
+// all" (pruned past the 90-day window, or never imported) from "we have
+// real per-event data and it genuinely shows zero qualifying events this
+// stage." events.length===0 can't carry that distinction on its own —
+// it's true in both cases, but only the second one is a real 0.0/hr;
+// the first is "we don't know," which should show nothing rather than a
+// confident-looking zero. See docs/apple-health-integration.md.
+export function HypnogramChart({ night, stages, events, hasEventDetail }) {
   if (!stages?.length) return null
 
   const { startMs, endMs } = getNightWindowMs(night)
@@ -33,7 +41,7 @@ export function HypnogramChart({ night, stages, events }) {
   const ticks = hourTicks(night.startHour, night.usage, 5)
   const stagesPresent = [...new Set(segments.map((s) => s.stage))]
 
-  const ahiByStage = computeAhiByStage(events, { stages }, night)
+  const ahiByStage = hasEventDetail ? computeAhiByStage(events, { stages }, night) : null
   const ahiRows = ahiByStage
     ? STAGE_ORDER.filter((s) => ahiByStage.some((r) => r.stage === s)).map((s) => ahiByStage.find((r) => r.stage === s))
     : null
