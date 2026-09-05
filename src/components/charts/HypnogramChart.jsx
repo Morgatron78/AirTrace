@@ -1,7 +1,7 @@
 // Apple Health integration (POC) — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 import { T } from '../../constants/theme'
-import { STAGE_LABEL, STAGE_COLOR } from '../../constants/sleepStages'
+import { STAGE_LABEL, STAGE_COLOR, STAGE_ICON } from '../../constants/sleepStages'
 import { getNightWindowMs } from '../../health/nightWindow'
 import { computeAhiByStage } from '../../health/stageAhi'
 import { hourTicks } from './chartHelpers'
@@ -64,26 +64,32 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>
-        {stagesPresent.map((stage) => (
-          <span key={stage} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted }}>
-            <span style={{ width: 8, height: 8, borderRadius: 4, background: STAGE_COLOR[stage] }} />{STAGE_LABEL[stage]}
-          </span>
-        ))}
+        {stagesPresent.map((stage) => {
+          const Icon = STAGE_ICON[stage]
+          return (
+            <span key={stage} style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 11, color: T.muted }}>
+              <Icon size={12} style={{ color: STAGE_COLOR[stage] }} />{STAGE_LABEL[stage]}
+            </span>
+          )
+        })}
       </div>
 
       {ahiRows && ahiRows.length > 0 && (
         <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
           <span className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: T.ink }}>AHI by stage</span>
           <div style={{ marginTop: 6 }}>
-            {ahiRows.map((r) => (
-              <div key={r.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 30 }}>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.ink }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 4, background: STAGE_COLOR[r.stage] }} />{STAGE_LABEL[r.stage]}
-                  <span style={{ fontSize: 10.5, color: T.muted }}>({r.minutes < 60 ? `${Math.round(r.minutes)}m` : `${Math.floor(r.minutes / 60)}h ${Math.round(r.minutes % 60)}m`})</span>
-                </span>
-                <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{r.ahi.toFixed(1)}/hr</span>
-              </div>
-            ))}
+            {ahiRows.map((r) => {
+              const Icon = STAGE_ICON[r.stage]
+              return (
+                <div key={r.stage} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 30 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.ink }}>
+                    <Icon size={13} style={{ color: STAGE_COLOR[r.stage] }} />{STAGE_LABEL[r.stage]}
+                    <span style={{ fontSize: 10.5, color: T.muted }}>({r.minutes < 60 ? `${Math.round(r.minutes)}m` : `${Math.floor(r.minutes / 60)}h ${Math.round(r.minutes % 60)}m`})</span>
+                  </span>
+                  <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink }}>{r.ahi.toFixed(1)}/hr</span>
+                </div>
+              )
+            })}
           </div>
         </div>
       )}

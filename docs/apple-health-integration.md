@@ -11,7 +11,15 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   AHI) — the direct answer to "is this worse in one stage than another,"
   computed once per night rather than assumed from population averages.
 - Additive rows (sleep stage / heart rate / SpO₂) in the existing
-  tap-an-event popover, showing what was happening at that exact moment.
+  tap-an-event popover, showing what was happening at that exact moment
+  — SpO₂ below 90% (a real desaturation threshold) is flagged in red,
+  the same "flag the concern, don't just report it" convention used
+  elsewhere in the app, rather than looking identical to a healthy
+  reading. Sleep stages get their own icons (Sun/Moon/Waves/Eye for
+  Awake/Core/Deep/REM, `STAGE_ICON` in `constants/sleepStages.js`), used
+  consistently everywhere a stage needs a small marker — deliberately
+  not a colored dot, which would otherwise visually compete with the
+  event's own colored dot in the same popover.
 - The Sleep stages card (band only, no AHI-by-stage) keeps showing even
   once a night's CPAP waveform detail has aged out of the 90-day
   retention window — it only needs the permanent `nightSummaries` fields

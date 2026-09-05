@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar, Eye, Waves } from 'lucide-react'
+import { Activity, Clock, Gauge, Trophy, ChevronRight, ChevronLeft, Calendar } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { TAG_LABEL, AUTO_TAGS } from '../constants/tags'
 import { AHI_BREAKDOWN } from '../constants/events'
@@ -12,7 +12,7 @@ import { ahiTrend } from '../utils/nagLogic.js'
 import { getAllHealthData } from '../db/health.js'
 import { stagePercents } from '../health/stagePercents.js'
 import { architectureTrend } from '../health/architectureTrend.js'
-import { STAGE_COLOR } from '../constants/sleepStages.js'
+import { STAGE_COLOR, STAGE_ICON } from '../constants/sleepStages.js'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
@@ -155,10 +155,13 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // APPLE-HEALTH: deliberately its own small tab set, not folded into
   // metricTabs above — REM%/Deep% come from a separate, sparser store
   // (only nights someone imported Health data for) with different
-  // missing-data semantics than the CPAP-derived metrics there.
+  // missing-data semantics than the CPAP-derived metrics there. Icons
+  // come from the same STAGE_ICON every other sleep-stage marker in the
+  // app uses (Sleep stages legend/AHI-by-stage, the event popover) — one
+  // shared mapping, not a second set of choices for this screen alone.
   const archTabs = [
-    { key: 'rem', label: 'REM', color: STAGE_COLOR.rem, icon: Eye },
-    { key: 'deep', label: 'Deep', color: STAGE_COLOR.deep, icon: Waves },
+    { key: 'rem', label: 'REM', color: STAGE_COLOR.rem, icon: STAGE_ICON.rem },
+    { key: 'deep', label: 'Deep', color: STAGE_COLOR.deep, icon: STAGE_ICON.deep },
   ]
   const viewNight = (i) => onSelectNight(nights.indexOf(rawData[i]))
   const handleChartBarClick = (i) => setChartDetailIdx((cur) => (cur === i ? null : i))

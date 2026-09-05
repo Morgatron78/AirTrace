@@ -1,13 +1,19 @@
 import { useState, useRef } from 'react'
 import { ZoomOut, Maximize2, MoreHorizontal, Info } from 'lucide-react'
-import { T } from '../../constants/theme'
+import { T, SEV } from '../../constants/theme'
 import { formatClock } from '../../utils/dates'
 import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS } from './chartHelpers'
 // APPLE-HEALTH: additive corroborating-context rows in the popover below —
 // see docs/apple-health-integration.md for the full strip-out list.
-import { STAGE_LABEL } from '../../constants/sleepStages'
+import { STAGE_LABEL, STAGE_COLOR, STAGE_ICON } from '../../constants/sleepStages'
 import { getNightWindowMs } from '../../health/nightWindow'
 import { stageAt, nearestReading } from '../../health/lookupAtTime'
+
+// A real, recognized desaturation threshold (not this app's own guess) —
+// below this, SpO2 gets flagged the same way other real concerns already
+// are elsewhere (isConcern's red), not just reported as a plain number
+// indistinguishable from a healthy reading.
+const SPO2_LOW_THRESHOLD = 90
 
 // Same Description affordance every other channel chart offers (the "..."
 // menu in MiniChart/BigChannelChart) — this chart doesn't come from
@@ -168,29 +174,46 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                 // exactly what's needed to tell two near-simultaneous
                 // events apart.
                 <div key={i} onPointerDown={(ev) => ev.stopPropagation()} onClick={() => onSelectEvent?.(it)}
-                  style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 4px', borderTop: i > 0 ? `1px solid ${T.line}` : 'none', cursor: onSelectEvent ? 'pointer' : 'default' }}>
-                  <span style={{ width: 8, height: 8, borderRadius: 4, background: EVENT_COLOR[it.type], flexShrink: 0 }} />
-                  <div>
-                    <div className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{it.type}</div>
-                    <div style={{ fontSize: 11, color: T.muted }}>{formatClock(startHour + it.x * usageHours)} · {formatEventDuration(it.durationSec)}</div>
-                    {/* APPLE-HEALTH: corroborating context from Apple
-                        Health at this same moment — additive only, no
-                        rows render at all when nothing is nearby. */}
-                    {healthNightStartMs != null && (() => {
-                      const ms = healthNightStartMs + it.x * usageHours * 3600000
-                      const stage = stageAt(healthEntry, ms)
-                      const hr = nearestReading(healthEntry.heartRate, ms, 15 * 60000)
-                      const spo2 = nearestReading(healthEntry.spo2, ms, 60 * 60000)
-                      if (!stage && !hr && !spo2) return null
-                      return (
-                        <div style={{ marginTop: 3 }}>
-                          {stage && <div style={{ fontSize: 10.5, color: T.muted }}>Sleep stage: {STAGE_LABEL[stage]}</div>}
-                          {hr && <div style={{ fontSize: 10.5, color: T.muted }}>Heart rate: {Math.round(hr.bpm)} bpm</div>}
-                          {spo2 && <div style={{ fontSize: 10.5, color: T.muted }}>SpO&#8322;: {Math.round(spo2.pct)}%</div>}
-                        </div>
-                      )
-                    })()}
+                  style={{ padding: '5px 4px', borderTop: i > 0 ? `1px solid ${T.line}` : 'none', cursor: onSelectEvent ? 'pointer' : 'default' }}>
+                  {/* The event's own color dot sits inline with its type
+                      title specifically, sized to match it — previously a
+                      single dot spanned the whole (now taller, with
+                      corroboration rows below) block via align-items:
+                      center, so it visually drifted down toward "Sleep
+                      stage" instead of sitting next to "Central". */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <span style={{ width: 10, height: 10, borderRadius: 5, background: EVENT_COLOR[it.type], flexShrink: 0 }} />
+                    <span className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{it.type}</span>
                   </div>
+                  <div style={{ fontSize: 11, color: T.muted, marginLeft: 16, marginTop: 1 }}>{formatClock(startHour + it.x * usageHours)} · {formatEventDuration(it.durationSec)}</div>
+                  {/* APPLE-HEALTH: corroborating context from Apple
+                      Health at this same moment — additive only, no
+                      rows render at all when nothing is nearby. */}
+                  {healthNightStartMs != null && (() => {
+                    const ms = healthNightStartMs + it.x * usageHours * 3600000
+                    const stage = stageAt(healthEntry, ms)
+                    const hr = nearestReading(healthEntry.heartRate, ms, 15 * 60000)
+                    const spo2 = nearestReading(healthEntry.spo2, ms, 60 * 60000)
+                    if (!stage && !hr && !spo2) return null
+                    const StageIcon = stage ? STAGE_ICON[stage] : null
+                    const spo2Low = spo2 && spo2.pct < SPO2_LOW_THRESHOLD
+                    return (
+                      <div style={{ marginTop: 3, marginLeft: 16 }}>
+                        {stage && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted }}>
+                            <StageIcon size={11} style={{ color: STAGE_COLOR[stage], flexShrink: 0 }} />
+                            Sleep stage: {STAGE_LABEL[stage]}
+                          </div>
+                        )}
+                        {hr && <div style={{ fontSize: 10.5, color: T.muted }}>Heart rate: {Math.round(hr.bpm)} bpm</div>}
+                        {/* Below a real desaturation threshold, not just a
+                            plain number indistinguishable from a healthy
+                            reading — same "flag the concern, don't just
+                            report it" convention as isConcern() elsewhere. */}
+                        {spo2 && <div style={{ fontSize: 10.5, color: spo2Low ? SEV.bad : T.muted, fontWeight: spo2Low ? 700 : 400 }}>SpO&#8322;: {Math.round(spo2.pct)}%</div>}
+                      </div>
+                    )
+                  })()}
                 </div>
               ))}
             </div>
