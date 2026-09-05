@@ -2,6 +2,7 @@
 // see docs/apple-health-integration.md.
 import { getNightWindowMs } from './nightWindow.js'
 import { stageAt } from './lookupAtTime.js'
+import { stageMinutes } from './stageMinutes.js'
 
 // All three scored types count toward "AHI" (Apnea-Hypopnea Index) here,
 // matching how night.ahi is computed from STR.edf elsewhere in this app
@@ -23,16 +24,10 @@ const AHI_EVENT_TYPES = new Set(['obstructive', 'central', 'hypopnea'])
 // touches). Stages with zero minutes recorded are omitted — dividing by
 // zero isn't a rate, it's a missing data point.
 export function computeAhiByStage(events, healthEntry, night) {
-  if (!healthEntry?.stages?.length) return null
+  const minutes = stageMinutes(healthEntry, night)
+  if (!minutes) return null
 
-  const { startMs, endMs } = getNightWindowMs(night)
-  const stageSeconds = {}
-  for (const s of healthEntry.stages) {
-    const clipStart = Math.max(s.startMs, startMs)
-    const clipEnd = Math.min(s.endMs, endMs)
-    if (clipEnd > clipStart) stageSeconds[s.stage] = (stageSeconds[s.stage] || 0) + (clipEnd - clipStart) / 1000
-  }
-
+  const { startMs } = getNightWindowMs(night)
   const stageCounts = {}
   for (const e of events || []) {
     if (!AHI_EVENT_TYPES.has(e.type)) continue
@@ -41,6 +36,6 @@ export function computeAhiByStage(events, healthEntry, night) {
     if (stage) stageCounts[stage] = (stageCounts[stage] || 0) + 1
   }
 
-  return Object.keys(stageSeconds)
-    .map((stage) => ({ stage, minutes: stageSeconds[stage] / 60, ahi: (stageCounts[stage] || 0) / (stageSeconds[stage] / 3600) }))
+  return Object.keys(minutes)
+    .map((stage) => ({ stage, minutes: minutes[stage], ahi: (stageCounts[stage] || 0) / (minutes[stage] / 60) }))
 }

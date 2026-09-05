@@ -1,6 +1,6 @@
 // Apple Health integration (POC) — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
-import { getNightWindowMs } from './nightWindow.js'
+import { stageMinutes } from './stageMinutes.js'
 
 // Percent of a night's total *categorized* sleep-stage time (Awake+Core+
 // Deep+REM summed together) spent in one stage — the same denominator
@@ -16,18 +16,9 @@ import { getNightWindowMs } from './nightWindow.js'
 // "missing entry = not shown" convention used everywhere else this
 // feature touches.
 export function stagePercents(healthEntry, night) {
-  if (!healthEntry?.stages?.length) return null
-  const { startMs, endMs } = getNightWindowMs(night)
-  const minutes = {}
-  let total = 0
-  for (const s of healthEntry.stages) {
-    const clipStart = Math.max(s.startMs, startMs)
-    const clipEnd = Math.min(s.endMs, endMs)
-    if (clipEnd <= clipStart) continue
-    const mins = (clipEnd - clipStart) / 60000
-    minutes[s.stage] = (minutes[s.stage] || 0) + mins
-    total += mins
-  }
+  const minutes = stageMinutes(healthEntry, night)
+  if (!minutes) return null
+  const total = Object.values(minutes).reduce((s, m) => s + m, 0)
   if (!total) return null
   const pct = {}
   for (const stage of Object.keys(minutes)) pct[stage] = (minutes[stage] / total) * 100

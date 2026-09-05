@@ -29,18 +29,25 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   once a night's CPAP waveform detail has aged out of the 90-day
   retention window — it only needs the permanent `nightSummaries` fields
   and `healthData`, neither of which is pruned.
-- A "Sleep architecture" card on Trends — Core/Deep/REM% charted across
-  the same date range as every other Trends chart, independent of AHI,
-  with the same info (ⓘ) and stats (Σ) buttons every other Trends chart
-  has, and the same red-X `NoUsageMarker` every other chart uses for "no
-  data this night" — a night without Watch data gets `noUsage: true` on
-  its own chart-scoped copy of the night object (distinct from that
-  night's real CPAP `noUsage`, which this card ignores), rather than
-  being silently omitted from the chart the way the first version of this
-  card worked; omitting it made the trend look more continuous than the
-  underlying Watch data really was. Average/High/Low stats and the trend
-  sentence only run over nights that actually have Watch data
-  (`archDataWithHealth`), not the X-marked ones.
+- A "Sleep architecture" card on Trends, deliberately built to operate
+  exactly like the existing Events chart above it rather than a bespoke
+  design (confirmed against that chart's own `stack`/`dataKey`/`eventType`
+  props): stacked Core/Deep/REM bars by default, scaled to real sleep
+  *duration* in hours (not a percentage of the night — two nights with
+  the same stage proportions but very different total sleep need visibly
+  different bars) and deliberately excluding Awake from that total (a
+  product decision, not a shortcut: this chart answers "how much did I
+  sleep," not "how much time was I in bed"). Tapping a night opens a
+  breakdown (`SleepArchDetailPanel`) showing that night's own per-stage
+  duration *and* AHI (events/hour within just that stage's own time,
+  `computeAhiByStage`) — matching Night View's own "AHI by stage" data,
+  with duration as the bold primary value and AHI as a muted
+  parenthetical, "it's a sleep chart after all." Tapping a stage in that
+  breakdown drills the whole chart into just that stage's own cross-night
+  trend (axis rescaling to that stage's own peak, same as AHI's own
+  per-type drill-down), with a back-chevron by the title to return. Same
+  ⓘ/Σ buttons and the same red-X `NoUsageMarker` every other Trends chart
+  uses for "no data this night."
 
 No server, no new backend — the export file is picked by hand from
 Import → Health data → Import Health Data, right alongside the CPAP SD
@@ -76,11 +83,6 @@ pattern as Settings' own backup restore.
   night — one event in 9 minutes of Awake reads as a dramatic-looking
   "6.7/hr" that's really just one event. No minimum-minutes floor is
   applied; read a stage's rate alongside its own minutes, not alone.
-- `stagePercents.js` and `stageAhi.js`'s `computeAhiByStage` both clip
-  `healthEntry.stages` to a night's window and sum minutes per stage —
-  deliberately duplicated (~6 lines) rather than extracted into a shared
-  helper, since both are already single small deletable files; worth a
-  second look only if a third consumer of the same logic shows up.
 - Sleep stage is decoded from HealthKit's numeric value only
   (`2=awake, 3=core, 4=deep, 5=rem`) — the export app's own `label`
   string is unreliable (confirmed against real exports: values 4 and 5
@@ -104,10 +106,12 @@ grep -rn "APPLE-HEALTH" src/
 - `src/health/lookupAtTime.js`
 - `src/health/stageAhi.js`
 - `src/health/stagePercents.js`
+- `src/health/stageMinutes.js`
 - `src/health/architectureTrend.js`
 - `src/constants/sleepStages.js`
 - `src/db/health.js`
 - `src/components/charts/HypnogramChart.jsx`
+- `src/components/SleepArchDetailPanel.jsx`
 - `docs/apple-health-integration.md` (this file)
 
 **2. Revert each marked block:**
@@ -116,7 +120,7 @@ grep -rn "APPLE-HEALTH" src/
 - `src/screens/ImportScreen.jsx` — remove the `nights` prop from the component signature, the `parseHealthExport`/`matchHealthDataToNights`/`countEligibleNights`/`setHealthEntry` imports, the `HeartPulse` icon import, the health-import state/handler block, and the whole "Health data" card.
 - `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, **both** `<HypnogramChart>` render blocks (the one gated on `detailStatus === 'unavailable'` before the ternary, and the one inside the `ready` branch — including the `events={events}`/`hasEventDetail` props, which this file already has `events` for its own purposes — only the prop values themselves are APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
 - `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `HeartPulse`/`Droplet` lucide-react icon imports, the `C` theme import (if unused elsewhere in the file), the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
-- `src/screens/TrendsScreen.jsx` — remove the `getAllHealthData`/`stagePercents`/`architectureTrend`/`STAGE_COLOR`/`STAGE_ICON` imports, the `healthData`/`archTab`/`showArchInfo`/`showArchStats` state and their effects (the fetch effect and the reset-on-`archTab`-change effect), the `archTabs`/`activeArch`/`ARCH_STAGE_KEY`/`archDataKey`/`archDataAll`/`archDataWithHealth`/`archTrend`/`archStatRows` computed values, and the whole "Sleep architecture" card. `ChartInfoButton`/`ChartStatsButton`/`ChartStatsPanel`/`FlatBarChart`/`BarChartLabels` stay — every other chart on this screen already imports them.
+- `src/screens/TrendsScreen.jsx` — remove the `getAllHealthData`/`stageMinutes`/`architectureTrend`/`STAGE_COLOR`/`STAGE_LABEL`/`SleepArchDetailPanel` imports, the `healthData`/`archNightIdx`/`archFocus`/`showArchInfo`/`showArchStats` state and their effects (the fetch effect and the two reset effects mirroring `chartDetailIdx`/`eventType`), the `archTitle`/`archInfoDesc`/`handleArchBarClick`/`archDataAll`/`archDataWithHealth`/`archStageKey`/`archTrend`/`archStatRows`/`archFocusTrendSentence` computed values, and the whole "Sleep architecture" card. `ChevronLeft`/`ChartInfoButton`/`ChartStatsButton`/`ChartStatsPanel`/`FlatBarChart`/`BarChartLabels` stay — every other chart on this screen already imports them.
 
 **3. Optional, purely cosmetic:** the orphaned `healthData` IndexedDB
 object store can be left in place on any browser that already has it —

@@ -10,9 +10,9 @@ import { ahiTrend } from '../utils/nagLogic.js'
 // strip-out list; this screen's whole Sleep architecture card is one of
 // the entries.
 import { getAllHealthData } from '../db/health.js'
-import { stagePercents } from '../health/stagePercents.js'
+import { stageMinutes } from '../health/stageMinutes.js'
 import { architectureTrend } from '../health/architectureTrend.js'
-import { STAGE_COLOR, STAGE_ICON } from '../constants/sleepStages.js'
+import { STAGE_COLOR, STAGE_LABEL } from '../constants/sleepStages.js'
 import { Segmented } from '../components/Segmented'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
@@ -21,6 +21,7 @@ import { ChartStatsPanel } from '../components/ChartStatsPanel'
 import { FlatBarChart } from '../components/FlatBarChart'
 import { BarChartLabels } from '../components/BarChartLabels'
 import { NightDetailPanel } from '../components/NightDetailPanel'
+import { SleepArchDetailPanel } from '../components/SleepArchDetailPanel'
 import { SessionTimesChart } from '../components/SessionTimesChart'
 import { SessionDetailPanel } from '../components/SessionDetailPanel'
 import { StatRow } from '../components/StatRow'
@@ -45,20 +46,25 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // change. See docs/apple-health-integration.md.
   const [healthData, setHealthData] = useState({})
   useEffect(() => { getAllHealthData().then(setHealthData) }, [])
-  const [archTab, setArchTab] = useState('rem')
+  const [archNightIdx, setArchNightIdx] = useState(null)
+  const [archFocus, setArchFocus] = useState(null) // 'core' | 'deep' | 'rem' | null
   const [showArchInfo, setShowArchInfo] = useState(false)
   const [showArchStats, setShowArchStats] = useState(false)
   // Bar indices are only meaningful for the current range/metric's data
   // array — a stale index would otherwise point at the wrong night (or
   // nothing) the moment either changes, so both panels close instead.
-  useEffect(() => { setChartDetailIdx(null); setSessionDetailIdx(null) }, [range])
+  useEffect(() => { setChartDetailIdx(null); setSessionDetailIdx(null); setArchNightIdx(null) }, [range])
   useEffect(() => { setChartDetailIdx(null); setShowChartInfo(false); setShowChartStats(false) }, [metric])
   // The type drill-down only makes sense while a night's breakdown is open —
   // closing the breakdown (whichever way) always clears it too, so
   // re-opening a breakdown never starts already drilled into a type.
   useEffect(() => { if (chartDetailIdx === null) setEventType(null) }, [chartDetailIdx])
   useEffect(() => { setShowChartInfo(false); setShowChartStats(false) }, [eventType])
-  useEffect(() => { setShowArchInfo(false); setShowArchStats(false) }, [archTab])
+  // Mirrors chartDetailIdx/eventType above exactly: a stage focus only
+  // means anything while its night's breakdown is open, so closing the
+  // night (archNightIdx -> null) always clears it too.
+  useEffect(() => { if (archNightIdx === null) setArchFocus(null) }, [archNightIdx])
+  useEffect(() => { setShowArchInfo(false); setShowArchStats(false) }, [archFocus])
   const rangeDays = range === 'week' ? 7 : range === '2weeks' ? 14 : 30
   const rawData = nights.slice(-rangeDays)
   const data = rawData.map((n) => ({ ...n, score: scoreOf(n) }))
@@ -122,37 +128,55 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
     : 'A steady period overall, no real drift either way.'
 
   // APPLE-HEALTH: same range and same nights as every other chart on this
-  // screen, unlike the first pass of this card (which quietly omitted any
-  // night without Watch data instead of marking it) — that made the
-  // chart look more continuous than the underlying data really was. A
-  // night with no Watch data now gets `noUsage: true`, which FlatBarChart
-  // already renders as the same red-X NoUsageMarker every other chart on
-  // this screen uses for "no data this night," rather than inventing a
-  // second visual language for the same idea. archDataWithHealth (the
-  // subset that excludes those) is what trend/average/high/low math runs
-  // over — an X-marked night contributing a fake 0% would understate the
-  // real average. See docs/apple-health-integration.md.
-  const ARCH_STAGE_KEY = { core: 'corePct', deep: 'deepPct', rem: 'remPct' }
-  const archDataKey = ARCH_STAGE_KEY[archTab]
+  // screen — a night with no Watch data gets `noUsage: true`, which
+  // FlatBarChart already renders as the same red-X NoUsageMarker every
+  // other chart on this screen uses for "no data this night," rather
+  // than inventing a second visual language for the same idea.
+  // archDataWithHealth (the subset that excludes those) is what
+  // trend/average/high/low math runs over — an X-marked night
+  // contributing a fake 0 would understate the real average.
+  //
+  // Bar height is absolute sleep duration in hours (decimal), not a
+  // percentage of the night — two nights with the same Core/Deep/REM
+  // proportions but very different total sleep need visibly different
+  // bars, which a self-normalized percentage can't show. Hours, not
+  // minutes: FlatBarChart's y-axis ticks are plain rounded numbers with
+  // no unit support, same as the existing Usage metric's own night.usage
+  // field — minutes here would tick the axis "471, 354, 236..." instead
+  // of a readable "8, 6, 4...". Awake is deliberately excluded from
+  // `totalHr` (a direct product decision, not a POC shortcut): this
+  // chart answers "how much did I actually sleep," not "how much time was
+  // I in bed." See docs/apple-health-integration.md.
   const archDataAll = data.map((n) => {
-    const pct = stagePercents(healthData[n.date], n)
-    return pct
-      ? { ...n, remPct: pct.rem ?? 0, deepPct: pct.deep ?? 0, corePct: pct.core ?? 0, noUsage: false }
-      : { ...n, remPct: 0, deepPct: 0, corePct: 0, noUsage: true }
+    const minutes = stageMinutes(healthData[n.date], n)
+    return minutes
+      ? { ...n, coreHr: (minutes.core ?? 0) / 60, deepHr: (minutes.deep ?? 0) / 60, remHr: (minutes.rem ?? 0) / 60,
+          totalHr: ((minutes.core ?? 0) + (minutes.deep ?? 0) + (minutes.rem ?? 0)) / 60, noUsage: false }
+      : { ...n, coreHr: 0, deepHr: 0, remHr: 0, totalHr: 0, noUsage: true }
   })
   const archDataWithHealth = archDataAll.filter((n) => !n.noUsage)
-  const archTrend = architectureTrend(archDataWithHealth, archDataKey)
+  // Mirrors the AHI chart's own dataKey/eventType pattern: no stage
+  // focused means "the whole stack" (totalHr), one focused means "just
+  // that stage's own cross-night trend."
+  const archStageKey = archFocus ? `${archFocus}Hr` : 'totalHr'
+  const archTrend = architectureTrend(archDataWithHealth, archStageKey)
   const archStatRows = archDataWithHealth.length ? (() => {
-    const avgV = archDataWithHealth.reduce((s, n) => s + n[archDataKey], 0) / archDataWithHealth.length
-    const highN = archDataWithHealth.reduce((a, b) => (b[archDataKey] > a[archDataKey] ? b : a))
-    const lowN = archDataWithHealth.reduce((a, b) => (b[archDataKey] < a[archDataKey] ? b : a))
-    const fmt = (v) => `${Math.round(v)}%`
+    const avgV = archDataWithHealth.reduce((s, n) => s + n[archStageKey], 0) / archDataWithHealth.length
+    const highN = archDataWithHealth.reduce((a, b) => (b[archStageKey] > a[archStageKey] ? b : a))
+    const lowN = archDataWithHealth.reduce((a, b) => (b[archStageKey] < a[archStageKey] ? b : a))
     return [
-      { label: 'Average', value: fmt(avgV) },
-      { label: 'High', value: fmt(highN[archDataKey]), sub: highN.label },
-      { label: 'Low', value: fmt(lowN[archDataKey]), sub: lowN.label },
+      { label: 'Average', value: formatDuration(avgV) },
+      { label: 'High', value: formatDuration(highN[archStageKey]), sub: highN.label },
+      { label: 'Low', value: formatDuration(lowN[archStageKey]), sub: lowN.label },
     ]
   })() : null
+  const archFocusTrendSentence = archTrend.insufficientData
+    ? 'Not enough nights with Health data in this range for a trend — try a longer range.'
+    : archTrend.diffPct > 8
+    ? `${archFocus ? STAGE_LABEL[archFocus] : 'Sleep'} duration has risen ${archTrend.diffPct}% across this period.`
+    : archTrend.diffPct < -8
+    ? `${archFocus ? STAGE_LABEL[archFocus] : 'Sleep'} duration has fallen ${Math.abs(archTrend.diffPct)}% across this period.`
+    : 'A steady period overall, no real drift either way.'
 
   const wkLeakAvg = avgUsed(data, 'leak'), wkUsageAvg = avg(data, 'usage')
 
@@ -173,27 +197,18 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
       desc: 'A single number combining events, leak, usage and mask seal against your targets, out of 100.' },
   ]
   const active = metricTabs.find((tb) => tb.key === metric)
-  // APPLE-HEALTH: deliberately its own small tab set, not folded into
-  // metricTabs above — REM/Core/Deep% come from a separate, sparser store
-  // (only nights someone imported Health data for) with different
-  // missing-data semantics than the CPAP-derived metrics there. Icons
-  // come from the same STAGE_ICON every other sleep-stage marker in the
-  // app uses (Sleep stages legend/AHI-by-stage, the event popover) — one
-  // shared mapping, not a second set of choices for this screen alone.
-  // Ordered Core/Deep/REM to match STAGE_ORDER (HypnogramChart.jsx) minus
-  // Awake, not insertion order.
-  const archTabs = [
-    { key: 'core', label: 'Core', color: STAGE_COLOR.core, icon: STAGE_ICON.core,
-      desc: "Percent of the night's total categorized sleep-stage time (Awake+Core+Deep+REM) spent in Core sleep, from your Apple Watch — the same percentage Apple's own Health app shows for the same night." },
-    { key: 'deep', label: 'Deep', color: STAGE_COLOR.deep, icon: STAGE_ICON.deep,
-      desc: "Percent of the night's total categorized sleep-stage time spent in Deep (slow-wave) sleep, from your Apple Watch — the same percentage Apple's own Health app shows for the same night." },
-    { key: 'rem', label: 'REM', color: STAGE_COLOR.rem, icon: STAGE_ICON.rem,
-      desc: "Percent of the night's total categorized sleep-stage time spent in REM sleep, from your Apple Watch — the same percentage Apple's own Health app shows for the same night." },
-  ]
-  const activeArch = archTabs.find((tb) => tb.key === archTab)
+  // APPLE-HEALTH: no tab row at all, deliberately — mirrors the AHI
+  // chart's own tap-a-bar / tap-a-type interaction (see FlatBarChart's
+  // stack/dataKey props below) rather than a bespoke tab switcher, since
+  // a tab row here would duplicate a control the AHI chart doesn't need.
+  const archTitle = archFocus ? STAGE_LABEL[archFocus] : 'Sleep architecture'
+  const archInfoDesc = archFocus
+    ? `How much of the night was spent in ${STAGE_LABEL[archFocus]} sleep, from your Apple Watch, charted across every night in range.`
+    : "Total sleep-stage time each night (Core, Deep, REM), from your Apple Watch. Tap a night for its own breakdown, or a stage within it for that stage's own trend."
   const viewNight = (i) => onSelectNight(nights.indexOf(rawData[i]))
   const handleChartBarClick = (i) => setChartDetailIdx((cur) => (cur === i ? null : i))
   const handleSessionBarClick = (i) => setSessionDetailIdx((cur) => (cur === i ? null : i))
+  const handleArchBarClick = (i) => setArchNightIdx((cur) => (cur === i ? null : i))
 
   // Average/high/low for whichever metric (or AHI-breakdown sub-type) is
   // currently on screen, behind the new stats (Σ) button next to each
@@ -405,39 +420,51 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           quiet-omission convention as Night View's Sleep stages card.
           Once at least one night qualifies, every night in range shows
           (X-marked if it individually lacks Watch data), matching how
-          every other chart on this screen shows the full range. See
+          every other chart on this screen shows the full range.
+          Stacked-by-default, tap-a-night, tap-a-stage-to-drill-in — the
+          same three-level interaction as the Events chart above (see its
+          own stack/dataKey/eventType props), not a bespoke design. See
           docs/apple-health-integration.md. */}
       {archDataWithHealth.length > 0 && (
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <IconTabRow tabs={archTabs} active={archTab} onChange={setArchTab} />
-          <div style={{ marginTop: 20 }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 2 }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              {archFocus && (
+                <button onClick={() => setArchFocus(null)} style={{ display: 'flex', alignItems: 'center', padding: 0, marginRight: 2, background: 'none' }}>
+                  <ChevronLeft size={16} style={{ color: T.muted }} />
+                </button>
+              )}
               <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>
-                {activeArch.label} Sleep % — {rangeDays} nights
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                {archStatRows && <ChartStatsButton show={showArchStats} onToggle={() => { setShowArchStats((s) => !s); setShowArchInfo(false) }} />}
-                <ChartInfoButton show={showArchInfo} onToggle={() => { setShowArchInfo((s) => !s); setShowArchStats(false) }} />
+                {archTitle} — {rangeDays} nights
               </div>
             </div>
-            <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>
-              {archTrend.insufficientData
-                ? 'Not enough nights with Health data in this range for a trend — try a longer range.'
-                : archTrend.diffPct > 8
-                ? `${activeArch.label}% has risen ${archTrend.diffPct}% across this period.`
-                : archTrend.diffPct < -8
-                ? `${activeArch.label}% has fallen ${Math.abs(archTrend.diffPct)}% across this period.`
-                : 'A steady period overall, no real drift either way.'}
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+              {archStatRows && <ChartStatsButton show={showArchStats} onToggle={() => { setShowArchStats((s) => !s); setShowArchInfo(false) }} />}
+              <ChartInfoButton show={showArchInfo} onToggle={() => { setShowArchInfo((s) => !s); setShowArchStats(false) }} />
             </div>
-            <FlatBarChart data={archDataAll} dataKey={archDataKey}
-              color={activeArch.color} max={100} labelEvery={labelEvery}
-              showInfo={showArchInfo} onCloseInfo={() => setShowArchInfo(false)}
-              infoTitle={`${activeArch.label} Sleep %`} infoDesc={activeArch.desc} infoColor={activeArch.color} />
-            <BarChartLabels data={archDataAll} labelEvery={labelEvery} />
-            {showArchStats && archStatRows && (
-              <ChartStatsPanel title={`${activeArch.label} Sleep %`} periodLabel={periodLabel} rows={archStatRows} />
-            )}
           </div>
+          <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>Tap a bar for a breakdown</div>
+          <FlatBarChart data={archDataAll}
+            dataKey={archStageKey}
+            color={archFocus ? STAGE_COLOR[archFocus] : undefined}
+            stack={archFocus ? undefined : [
+              { key: 'coreHr', color: STAGE_COLOR.core },
+              { key: 'deepHr', color: STAGE_COLOR.deep },
+              { key: 'remHr', color: STAGE_COLOR.rem },
+            ]}
+            labelEvery={labelEvery}
+            onBarClick={handleArchBarClick} selectedIdx={archNightIdx}
+            showInfo={showArchInfo} onCloseInfo={() => setShowArchInfo(false)}
+            infoTitle={archTitle} infoDesc={archInfoDesc} infoColor={archFocus ? STAGE_COLOR[archFocus] : STAGE_COLOR.core} />
+          <BarChartLabels data={archDataAll} labelEvery={labelEvery} />
+          {showArchStats && archStatRows && (
+            <ChartStatsPanel title={archTitle} periodLabel={periodLabel} rows={archStatRows} />
+          )}
+          {archNightIdx != null && (
+            <SleepArchDetailPanel night={archDataAll[archNightIdx]} healthEntry={healthData[archDataAll[archNightIdx].date]}
+              focus={archFocus} onSelectStage={setArchFocus} trendSentence={archFocusTrendSentence}
+              onViewNight={() => viewNight(archNightIdx)} />
+          )}
         </div>
       )}
     </div>
