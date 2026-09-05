@@ -221,7 +221,7 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
       ))}
       {tagInsights.map((ti) => (
         <NavCard key={ti.tk} icon={TAG_ICON[ti.tk]} dot={TAG_GRADIENT[ti.tk]}
-          title={`${TAG_LABEL[ti.tk]} raises your AHI`}
+          title={`${TAG_LABEL[ti.tk]} ${ti.diff > 0 ? 'raises' : 'lowers'} your AHI`}
           subtitle={`${ti.diff > 0 ? '+' : ''}${ti.diff}% vs. baseline, based on ${ti.n} nights${AUTO_TAGS.has(ti.tk) ? ' · auto-detected' : ''}`} onClick={() => onNavigate('stats')} />
       ))}
       {weekendHigherShowing && (
