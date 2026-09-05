@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react'
-import { ZoomOut, Maximize2, MoreHorizontal, Info } from 'lucide-react'
-import { T, SEV } from '../../constants/theme'
+import { ZoomOut, Maximize2, MoreHorizontal, Info, HeartPulse, Droplet } from 'lucide-react'
+import { T, C, SEV } from '../../constants/theme'
 import { formatClock } from '../../utils/dates'
 import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS } from './chartHelpers'
 // APPLE-HEALTH: additive corroborating-context rows in the popover below —
@@ -205,12 +205,23 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                             Sleep stage: {STAGE_LABEL[stage]}
                           </div>
                         )}
-                        {hr && <div style={{ fontSize: 10.5, color: T.muted }}>Heart rate: {Math.round(hr.bpm)} bpm</div>}
+                        {hr && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: T.muted }}>
+                            <HeartPulse size={11} style={{ color: C.red, flexShrink: 0 }} />
+                            Heart rate: {Math.round(hr.bpm)} bpm
+                          </div>
+                        )}
                         {/* Below a real desaturation threshold, not just a
                             plain number indistinguishable from a healthy
                             reading — same "flag the concern, don't just
-                            report it" convention as isConcern() elsewhere. */}
-                        {spo2 && <div style={{ fontSize: 10.5, color: spo2Low ? SEV.bad : T.muted, fontWeight: spo2Low ? 700 : 400 }}>SpO&#8322;: {Math.round(spo2.pct)}%</div>}
+                            report it" convention as isConcern() elsewhere.
+                            Icon flips to the same flagged color as the text. */}
+                        {spo2 && (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 5, fontSize: 10.5, color: spo2Low ? SEV.bad : T.muted, fontWeight: spo2Low ? 700 : 400 }}>
+                            <Droplet size={11} style={{ color: spo2Low ? SEV.bad : C.blue, flexShrink: 0 }} />
+                            SpO&#8322;: {Math.round(spo2.pct)}%
+                          </div>
+                        )}
                       </div>
                     )
                   })()}

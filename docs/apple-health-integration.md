@@ -19,7 +19,12 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   Awake/Core/Deep/REM, `STAGE_ICON` in `constants/sleepStages.js`), used
   consistently everywhere a stage needs a small marker — deliberately
   not a colored dot, which would otherwise visually compete with the
-  event's own colored dot in the same popover.
+  event's own colored dot in the same popover. Heart rate and SpO₂ get
+  their own matching mini icons too (`HeartPulse`/`Droplet` from
+  lucide-react, inline in `EventsChart.jsx` — no shared constant needed,
+  there's exactly one consumer), so all three corroboration rows read as
+  one consistent icon+label pattern; the SpO₂ icon flips to the same
+  flagged red as its text when below the desaturation threshold.
 - The Sleep stages card (band only, no AHI-by-stage) keeps showing even
   once a night's CPAP waveform detail has aged out of the 90-day
   retention window — it only needs the permanent `nightSummaries` fields
@@ -100,7 +105,7 @@ grep -rn "APPLE-HEALTH" src/
 - `src/App.jsx` — remove the `nights={nights}` prop passed to `<ImportScreen>`.
 - `src/screens/ImportScreen.jsx` — remove the `nights` prop from the component signature, the `parseHealthExport`/`matchHealthDataToNights`/`countEligibleNights`/`setHealthEntry` imports, the `HeartPulse` icon import, the health-import state/handler block, and the whole "Health data" card.
 - `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, **both** `<HypnogramChart>` render blocks (the one gated on `detailStatus === 'unavailable'` before the ternary, and the one inside the `ready` branch — including the `events={events}`/`hasEventDetail` props, which this file already has `events` for its own purposes — only the prop values themselves are APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
-- `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
+- `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `HeartPulse`/`Droplet` lucide-react icon imports, the `C` theme import (if unused elsewhere in the file), the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
 - `src/screens/TrendsScreen.jsx` — remove the `getAllHealthData`/`stagePercents`/`architectureTrend`/`STAGE_COLOR` imports (and the `Eye`/`Waves` icon imports, if unused elsewhere), the `healthData`/`archTab` state and the fetch effect, the `archTabs`/`archData`/`archTrend` computed values, and the whole "Sleep architecture" card.
 
 **3. Optional, purely cosmetic:** the orphaned `healthData` IndexedDB
