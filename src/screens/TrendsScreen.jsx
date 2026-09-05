@@ -381,7 +381,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           <IconTabRow tabs={archTabs} active={archTab} onChange={setArchTab} />
           <div style={{ marginTop: 20 }}>
             <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 2 }}>
-              {archTab === 'rem' ? 'REM%' : 'Deep%'} — {archData.length} night{archData.length === 1 ? '' : 's'} with Health data
+              {archTab === 'rem' ? 'REM Sleep %' : 'Deep Sleep %'} — {archData.length} night{archData.length === 1 ? '' : 's'} with Health data
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginBottom: 14 }}>
               {archTrend.insufficientData
