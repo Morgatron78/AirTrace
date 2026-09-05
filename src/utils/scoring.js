@@ -142,6 +142,30 @@ export function computeStreak(nights, targets) {
   return streak
 }
 
+// The longest freeze-protected run anywhere in history, not just the
+// current trailing one — same freeze rule as computeStreak above (a
+// calendar month's 4 freezes are a real, continuous budget, shared by
+// whichever run(s) pass through that month, not reset per attempt), but
+// scanned forward tracking a max instead of backward stopping at the
+// first break. A different traversal and termination condition, not
+// just a copy of computeStreak, so kept as its own function.
+export function computeBestStreak(nights, targets) {
+  let streak = 0, best = 0
+  const freezesUsedByMonth = {}
+  for (const n of nights) {
+    if (!n.noUsage && n.usage >= targets.usage) {
+      streak++
+      best = Math.max(best, streak)
+      continue
+    }
+    const month = n.date.slice(0, 7)
+    const used = freezesUsedByMonth[month] || 0
+    if (used < STREAK_FREEZES_PER_MONTH) { freezesUsedByMonth[month] = used + 1; continue }
+    streak = 0
+  }
+  return best
+}
+
 // The single most relevant thing to surface right now — used for Today's
 // proactive banner. Insights itself shows the fuller list.
 export function getPrimaryInsight(nights, targets, equipment) {

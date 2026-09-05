@@ -48,6 +48,13 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   per-type drill-down), with a back-chevron by the title to return. Same
   ⓘ/Σ buttons and the same red-X `NoUsageMarker` every other Trends chart
   uses for "no data this night."
+- One aggregate row on Stats — "Avg sleep efficiency," 30-night average —
+  the opposite framing from Trends' Sleep architecture chart: percent of
+  time in bed *actually asleep* (Core+Deep+REM against
+  Core+Deep+REM+**Awake**), so unlike the chart, Awake belongs in the
+  denominator here on purpose. Omitted entirely (not a 0%) when zero
+  nights in range have Watch data, same quiet-omission convention as
+  everywhere else this feature touches.
 
 No server, no new backend — the export file is picked by hand from
 Import → Health data → Import Health Data, right alongside the CPAP SD
@@ -121,6 +128,7 @@ grep -rn "APPLE-HEALTH" src/
 - `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, **both** `<HypnogramChart>` render blocks (the one gated on `detailStatus === 'unavailable'` before the ternary, and the one inside the `ready` branch — including the `events={events}`/`hasEventDetail` props, which this file already has `events` for its own purposes — only the prop values themselves are APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
 - `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `HeartPulse`/`Droplet` lucide-react icon imports, the `C` theme import (if unused elsewhere in the file), the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
 - `src/screens/TrendsScreen.jsx` — remove the `getAllHealthData`/`stageMinutes`/`architectureTrend`/`STAGE_COLOR`/`STAGE_LABEL`/`SleepArchDetailPanel` imports, the `healthData`/`archNightIdx`/`archFocus`/`showArchInfo`/`showArchStats` state and their effects (the fetch effect and the two reset effects mirroring `chartDetailIdx`/`eventType`), the `archTitle`/`archInfoDesc`/`handleArchBarClick`/`archDataAll`/`archDataWithHealth`/`archStageKey`/`archTrend`/`archStatRows`/`archFocusTrendSentence` computed values, and the whole "Sleep architecture" card. `ChevronLeft`/`ChartInfoButton`/`ChartStatsButton`/`ChartStatsPanel`/`FlatBarChart`/`BarChartLabels` stay — every other chart on this screen already imports them.
+- `src/screens/StatsScreen.jsx` — remove the `getAllHealthData`/`stageMinutes` imports, the `healthData` state and its fetch effect, the `avgSleepEfficiency` computed value, and its conditional "Avg sleep efficiency" `StatRow`. Nothing else on this screen (the "This month"/"All-time" split, `computeBestStreak`, tag-correlation ranking) is Apple-Health-specific — those stay untouched, they're plain CPAP-data reworks that happened in the same pass.
 
 **3. Optional, purely cosmetic:** the orphaned `healthData` IndexedDB
 object store can be left in place on any browser that already has it —
