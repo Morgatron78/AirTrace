@@ -6,7 +6,7 @@ import { AHI_BREAKDOWN } from '../constants/events'
 import { scoreOf, nightsForExtremes } from '../utils/scoring'
 import { formatDuration, formatClock } from '../utils/dates'
 import { ahiTrend } from '../utils/nagLogic.js'
-// APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
+// APPLE-HEALTH — see docs/apple-health-integration.md for the full
 // strip-out list; this screen's whole Sleep architecture card is one of
 // the entries.
 import { getAllHealthData } from '../db/health.js'
@@ -144,9 +144,9 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // no unit support, same as the existing Usage metric's own night.usage
   // field — minutes here would tick the axis "471, 354, 236..." instead
   // of a readable "8, 6, 4...". Awake is deliberately excluded from
-  // `totalHr` (a direct product decision, not a POC shortcut): this
-  // chart answers "how much did I actually sleep," not "how much time was
-  // I in bed." See docs/apple-health-integration.md.
+  // `totalHr` (a direct product decision): this chart answers "how much
+  // did I actually sleep," not "how much time was I in bed." See
+  // docs/apple-health-integration.md.
   const archDataAll = data.map((n) => {
     const minutes = stageMinutes(healthData[n.date], n)
     return minutes

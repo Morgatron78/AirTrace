@@ -1,4 +1,4 @@
-// Apple Health integration (POC) — safe to delete this file entirely,
+// Apple Health integration — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 import { T } from '../../constants/theme'
 import { STAGE_LABEL, STAGE_COLOR, STAGE_ICON } from '../../constants/sleepStages'
@@ -15,8 +15,8 @@ const STAGE_ORDER = ['awake', 'core', 'deep', 'rem']
 // chart with no fixed-rate sampled array (sleep-stage segments are
 // discrete intervals, not a per-sample values array). No zoom/pan/tap and
 // no fullscreen `big` mode in this first pass, unlike EventsChart — the
-// whole night always renders at once, kept deliberately simple for a
-// proof of concept.
+// whole night always renders at once, kept deliberately simple in this
+// first pass — worth revisiting if that ever feels limiting in practice.
 //
 // `events` is optional and purely additive — passing it renders each
 // stage's own AHI underneath the band; omitting it (or a night with no

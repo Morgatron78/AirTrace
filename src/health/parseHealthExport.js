@@ -1,4 +1,4 @@
-// Apple Health integration (POC) — safe to delete this file entirely,
+// Apple Health integration — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 //
 // Parses the JSON produced by the "Health Data Export" iOS app

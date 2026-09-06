@@ -1,4 +1,4 @@
-// Apple Health integration (POC) — safe to delete this file entirely,
+// Apple Health integration — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 
 // Mirrors src/utils/nagLogic.js's ahiTrend shape (first-half vs

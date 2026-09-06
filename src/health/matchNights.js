@@ -1,11 +1,11 @@
-// Apple Health integration (POC) — safe to delete this file entirely,
+// Apple Health integration — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 import { getNightWindowMs } from './nightWindow.js'
 
 // Buckets parsed Apple Health samples (parseHealthExport.js's output) into
 // whichever CPAP night's own session window each falls inside. Exact
 // containment only, no buffer around the window — Watch sleep detected
-// shortly before mask-on or after mask-off is excluded (see the POC's
+// shortly before mask-on or after mask-off is excluded (see the
 // known-simplifications note in docs/apple-health-integration.md).
 //
 // Nights with zero matched samples across all three categories are

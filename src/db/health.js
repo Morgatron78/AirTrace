@@ -1,4 +1,4 @@
-// Apple Health integration (POC) — safe to delete this file entirely,
+// Apple Health integration — safe to delete this file entirely,
 // see docs/apple-health-integration.md.
 import { useState, useEffect } from 'react'
 import { getDB } from './schema.js'

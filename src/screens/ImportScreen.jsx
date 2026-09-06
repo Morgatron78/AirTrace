@@ -8,7 +8,7 @@ import { upsertSummaries } from '../db/nights.js'
 import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { toDateStr } from '../utils/dates.js'
-// APPLE-HEALTH (POC) — see docs/apple-health-integration.md for the full
+// APPLE-HEALTH — see docs/apple-health-integration.md for the full
 // strip-out list; this whole card + handler below is one of the entries.
 import { parseHealthExport } from '../health/parseHealthExport.js'
 import { matchHealthDataToNights, countEligibleNights } from '../health/matchNights.js'
@@ -62,7 +62,7 @@ export function ImportScreen({ onBack, nights }) {
   // picker never leaves the screen stuck with no way forward.
   const [picking, setPicking] = useState(false)
 
-  // APPLE-HEALTH (POC) — 'importing' -> 'done' (shows the match summary)
+  // APPLE-HEALTH — 'importing' -> 'done' (shows the match summary)
   // | 'error'. No confirm-before-write step, unlike the CPAP import above:
   // this only ever writes to the isolated healthData store via idempotent
   // put, so nothing existing is at risk of being overwritten.
@@ -371,10 +371,10 @@ export function ImportScreen({ onBack, nights }) {
             description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Anything older than 90 days is pruned automatically on each import; the summary for that night stays put, just without the full waveform to drill into." />
         </div>
 
-        {/* APPLE-HEALTH (POC) — whole card is one self-contained block,
-            listed in docs/apple-health-integration.md's strip-out steps. */}
+        {/* APPLE-HEALTH — whole card is one self-contained block, listed
+            in docs/apple-health-integration.md's strip-out steps. */}
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="Proof of concept — sleep stage, heart rate and SpO2 on Night View"
+          <CardTitle sub="From your Apple Watch — sleep stage, heart rate and SpO2 on Night View"
             info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
             Health data
           </CardTitle>
