@@ -1,7 +1,15 @@
-# Apple Health integration — what it is, and how to remove it
+# Apple Health integration — what it is
 
-A proof of concept, not a committed feature. Sleep stages, heart rate,
-and SpO₂ from an Apple Watch — imported from a JSON file produced by the
+**Committed feature, not a proof of concept** — confirmed in real daily
+use with the user's entire multi-year Apple Watch history imported
+(479 nights, 331 matched to CPAP sessions). Started life as an
+explicitly reversible POC (every touch point marked
+`// APPLE-HEALTH:`, full strip-out instructions kept at the bottom of
+this file), and earned its place across Night View, Trends, and Stats
+strongly enough that removal is no longer expected — the markers and
+strip-out list stay only as documentation of what touches what, not as
+a live option. Sleep stages, heart rate, and SpO₂ from an Apple Watch
+— imported from a JSON file produced by the
 [Health Data Export](https://apps.apple.com/gb/app/health-data-export/id6758620223)
 iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
 
@@ -97,7 +105,13 @@ pattern as Settings' own backup restore.
   shifts these numeric codes, this would silently misclassify rather than
   error.
 
-## If this doesn't earn its place — how to strip it out cleanly
+## Appendix: full removal instructions (reference only — not expected to be needed)
+
+Kept from this feature's original POC framing, when removal was a live
+option on the table. It's earned its place since (see the top of this
+file), so this is no longer expected to run — but it's accurate, costs
+nothing to keep, and documents exactly what touches what better than
+prose would if that ever changes.
 
 Every touch point in an existing file is marked `// APPLE-HEALTH:` (or
 inline `/* APPLE-HEALTH */`). Find them all with:

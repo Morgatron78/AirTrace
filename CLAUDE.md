@@ -304,6 +304,32 @@ Full design, agreed before any of it was built:
   service-worker-safety reason nagLogic.js exists at all — `tags.js`
   itself still imports `lucide-react` for `TAG_ICON`.
 
+## Apple Health integration (core feature, not a POC)
+
+Sleep stages, heart rate, and SpO₂ from an Apple Watch, imported from a
+JSON export (the Health Data Export iOS app) and layered onto Night
+View, Trends, and Stats. Full detail — feature list, architecture,
+known simplifications — lives in `docs/apple-health-integration.md`,
+kept separate from this file for the same reason `docs/push-notifications.md`
+is: it's substantial enough to want its own space, not because it's
+lower-priority context.
+
+Started as an explicitly reversible proof of concept — every touch
+point in an existing file marked `// APPLE-HEALTH:`, full strip-out
+instructions kept in that doc — but confirmed in real daily use with
+the user's entire multi-year Apple Watch history imported (479 nights,
+331 matched to CPAP sessions at last check), so it's a committed
+feature now, not something to remove. The markers and strip-out list
+stay in place as documentation of exactly what touches what; they're
+no longer a live "remove this" option.
+
+One early real-world finding worth not re-discovering: the export
+app's coverage can look capped to ~90 days if it's only been granted
+recent-history permission in iOS Settings — that's a permissions
+setting on the export app, not a hard limitation of it. Re-granting
+full-history access and re-exporting picked up everything since the
+Watch was first worn.
+
 ## Known research items for the real build (flagged, not resolved)
 
 - **Wake Lock API**: helps prevent screen-lock during a long import, but
