@@ -374,7 +374,7 @@ export function ImportScreen({ onBack, nights }) {
         {/* APPLE-HEALTH — whole card is one self-contained block, listed
             in docs/apple-health-integration.md's strip-out steps. */}
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle
+          <CardTitle sub="Sleep stage, heart rate and SpO2 on Night View"
             info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
             Apple Health Data
           </CardTitle>
