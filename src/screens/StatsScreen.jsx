@@ -115,7 +115,7 @@ export function StatsScreen({ nights, targets }) {
             docs/apple-health-integration.md. */}
         {avgSleepEfficiency != null && (
           <StatRow icon={Moon} iconColor={C.blue} label="Avg sleep efficiency" value={`${avgSleepEfficiency}%`}
-            description="Percent of time in bed actually asleep (Core+Deep+REM against Core+Deep+REM+Awake), from your Apple Watch. A different question from Sleep architecture on Trends, which looks at how much you slept, not how efficiently." />
+            description="Percent of time in bed actually asleep (Core+Deep+REM against Core+Deep+REM+Awake), from Apple Health. A different question from Sleep architecture on Trends, which looks at how much you slept, not how efficiently." />
         )}
         <StatRow icon={Flame} iconColor={C.orange} label="Current streak" value={streak > 0 ? `${streak} night${streak === 1 ? '' : 's'}` : 'None active'} last
           description={`Consecutive nights at or above your ${targets.usage}h usage target — the one thing on this list that's entirely within your control, night to night.`} />

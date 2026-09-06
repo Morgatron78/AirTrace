@@ -203,8 +203,8 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // a tab row here would duplicate a control the AHI chart doesn't need.
   const archTitle = archFocus ? STAGE_LABEL[archFocus] : 'Sleep architecture'
   const archInfoDesc = archFocus
-    ? `How much of the night was spent in ${STAGE_LABEL[archFocus]} sleep, from your Apple Watch, charted across every night in range.`
-    : "Total sleep-stage time each night (Core, Deep, REM), from your Apple Watch. Tap a night for its own breakdown, or a stage within it for that stage's own trend."
+    ? `How much of the night was spent in ${STAGE_LABEL[archFocus]} sleep, from Apple Health, charted across every night in range.`
+    : "Total sleep-stage time each night (Core, Deep, REM), from Apple Health. Tap a night for its own breakdown, or a stage within it for that stage's own trend."
   const viewNight = (i) => onSelectNight(nights.indexOf(rawData[i]))
   const handleChartBarClick = (i) => setChartDetailIdx((cur) => (cur === i ? null : i))
   const handleSessionBarClick = (i) => setSessionDetailIdx((cur) => (cur === i ? null : i))
