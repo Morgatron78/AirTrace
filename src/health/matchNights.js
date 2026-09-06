@@ -36,10 +36,20 @@ export function matchHealthDataToNights(parsed, nights) {
 // and fall within the timespan the export actually covers. Each of
 // parsed's three arrays is already sorted (parseHealthExport.js), so its
 // own first/last entries bound that timespan without re-scanning
-// everything. Used only for the Settings import result message: without
-// this, "Matched N of nights.length" compares against the user's entire
-// therapy history (often 1+ years) rather than the export's real ~90-day
-// window, making a perfectly normal match rate look alarmingly low.
+// everything. Used only for the Import result message: without this,
+// "Matched N of nights.length" compares against the user's entire
+// therapy history (often 1+ years) rather than the export's own real
+// date range, making a perfectly normal match rate look alarmingly low.
+//
+// That real range isn't a fixed export-app limitation — an export
+// initially came back capped to ~90 days, which looked like a hard
+// ceiling, but turned out to be the Health Data Export app only having
+// been granted recent-history permission in iOS Settings. Re-granted to
+// full history, the same export covered everything since the Watch was
+// first worn. This function still earns its place regardless: whatever
+// range a given export actually covers (permission-limited or not), the
+// denominator here should reflect that real range, not the full
+// therapy history.
 export function countEligibleNights(parsed, nights) {
   const bounds = []
   if (parsed.stages.length) bounds.push(parsed.stages[0].startMs, parsed.stages[parsed.stages.length - 1].endMs)
