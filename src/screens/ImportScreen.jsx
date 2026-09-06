@@ -374,13 +374,13 @@ export function ImportScreen({ onBack, nights }) {
         {/* APPLE-HEALTH — whole card is one self-contained block, listed
             in docs/apple-health-integration.md's strip-out steps. */}
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="From Apple Health — sleep stage, heart rate and SpO2 on Night View"
+          <CardTitle
             info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
-            Health data
+            Apple Health Data
           </CardTitle>
           <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
-            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Health Data'}
+            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Apple Health Data'}
           </button>
           <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
 
