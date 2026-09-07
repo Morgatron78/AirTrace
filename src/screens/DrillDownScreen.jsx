@@ -75,15 +75,39 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
     }
   }
 
-  // Scrolls the selected month pill into view — the 12-month row doesn't
-  // fit on one screen, so switching years (or opening the overlay on a
-  // later month) can otherwise leave the active pill off-screen with no
-  // indication it's there. Same pattern NightDatePicker's own activePickerRef
-  // already uses for the day-chip strip above this overlay.
-  const activeMonthRef = useRef(null)
-  useEffect(() => {
-    activeMonthRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
-  }, [year])
+  // One step forward/back across the month grid — shared by the month
+  // pills' neighbors and the swipe gesture below, so both ways of moving
+  // by exactly one month can't drift out of sync with each other. Rolls
+  // over into the next/previous year, but refuses to land somewhere with
+  // no real data rather than snapping to the nearest month the way
+  // selectYear does — a swipe/pill-tap moving by one step should feel
+  // like it hit the edge of history, not teleport several months.
+  const stepMonth = (dir) => {
+    let y = year, m = month + dir
+    if (m > 11) { y += 1; m = 0 }
+    if (m < 0) { y -= 1; m = 11 }
+    if (!monthHasData(y, m)) return
+    setYear(y)
+    setMonth(m)
+  }
+
+  // Swipe left/right across the day grid to move a month, matching how
+  // paging through months already feels natural on mobile everywhere
+  // else (Photos, Calendar). Ignores a mostly-vertical drag (scrolling
+  // intent) and anything under the threshold (an ordinary tap on a day).
+  const touchStartRef = useRef(null)
+  const handleGridTouchStart = (e) => {
+    touchStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY }
+  }
+  const handleGridTouchEnd = (e) => {
+    const start = touchStartRef.current
+    touchStartRef.current = null
+    if (!start) return
+    const dx = e.changedTouches[0].clientX - start.x
+    const dy = e.changedTouches[0].clientY - start.y
+    if (Math.abs(dx) < 40 || Math.abs(dx) < Math.abs(dy)) return
+    stepMonth(dx < 0 ? 1 : -1)
+  }
 
   const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
   const firstWeekday = new Date(year, month, 1).getDay()
@@ -108,10 +132,10 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
         </button>
       </div>
 
-      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '2px', marginBottom: 10, flexShrink: 0 }}>
+      <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 10, flexShrink: 0 }}>
         {years.map((y) => (
           <button key={y} onClick={() => selectYear(y)} style={{
-            flexShrink: 0, padding: '7px 14px', borderRadius: 10,
+            padding: '7px 14px', borderRadius: 10,
             background: y === year ? T.ink : T.surface, border: y === year ? 'none' : `1px solid ${T.line}`,
           }}>
             <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: y === year ? '#FFFFFF' : T.ink }}>{y}</span>
@@ -119,13 +143,16 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
         ))}
       </div>
 
-      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '2px', marginBottom: 14, flexShrink: 0 }}>
+      {/* Two rows of six rather than one scrolling row of twelve — every
+          month is on screen at once, nothing to swipe or scroll past just
+          to see where the year's other months are. */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(6, 1fr)', gap: 6, marginBottom: 14, flexShrink: 0 }}>
         {monthNames.map((m, i) => {
           const has = monthHasData(year, i)
           const isSelected = i === month
           return (
-            <button key={m} ref={isSelected ? activeMonthRef : null} disabled={!has} onClick={() => setMonth(i)} style={{
-              flexShrink: 0, padding: '7px 12px', borderRadius: 10,
+            <button key={m} disabled={!has} onClick={() => setMonth(i)} style={{
+              padding: '7px 4px', borderRadius: 10,
               background: isSelected ? T.ink : T.surface, border: isSelected ? 'none' : `1px solid ${T.line}`,
               opacity: has ? 1 : 0.35,
             }}>
@@ -140,7 +167,10 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
           <span key={i} className="font-display" style={{ fontSize: 10, fontWeight: 700, color: T.muted, textAlign: 'center' }}>{w}</span>
         ))}
       </div>
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+      {/* Swipe left/right anywhere on the grid to step a month — see
+          stepMonth/handleGridTouch* above. */}
+      <div onTouchStart={handleGridTouchStart} onTouchEnd={handleGridTouchEnd}
+        style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
         {Array.from({ length: firstWeekday }).map((_, i) => <div key={`pad-${i}`} />)}
         {Array.from({ length: daysInMonth }).map((_, i) => {
           const d = i + 1
@@ -199,8 +229,15 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
   winStart = Math.max(0, winEnd - pickerWindow)
   const recentWindow = nights.slice(winStart, winEnd)
   const activePickerRef = useRef(null)
+  // Centered, not just scrolled into minimal view — 'nearest' only moves
+  // as far as the edge of the strip, so paging forward repeatedly left
+  // the selected chip pinned against the right edge with no upcoming
+  // context and every earlier night already scrolled past. Centering
+  // keeps a run of both past and future nights visible around whichever
+  // one is selected, however you got there (prev/next arrows, a tap on
+  // a chip, or landing here from the calendar overlay).
   useEffect(() => {
-    activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    activePickerRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
   }, [idx])
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
