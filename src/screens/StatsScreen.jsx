@@ -2,11 +2,11 @@ import { useState, useEffect } from 'react'
 import { Clock, Activity, PowerOff, Calendar, Flame, Trophy, Moon } from 'lucide-react'
 import { T, C } from '../constants/theme'
 import { TAG_LABEL, TAG_ICON, TAG_COLOR, AUTO_TAGS } from '../constants/tags'
-import { computeStreak, computeBestStreak } from '../utils/scoring'
+import { computeStreak, computeBestStreak, freezesUsedThisMonth, STREAK_FREEZES_PER_MONTH } from '../utils/scoring'
 import { CardTitle } from '../components/CardTitle'
 import { EventRing } from '../components/EventRing'
 import { SealRing } from '../components/SealRing'
-import { StatRow } from '../components/StatRow'
+import { StatRow, StatDetailRow } from '../components/StatRow'
 import { LeakIcon } from '../components/icons/LeakIcon'
 // APPLE-HEALTH: this screen's first touch — see
 // docs/apple-health-integration.md for the full strip-out list.
@@ -46,6 +46,11 @@ export function StatsScreen({ nights, targets }) {
   // 30 days) structurally can't answer.
   const streak = computeStreak(nights, targets)
   const bestStreak = computeBestStreak(nights, targets)
+  // Full history, same reason as streak/bestStreak above — freezes are a
+  // real calendar-month budget, not scoped to the 30-night "This month"
+  // slice (which can straddle two calendar months entirely differently).
+  const freezesUsed = freezesUsedThisMonth(nights, targets)
+  const freezesLeft = STREAK_FREEZES_PER_MONTH - freezesUsed
   const lifetimeCompliance = Math.round((nights.filter((n) => n.usage >= targets.usage).length / nights.length) * 100)
   const weekday = data.filter((n) => !n.weekend), weekend = data.filter((n) => n.weekend)
 
@@ -118,7 +123,8 @@ export function StatsScreen({ nights, targets }) {
             description="Percent of time in bed actually asleep (Core+Deep+REM against Core+Deep+REM+Awake), from Apple Health. A different question from Sleep architecture on Trends, which looks at how much you slept, not how efficiently." />
         )}
         <StatRow icon={Flame} iconColor={C.orange} label="Current streak" value={streak > 0 ? `${streak} night${streak === 1 ? '' : 's'}` : 'None active'} last
-          description={`Consecutive nights at or above your ${targets.usage}h usage target — the one thing on this list that's entirely within your control, night to night.`} />
+          detail={<StatDetailRow label="Freezes left this month" value={`${freezesLeft} of ${STREAK_FREEZES_PER_MONTH}`} />}
+          description={`Consecutive nights at or above your ${targets.usage}h usage target — the one thing on this list that's entirely within your control, night to night. A missed night doesn't break the streak as long as a freeze is still available for the month it falls in.`} />
 
         <div className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}`, marginBottom: 2 }}>All-time</div>
         <StatRow icon={Trophy} iconColor={C.orange} label="Best streak ever" value={`${bestStreak} night${bestStreak === 1 ? '' : 's'}`}

@@ -127,7 +127,7 @@ export function isConcern(kind, night, targets) {
 // be freeze-protected, not just an already-running streak), and budgets
 // reset per calendar month, not a rolling 30-day window — myAir's own
 // wording is "4 free freezes a month."
-const STREAK_FREEZES_PER_MONTH = 4
+export const STREAK_FREEZES_PER_MONTH = 4
 export function computeStreak(nights, targets) {
   let streak = 0
   const freezesUsedByMonth = {} // 'YYYY-MM' -> count already spent
@@ -164,6 +164,21 @@ export function computeBestStreak(nights, targets) {
     streak = 0
   }
   return best
+}
+
+// How many of this month's 4 free freezes are already spent — deliberately
+// not read off computeStreak's own freezesUsedByMonth map, since that walk
+// stops dead the instant it hits an unprotected miss, so it never reaches
+// (and can't report on) any month whose run already ended. A freeze is
+// consumed by a miss whether or not that miss is still part of an active
+// streak, so this can just count this month's misses directly instead of
+// re-deriving them from a streak walk built for a different question.
+export function freezesUsedThisMonth(nights, targets) {
+  const last = nights[nights.length - 1]
+  if (!last) return 0
+  const month = last.date.slice(0, 7)
+  const misses = nights.filter((n) => n.date.slice(0, 7) === month && (n.noUsage || n.usage < targets.usage)).length
+  return Math.min(STREAK_FREEZES_PER_MONTH, misses)
 }
 
 // The single most relevant thing to surface right now — used for Today's
