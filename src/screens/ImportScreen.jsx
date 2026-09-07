@@ -57,6 +57,12 @@ export function ImportScreen({ onBack, nights }) {
   const fileInputRef = useRef(null)
   const [lastImport, setLastImport] = useState(null)
   const [history, setHistory] = useState([])
+  // How many nights currently have real waveform detail stored — not the
+  // same as RETENTION_USED_NIGHTS (the cap), since a fresh install or one
+  // with under 90 used nights ever will genuinely have fewer than that.
+  // Refreshed on mount and again after every import completes, since
+  // that's the only time this store's contents actually change.
+  const [detailCount, setDetailCount] = useState(null)
   // True from the moment the OS file picker hands focus back to the page
   // until our own onChange actually fires. On a large card the native
   // picker can take 45s+ to enumerate everything after you've already
@@ -105,6 +111,7 @@ export function ImportScreen({ onBack, nights }) {
   useEffect(() => {
     getMeta('lastImport').then((v) => v && setLastImport(v))
     getMeta('importHistory').then((v) => v && setHistory(v))
+    getExistingDetailDates().then((dates) => setDetailCount(dates.size))
   }, [])
 
   useEffect(() => () => workerRef.current?.terminate(), [])
@@ -263,6 +270,7 @@ export function ImportScreen({ onBack, nights }) {
         // need to agree on the identical boundary, or a folder just parsed in
         // could get immediately pruned back out again.
         const pruned = await pruneOlderThan(cutoff)
+        setDetailCount((await getExistingDetailDates()).size)
 
         // Tagging start point per CLAUDE.md: set exactly once, the moment
         // the *first ever* import completes — never recomputed after that,
@@ -401,8 +409,8 @@ export function ImportScreen({ onBack, nights }) {
           <CardTitle sub="Rolling window of your last 90 used nights">What's kept</CardTitle>
           <StatRow icon={Sparkles} iconColor={C.purple} label="Nightly summaries" value="Kept forever"
             description="AHI, leak, usage, mask seal, tags and score — one lightweight record per night, from STR.edf. Small enough to keep your whole history without a second thought." />
-          <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform detail" value="Last 90 used nights" last
-            description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Kept for your most recent 90 nights that actually have a session (not the last 90 calendar days, which would shrink below 90 real nights if you ever skip a night) and pruned automatically on each import; the summary for that night stays put either way, just without the full waveform to drill into." />
+          <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform detail" value={detailCount != null ? `${detailCount} of ${RETENTION_USED_NIGHTS} nights` : '…'} last
+            description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Kept for your most recent 90 nights that actually have a session (not the last 90 calendar days, which would shrink below 90 real nights if you ever skip a night) and pruned automatically on each import; the summary for that night stays put either way, just without the full waveform to drill into. Fewer than 90 just means you haven't used the machine 90 times yet, or an older night's detail hasn't been imported at all." />
         </div>
 
         {/* APPLE-HEALTH — whole card is one self-contained block, listed
