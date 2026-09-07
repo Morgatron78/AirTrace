@@ -3,8 +3,8 @@ import { getAllTags, setTag } from './tags.js'
 import { getAllMeta, setMeta } from './meta.js'
 
 // Deliberately scoped to nightSummaries + tags + meta — NOT nightDetail
-// (the per-night waveform/event cache). nightDetail is large (90 days
-// of ~25Hz Flow/Pressure samples) and, unlike the other three stores,
+// (the per-night waveform/event cache). nightDetail is large (your last
+// 90 used nights of ~25Hz Flow/Pressure samples) and, unlike the other three stores,
 // fully re-derivable by re-importing the same SD card — it's a cache,
 // not a record. tags has zero source outside this app (nothing on the
 // card could ever reconstruct a logged "Alcohol" night); nightSummaries

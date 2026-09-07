@@ -20,8 +20,9 @@ const STAGES = ['core', 'deep', 'rem']
 // which row is expanded.
 export function SleepArchDetailPanel({ night, healthEntry, focus, onSelectStage, trendSentence, onViewNight }) {
   // AHI needs real per-event timestamps (nightDetail), which — unlike the
-  // permanent minutes already on `night` — is pruned after 90 days.
-  // Trends never shows more than 30 days back, comfortably inside that
+  // permanent minutes already on `night` — is pruned to your last 90
+  // used nights. Trends never shows more than 30 calendar days back,
+  // which can hold at most 30 used nights — comfortably inside that
   // window, so this is expected to resolve to 'ready'; hasEventDetail
   // still gates the computation properly rather than assuming, the same
   // fix already applied to Night View's own HypnogramChart.

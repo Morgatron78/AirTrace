@@ -4,6 +4,7 @@ import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
 import { groupImportFiles } from '../edf/groupImportFiles.js'
+import { parseSummaries } from '../edf/parseSummaries.js'
 import { upsertSummaries } from '../db/nights.js'
 import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
@@ -21,9 +22,14 @@ const IMPORT_STAGE_LABEL = {
   reading: 'Reading folder',
   summaries: 'Parsing nightly summaries',
   waveform: 'Parsing waveform detail',
-  pruning: 'Pruning data older than 90 days',
+  pruning: 'Pruning older waveform detail',
 }
-const RETENTION_DAYS = 90
+// Nights actually used, not calendar days — a calendar-day cutoff quietly
+// delivers fewer than its own promised number for anyone who doesn't use
+// the machine every single night (confirmed by a real user: 76 real
+// nights inside what a 90-*day* window would have called "90 days"). See
+// the cutoff computation in onFilesSelected below.
+const RETENTION_USED_NIGHTS = 90
 
 function ImportStageRow({ label, status }) {
   return (
@@ -176,7 +182,31 @@ export function ImportScreen({ onBack, nights }) {
     // parsing it first just to throw it away wastes time and (worse, on a
     // large multi-year card) memory. Nightly summaries still cover the
     // full history regardless, from STR.edf alone.
-    const cutoff = toDateStr(new Date(Date.now() - RETENTION_DAYS * 86400000))
+    //
+    // The window is the last RETENTION_USED_NIGHTS nights that actually
+    // have a real session, not the last N calendar days — see that
+    // constant's own comment. STR.edf is parsed here, on the main thread,
+    // purely to compute that cutoff before deciding which DATALOG folders
+    // are even worth handing to the worker; the worker re-parses it a
+    // moment later as part of its own normal pipeline (msg.type ===
+    // 'summaries' below) — a small duplicate parse of one small, fast
+    // file, kept separate rather than threading this cutoff logic into
+    // the worker, so the worker keeps its own stated "no opinion on
+    // retention policy" contract intact (see importWorker.js).
+    let cutoff
+    try {
+      const strBufferForCutoff = await strFile.arrayBuffer()
+      const summariesForCutoff = parseSummaries(strBufferForCutoff)
+      cutoff = summariesForCutoff[0]?.date ?? toDateStr(new Date())
+      let usedSeen = 0
+      for (let i = summariesForCutoff.length - 1; i >= 0; i--) {
+        if (!summariesForCutoff[i].noUsage) usedSeen++
+        if (usedSeen >= RETENTION_USED_NIGHTS) { cutoff = summariesForCutoff[i].date; break }
+      }
+    } catch (err) {
+      setError(`Couldn't read STR.edf: ${err.message}`)
+      return
+    }
     const inWindowFolders = nightFolders.filter((n) => n.date >= cutoff)
 
     startedAtRef.current = Date.now()
@@ -228,7 +258,11 @@ export function ImportScreen({ onBack, nights }) {
       if (msg.type === 'done') {
         setStage('pruning')
         await upsertSummaries(summaries)
-        const pruned = await pruneOlderThan(RETENTION_DAYS)
+        // Reuses the exact same cutoff computed above (not RETENTION_USED_NIGHTS
+        // recomputed here as a day count) — what got parsed and what gets kept
+        // need to agree on the identical boundary, or a folder just parsed in
+        // could get immediately pruned back out again.
+        const pruned = await pruneOlderThan(cutoff)
 
         // Tagging start point per CLAUDE.md: set exactly once, the moment
         // the *first ever* import completes — never recomputed after that,
@@ -364,11 +398,11 @@ export function ImportScreen({ onBack, nights }) {
         )}
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="Rolling window, measured from today">What's kept</CardTitle>
+          <CardTitle sub="Rolling window of your last 90 used nights">What's kept</CardTitle>
           <StatRow icon={Sparkles} iconColor={C.purple} label="Nightly summaries" value="Kept forever"
             description="AHI, leak, usage, mask seal, tags and score — one lightweight record per night, from STR.edf. Small enough to keep your whole history without a second thought." />
-          <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform detail" value="Last 90 days" last
-            description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Anything older than 90 days is pruned automatically on each import; the summary for that night stays put, just without the full waveform to drill into." />
+          <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform detail" value="Last 90 used nights" last
+            description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Kept for your most recent 90 nights that actually have a session (not the last 90 calendar days, which would shrink below 90 real nights if you ever skip a night) and pruned automatically on each import; the summary for that night stays put either way, just without the full waveform to drill into." />
         </div>
 
         {/* APPLE-HEALTH — whole card is one self-contained block, listed
@@ -402,7 +436,7 @@ export function ImportScreen({ onBack, nights }) {
               <StatRow icon={Calendar} iconColor={C.blue} label="Date" value={lastImport.date} />
               <StatRow icon={Sparkles} iconColor={C.purple} label="Nights added" value={lastImport.nightsAdded} />
               <StatRow icon={Package} iconColor={T.muted} label="Waveform pruned" value={`${lastImport.pruned} night${lastImport.pruned === 1 ? '' : 's'}`}
-                description="Nights that aged out of the 90-day window this import. Their nightly summary is untouched — only the detailed waveform was dropped." />
+                description="Nights that fell outside your last 90 used nights this import. Their nightly summary is untouched — only the detailed waveform was dropped." />
               <StatRow icon={Clock} iconColor={C.orange} label="Duration" value={lastImport.duration} last />
             </div>
 

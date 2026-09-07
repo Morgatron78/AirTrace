@@ -45,7 +45,7 @@ Built primarily for **iOS, installed to the Home Screen**. That's not an afterth
 ## Tech stack
 
 - **React 19 + Vite** — no framework beyond what's needed
-- **IndexedDB** (via [`idb`](https://github.com/jakearchibald/idb)) for on-device storage, with a two-tier retention policy: daily summaries kept forever, full waveform detail rolling on a 90-day window
+- **IndexedDB** (via [`idb`](https://github.com/jakearchibald/idb)) for on-device storage, with a two-tier retention policy: daily summaries kept forever, full waveform detail rolling on your last 90 used nights
 - **A Web Worker** for parsing, so a 20-minute first import never blocks the UI
 - **GitHub Actions → GitHub Pages** — every push to `main` bumps the version, builds, and deploys automatically
 

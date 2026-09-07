@@ -191,9 +191,14 @@ bugs surfaced this way that a synthetic/small test wouldn't have caught:
 
 - Web Worker for parsing (don't block the UI on a 20-minute first import).
 - Two-tier retention: nightly summaries kept forever (cheap), waveform
-  detail pruned to a rolling 90-day window *measured from today*, not from
-  last import — a 3-week gap between imports doesn't break this, it just
-  means a bigger one-time catch-up.
+  detail pruned to a rolling window of the last 90 nights that actually
+  have a session — *used* nights, not calendar days, recomputed fresh on
+  every import rather than from last import. A calendar-day window
+  quietly delivers fewer than its own promised number for anyone who
+  doesn't use the machine every single night (confirmed by a real user:
+  76 real nights inside what a 90-*day* window would have called "90
+  days"); a 3-week gap between imports doesn't break the used-nights
+  version either — it just means a bigger one-time catch-up.
 - Imports are incremental/idempotent — diff against what's already stored.
   This matters for the Wake Lock item below: an interrupted import isn't a
   full loss, re-running picks up where it left off.

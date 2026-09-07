@@ -34,9 +34,9 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   one consistent icon+label pattern; the SpO₂ icon flips to the same
   flagged red as its text when below the desaturation threshold.
 - The Sleep stages card (band only, no AHI-by-stage) keeps showing even
-  once a night's CPAP waveform detail has aged out of the 90-day
-  retention window — it only needs the permanent `nightSummaries` fields
-  and `healthData`, neither of which is pruned.
+  once a night's CPAP waveform detail has aged out of the last-90-used-
+  nights retention window — it only needs the permanent `nightSummaries`
+  fields and `healthData`, neither of which is pruned.
 - A "Sleep architecture" card on Trends, deliberately built to operate
   exactly like the existing Events chart above it rather than a bespoke
   design (confirmed against that chart's own `stack`/`dataKey`/`eventType`

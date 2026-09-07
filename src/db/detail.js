@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { getDB } from './schema.js'
-import { toDateStr } from '../utils/dates.js'
 
 // Bump this whenever parseNight.js's `detail` object gains a new channel
 // (most recently: therapyPressure). Import is incremental by date — a
@@ -64,21 +63,21 @@ export async function upsertDetail(rows) {
   await Promise.all([...rows.map((r) => tx.store.put(r)), tx.done])
 }
 
-// Two-tier retention per CLAUDE.md: measured from *today*, not from the
-// last import — a 3-week gap between imports doesn't break this, it just
-// means a bigger one-time catch-up prune. Returns how many rows were
-// pruned, for ImportScreen's "Waveform pruned" stat.
-export async function pruneOlderThan(days) {
+// Two-tier retention per CLAUDE.md: recomputed fresh from real usage on
+// every import, not from a fixed calendar span — a 3-week gap between
+// imports doesn't break this, it just means a bigger one-time catch-up
+// prune. `cutoffDate` is a 'YYYY-MM-DD' string the caller computes (see
+// ImportScreen.jsx's onFilesSelected) — the date of the Nth most recent
+// *used* night, not today minus N days, so this function has no day-count
+// math of its own to keep in sync with that logic. Returns how many rows
+// were pruned, for ImportScreen's "Waveform pruned" stat.
+export async function pruneOlderThan(cutoffDate) {
   const db = await getDB()
-  const cutoff = new Date()
-  cutoff.setDate(cutoff.getDate() - days)
-  const cutoffStr = toDateStr(cutoff)
-
   const tx = db.transaction('nightDetail', 'readwrite')
   let cursor = await tx.store.openCursor()
   let pruned = 0
   while (cursor) {
-    if (cursor.key < cutoffStr) {
+    if (cursor.key < cutoffDate) {
       await cursor.delete()
       pruned++
     }

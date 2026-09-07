@@ -12,8 +12,8 @@
 // batched message at the end — confirmed on real hardware, not
 // theoretical. The caller is expected to have already filtered
 // nightFolders down to whatever range it actually wants full waveform
-// detail for (e.g. the 90-day retention window), since this module has
-// no opinion on retention policy.
+// detail for (e.g. the last-90-used-nights retention window), since this
+// module has no opinion on retention policy.
 import { parseSummaries } from './parseSummaries.js'
 import { parseNight } from './parseNight.js'
 

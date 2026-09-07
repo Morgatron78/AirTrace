@@ -6,8 +6,9 @@ const DB_VERSION = 2
 let dbPromise = null
 
 // Two-tier retention per CLAUDE.md: nightSummaries kept forever (cheap —
-// one row per day, from STR.edf), nightDetail pruned to a rolling 90-day
-// window measured from today (see src/db/detail.js's pruneOlderThan).
+// one row per day, from STR.edf), nightDetail pruned to a rolling window
+// of the last 90 nights that actually have a session, recomputed fresh
+// on every import (see src/db/detail.js's pruneOlderThan).
 // tags/meta are the persistence this phase adds for what used to live
 // only in React state and was lost on every reload.
 export function getDB() {

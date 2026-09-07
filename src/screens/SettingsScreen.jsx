@@ -317,7 +317,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
           <CardTitle sub="A file you keep — nothing here is uploaded anywhere"
-            info="Local-first means this data lives in exactly one place — this phone's own storage. Export saves your night summaries and tagged nights (everything that can't be re-read off the SD card) to a file you control; keep it wherever you'd keep any other backup. Waveform detail isn't included — that's a 90-day cache, regenerated the next time you import.">
+            info="Local-first means this data lives in exactly one place — this phone's own storage. Export saves your night summaries and tagged nights (everything that can't be re-read off the SD card) to a file you control; keep it wherever you'd keep any other backup. Waveform detail isn't included — that's a cache of your last 90 used nights, regenerated the next time you import.">
             Backup
           </CardTitle>
           <div style={{ fontSize: 12, color: lastBackup ? T.muted : SEV.fair, marginBottom: 14, fontWeight: lastBackup ? 400 : 600 }}>

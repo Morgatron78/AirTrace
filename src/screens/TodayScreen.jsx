@@ -16,8 +16,9 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   const last = nights[nights.length - 1]
   const prev = nights[nights.length - 2]
   // Same useNightDetail hook Night View uses (db/detail.js) — "last
-  // night" is always inside the 90-day waveform-detail retention window,
-  // so detailStatus here should realistically only ever land on 'ready'
+  // night" is always inside the last-90-used-nights waveform-detail
+  // retention window, so detailStatus here should realistically only
+  // ever land on 'ready'
   // or 'loading', never the pruned/never-imported 'unavailable' case
   // Night View has to handle for older history — but the same three
   // states are checked regardless, rather than assuming. A second call
@@ -86,8 +87,8 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
             description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
           <StatRow icon={PowerOff} iconColor={T.muted} label="Mask-off events" value={last.maskOff} warn={isConcern('maskOff', last, targets)} />
           {/* Same stat Night View shows, added here since "last night" is
-              always inside the 90-day retention window — no reason to
-              wait until you drill in to see it. detailStatus-gated for
+              always inside the last-90-used-nights retention window — no
+              reason to wait until you drill in to see it. detailStatus-gated for
               the same reason as there: "0s" would otherwise be
               indistinguishable from "not loaded yet". */}
           <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"

@@ -23,7 +23,7 @@ const STAGE_ORDER = ['awake', 'core', 'deep', 'rem']
 // scored events) just shows the band and legend as before.
 //
 // `hasEventDetail` distinguishes "no nightDetail exists for this night at
-// all" (pruned past the 90-day window, or never imported) from "we have
+// all" (pruned past the last-90-used-nights window, or never imported) from "we have
 // real per-event data and it genuinely shows zero qualifying events this
 // stage." events.length===0 can't carry that distinction on its own —
 // it's true in both cases, but only the second one is a real 0.0/hr;
@@ -66,8 +66,8 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
       {/* Only shown when AHI by stage isn't — its own rows already carry
           the same icon+label mapping (plus real numbers), so a plain
           legend here would just repeat it. Still needed on a night whose
-          waveform detail has aged out of the 90-day window: that's the
-          one case where hasEventDetail is false and this band is the
+          waveform detail has aged out of the last-90-used-nights window:
+          that's the one case where hasEventDetail is false and this band is the
           only content on the card. */}
       {(!ahiRows || ahiRows.length === 0) && (
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginTop: 12, flexWrap: 'wrap' }}>

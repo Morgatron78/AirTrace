@@ -215,10 +215,11 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
   // Always includes whichever night is currently selected — a fixed
   // window would go blank (no highlighted night at all) once you page
   // further back than that window via the prev/next arrows. Sized to the
-  // 90-day waveform-detail retention window (see ImportScreen.jsx's
-  // RETENTION_DAYS) rather than a small arbitrary number — that's the
-  // actual range a night has a real chart to drill into, so it's the
-  // range worth being able to scroll through here. A fixed number of
+  // last-90-used-nights waveform-detail retention window (see
+  // ImportScreen.jsx's RETENTION_USED_NIGHTS) rather than a small
+  // arbitrary number — that's the actual range a night has a real chart
+  // to drill into, so it's the range worth being able to scroll through
+  // here. A fixed number of
   // rendered chips (not "all of nights") is still deliberate: real
   // history can run 500+ nights — jumping to an arbitrary months-old
   // date is what the calendar button/JumpToDateOverlay below is for,
@@ -362,9 +363,9 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
 
   // Real per-night waveform detail + events, loaded from IndexedDB (see
   // src/edf/parseNight.js for what actually populates it, and CLAUDE.md
-  // for why it may not exist: pruned past the 90-day retention window,
-  // or this night predates any DATALOG import even though its summary
-  // is still available from STR.edf).
+  // for why it may not exist: pruned past the last-90-used-nights
+  // retention window, or this night predates any DATALOG import even
+  // though its summary is still available from STR.edf).
   const { status: detailStatus, detail: nightData } = useNightDetail(night.date)
   // APPLE-HEALTH: independent of nightDetail/EDF data entirely — a
   // separate external source (Apple Health, via Import's own Import
@@ -822,24 +823,24 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
         <StatRow icon={Gauge} iconColor={C.orange} label="Set pressure" value={`${setPressure} cmH₂O`}
           description="Your fixed prescribed pressure. Tonight's delivered range stayed within a fraction of this, as expected for a non-auto-adjusting machine." />
         {/* Mask seal/off, same as Today's own card — both come from the
-            permanent night-summary data (not the 90-day-pruned detail
-            store), so unlike Time in apnea below there's no reason they
-            couldn't show for any night, not just the most recent one. */}
+            permanent night-summary data (not the used-nights-pruned
+            detail store), so unlike Time in apnea below there's no reason
+            they couldn't show for any night, not just the most recent one. */}
         <StatRow icon={LockKeyhole} iconColor={C.pink} label="Mask seal" value={night.seal} warn={isConcern('seal', night, targets)}
           description="A rating of how consistently your mask held its seal overnight. Poor seals usually show up as a rising leak rate — check Avg leak above alongside this." />
         <StatRow icon={PowerOff} iconColor={T.muted} label="Mask-off events" value={night.maskOff} warn={isConcern('maskOff', night, targets)} />
         {/* detailStatus-gated, not just timeInApneaSec's own ?? 0 fallback —
             "0s" otherwise reads as a genuinely clean night, indistinguishable
             from "we don't have per-event detail for this one at all" (pruned
-            past the 90-day retention window, or never captured on a past
-            import). The AHI ring above is unaffected either way — it comes
+            past the last-90-used-nights retention window, or never captured
+            on a past import). The AHI ring above is unaffected either way — it comes
             straight from STR.edf's own permanent per-night summary, entirely
             independent of whether detail happens to still be stored. */}
         <StatRow icon={Clock} iconColor={C.pink} label="Time in apnea"
           value={detailStatus === 'ready' ? `${formatDurationSec(timeInApneaSec)} (${apneaPct.toFixed(2)}%)` : 'Not available'} last
           description={detailStatus === 'ready'
             ? "Total time spent within a scored obstructive or central apnea event tonight — a duration-based view alongside AHI's per-hour event count. Hypopnea isn't included here, matching OSCAR's own 'Total time in apnoea' convention: a hypopnea is a partial obstruction, not a full apnea."
-            : "Per-event detail isn't stored for this night — waveform detail is only kept for the last 90 days, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
+            : "Per-event detail isn't stored for this night — waveform detail is only kept for your last 90 used nights, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
       </div>
 
       <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
@@ -848,7 +849,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           (permanent, from nightSummaries) and healthEntry.stages (its own
           store, never pruned) — neither depends on nightDetail, so this
           keeps showing even once a night's waveform detail has aged out
-          of the 90-day window (the branch below, for detailStatus other
+          of the last-90-used-nights window (the branch below, for detailStatus other
           than 'unavailable', already covers 'loading' and 'ready' with
           their own handling — 'ready' renders its own HypnogramChart
           call further down, with real event detail available).
@@ -867,7 +868,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                 <HardDrive size={22} style={{ color: T.muted }} strokeWidth={1.8} />
               </div>
               <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 6 }}>Waveform detail not available</div>
-              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>Detailed charts are only kept for the last 90 days — this night's own summary above is still accurate, just without the full waveform to drill into.</div>
+              <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>Detailed charts are only kept for your last 90 used nights — this night's own summary above is still accurate, just without the full waveform to drill into.</div>
             </>
           )}
         </div>
