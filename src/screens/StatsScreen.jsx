@@ -126,7 +126,13 @@ export function StatsScreen({ nights, targets }) {
           detail={<StatDetailRow label="Freezes left this month" value={`${freezesLeft} of ${STREAK_FREEZES_PER_MONTH}`} />}
           description={`Consecutive nights at or above your ${targets.usage}h usage target — the one thing on this list that's entirely within your control, night to night. A missed night doesn't break the streak as long as a freeze is still available for the month it falls in.`} />
 
-        <div className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}`, marginBottom: 2 }}>All-time</div>
+        {/* No marginTop before this border — it needs to sit flush against
+            "Current streak" above, exactly like every other row's own
+            borderBottom does (that row's `last` suppresses its own border
+            specifically so this one can serve as the section break
+            instead). A marginTop here would leave a gap with no line in
+            it, making this row look taller than the others above it. */}
+        <div className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, paddingTop: 14, borderTop: `1px solid ${T.line}`, marginBottom: 2 }}>All-time</div>
         <StatRow icon={Trophy} iconColor={C.orange} label="Best streak ever" value={`${bestStreak} night${bestStreak === 1 ? '' : 's'}`}
           description={`The longest run you've ever had at or above your ${targets.usage}h usage target, across your full history — not just the streak currently running.`} />
         <StatRow icon={Clock} iconColor={C.orange} label="Lifetime compliance" value={`${lifetimeCompliance}%`} warn={lifetimeCompliance < targets.compliance} last
