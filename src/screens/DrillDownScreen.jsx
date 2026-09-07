@@ -1,4 +1,4 @@
-import { Fragment, useState, useRef, useEffect } from 'react'
+import { Fragment, useState, useRef, useEffect, useMemo } from 'react'
 import {
   ChevronLeft, ChevronRight, Crosshair, ZoomOut, Maximize2, X, Link2,
   ArrowUpDown, ChevronUp, ChevronDown, PowerOff, Pencil, Clock, Gauge, HardDrive, Eye, EyeOff, LockKeyhole,
@@ -26,35 +26,73 @@ import { useHealthEntry } from '../db/health.js' // APPLE-HEALTH
 import { getMeta, setMeta } from '../db/meta.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
-// Full-screen month/year grid, opened from the calendar button below.
-// The 90-chip rolling strip only ever covers ~3 months around the
-// selected night — CLAUDE.md flags that as a known gap for real history
-// running 18+ months (e.g. jumping back to when therapy started), and
-// this is the quick fix: skip straight to a month instead of scrolling
-// day-by-day. Built from the real `nights` array's own date range, not
-// a hardcoded span of years — a fresh install with two weeks of history
-// gets a two-week range, not an empty grid of mostly-disabled months.
-function JumpToDateOverlay({ nights, idx, setIdx, onClose }) {
-  const minYear = parseInt(nights[0].date.slice(0, 4), 10)
-  const maxYear = parseInt(nights[nights.length - 1].date.slice(0, 4), 10)
+// Full-screen calendar, opened from the calendar button below. The
+// 90-chip rolling strip only ever covers ~3 months around the selected
+// night — CLAUDE.md flags that as a known gap for real history running
+// 18+ months (e.g. jumping back to when therapy started) — so this lets
+// you jump straight to any real day instead of scrolling through
+// hundreds of chips. An earlier version of this overlay only picked a
+// month (landing on whichever night happened to be first in it); this
+// replaces that with an actual day grid, using the exact chip look the
+// rolling strip already established (same colors, same dashed no-usage
+// style) so the two pickers read as one system rather than two designs.
+//
+// Paged one month at a time, not a single scrolling list of every month
+// — confirmed via a side-by-side mockup with the user. The whole point
+// was cutting down on scrolling/tapping, so a sheet that stays a fixed
+// height no matter how far back you jump won out over one whose length
+// grows with import history. Built from the real `nights` array's own
+// date range, not a hardcoded span of years — a fresh install with two
+// weeks of history gets a two-week range, not a mostly-empty grid of
+// disabled years/months.
+function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
   const currentYear = parseInt(nights[idx].date.slice(0, 4), 10)
   const currentMonth = parseInt(nights[idx].date.slice(5, 7), 10) - 1
   const [year, setYear] = useState(currentYear)
+  const [month, setMonth] = useState(currentMonth)
+
+  // O(1) day lookups for the grid below instead of re-scanning `nights`
+  // (up to 31 scans of a 500+-night array) on every render while this
+  // overlay is open.
+  const byDate = useMemo(() => new Map(nights.map((n) => [n.date, n])), [nights])
+  const years = useMemo(() => [...new Set(nights.map((n) => n.date.slice(0, 4)))].map(Number), [nights])
 
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
   // A month "has data" only if some night's own date falls in it — not a
   // blanket min/max-year range, so e.g. therapy starting mid-2025 doesn't
   // light up Jan–May 2025 as if there were nights to jump to.
-  const monthHasData = (m) => nights.some((n) => n.date.slice(0, 4) === String(year) && parseInt(n.date.slice(5, 7), 10) - 1 === m)
+  const monthHasData = (y, m) => nights.some((n) => n.date.slice(0, 4) === String(y) && parseInt(n.date.slice(5, 7), 10) - 1 === m)
 
-  const jumpToMonth = (m) => {
-    const prefix = `${year}-${String(m + 1).padStart(2, '0')}`
-    const found = nights.find((n) => n.date.startsWith(prefix))
-    if (found) {
-      setIdx(nights.indexOf(found))
-      onClose()
+  const selectYear = (y) => {
+    setYear(y)
+    // The month currently selected may not exist in the new year (e.g.
+    // therapy started in March — Jan/Feb 2025 never have data) — land on
+    // the nearest real month instead of an empty grid.
+    if (!monthHasData(y, month)) {
+      let m = 0
+      while (m < 11 && !monthHasData(y, m)) m++
+      setMonth(m)
     }
+  }
+
+  // Scrolls the selected month pill into view — the 12-month row doesn't
+  // fit on one screen, so switching years (or opening the overlay on a
+  // later month) can otherwise leave the active pill off-screen with no
+  // indication it's there. Same pattern NightDatePicker's own activePickerRef
+  // already uses for the day-chip strip above this overlay.
+  const activeMonthRef = useRef(null)
+  useEffect(() => {
+    activeMonthRef.current?.scrollIntoView({ block: 'nearest', inline: 'center' })
+  }, [year])
+
+  const WD = ['S', 'M', 'T', 'W', 'T', 'F', 'S']
+  const firstWeekday = new Date(year, month, 1).getDay()
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const pad = (n) => String(n).padStart(2, '0')
+
+  const selectDay = (n) => {
+    setIdx(nights.indexOf(n))
+    onClose()
   }
 
   return (
@@ -70,30 +108,65 @@ function JumpToDateOverlay({ nights, idx, setIdx, onClose }) {
         </button>
       </div>
 
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 18, marginBottom: 16, flexShrink: 0 }}>
-        <button onClick={() => setYear((y) => Math.max(minYear, y - 1))} disabled={year <= minYear}
-          style={{ width: 30, height: 30, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year <= minYear ? 0.3 : 1 }}>
-          <ChevronLeft size={14} style={{ color: T.ink }} />
-        </button>
-        <div className="font-display" style={{ fontSize: 16, fontWeight: 800, color: T.ink, minWidth: 52, textAlign: 'center' }}>{year}</div>
-        <button onClick={() => setYear((y) => Math.min(maxYear, y + 1))} disabled={year >= maxYear}
-          style={{ width: 30, height: 30, borderRadius: '50%', background: T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: year >= maxYear ? 0.3 : 1 }}>
-          <ChevronRight size={14} style={{ color: T.ink }} />
-        </button>
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '2px', marginBottom: 10, flexShrink: 0 }}>
+        {years.map((y) => (
+          <button key={y} onClick={() => selectYear(y)} style={{
+            flexShrink: 0, padding: '7px 14px', borderRadius: 10,
+            background: y === year ? T.ink : T.surface, border: y === year ? 'none' : `1px solid ${T.line}`,
+          }}>
+            <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: y === year ? '#FFFFFF' : T.ink }}>{y}</span>
+          </button>
+        ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8 }}>
+      <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '2px', marginBottom: 14, flexShrink: 0 }}>
         {monthNames.map((m, i) => {
-          const has = monthHasData(i)
-          const isCurrent = year === currentYear && i === currentMonth
+          const has = monthHasData(year, i)
+          const isSelected = i === month
           return (
-            <button key={m} disabled={!has} onClick={() => jumpToMonth(i)} style={{
-              height: 44, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center',
-              background: isCurrent ? T.ink : (has ? T.surface : T.bg),
-              border: has && !isCurrent ? `1px solid ${T.line}` : 'none',
+            <button key={m} ref={isSelected ? activeMonthRef : null} disabled={!has} onClick={() => setMonth(i)} style={{
+              flexShrink: 0, padding: '7px 12px', borderRadius: 10,
+              background: isSelected ? T.ink : T.surface, border: isSelected ? 'none' : `1px solid ${T.line}`,
               opacity: has ? 1 : 0.35,
             }}>
-              <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: isCurrent ? '#FFFFFF' : T.ink }}>{m}</span>
+              <span className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: isSelected ? '#FFFFFF' : T.ink }}>{m}</span>
+            </button>
+          )
+        })}
+      </div>
+
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6, marginBottom: 6, flexShrink: 0 }}>
+        {WD.map((w, i) => (
+          <span key={i} className="font-display" style={{ fontSize: 10, fontWeight: 700, color: T.muted, textAlign: 'center' }}>{w}</span>
+        ))}
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 6 }}>
+        {Array.from({ length: firstWeekday }).map((_, i) => <div key={`pad-${i}`} />)}
+        {Array.from({ length: daysInMonth }).map((_, i) => {
+          const d = i + 1
+          const dateStr = `${year}-${pad(month + 1)}-${pad(d)}`
+          const n = byDate.get(dateStr)
+          // No night object at all means this date is outside real
+          // imported history (before the device's first record, or hasn't
+          // happened yet) — not the same as noUsage below, which is a real
+          // recorded night the user just didn't use the machine on.
+          if (!n) {
+            return <div key={dateStr} style={{ height: 44, borderRadius: 10, background: T.surface, border: `1px solid ${T.line}`, opacity: 0.35 }} />
+          }
+          return (
+            <button key={dateStr} onClick={() => selectDay(n)} style={{ height: 44 }}>
+              <div style={{
+                height: 44, borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                background: n.noUsage ? T.bg : scoreColor(n.ahi, targets),
+                border: n.noUsage ? `1.5px dashed ${T.muted}` : 'none',
+                outline: n === nights[idx] ? `2px solid ${T.ink}` : 'none', outlineOffset: 1, boxSizing: 'border-box',
+              }}>
+                {/* No per-day weekday letter here — the WD header row
+                    above already labels every column, and this grid's
+                    columns (unlike the horizontal chip strip's, which
+                    scrolls and needs it) never move. */}
+                <span className="font-display" style={{ fontSize: 14, fontWeight: 700, color: n.noUsage ? T.muted : '#FFFFFF' }}>{d}</span>
+              </div>
             </button>
           )
         })}
@@ -117,9 +190,9 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
   // actual range a night has a real chart to drill into, so it's the
   // range worth being able to scroll through here. A fixed number of
   // rendered chips (not "all of nights") is still deliberate: real
-  // history can run 500+ nights, and CLAUDE.md already flags that
-  // scaling this picker to jump to arbitrary months-old dates needs its
-  // own real design pass, not a bigger version of this same strip.
+  // history can run 500+ nights — jumping to an arbitrary months-old
+  // date is what the calendar button/JumpToDateOverlay below is for,
+  // not a bigger version of this same strip.
   const pickerWindow = 90
   let winStart = Math.max(0, idx - Math.floor(pickerWindow / 2))
   let winEnd = Math.min(nights.length, winStart + pickerWindow)
@@ -131,7 +204,7 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
   }, [idx])
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: '16px 16px 18px' }}>
-      {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} onClose={onCloseJump} />}
+      {showJump && <JumpToDateOverlay nights={nights} idx={idx} setIdx={setIdx} targets={targets} onClose={onCloseJump} />}
       <div className="no-scrollbar" style={{ display: 'flex', gap: 6, overflowX: 'auto', padding: '3px 4px' }}>
         {recentWindow.map((n, i) => {
           const ni = nights.indexOf(n)
