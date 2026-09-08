@@ -75,9 +75,7 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
         <div>
           <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Sleep stages</span>
-          <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>
-            {view === 'band' ? 'From Apple Health · tap an event above for detail' : 'From Apple Health'}
-          </div>
+          <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>From Apple Health</div>
         </div>
         <Segmented options={[{ key: 'band', label: 'Band' }, { key: 'stages', label: 'Stages' }]} active={view} onChange={setView} />
       </div>
@@ -142,10 +140,10 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
               just split into rows instead of stacked into one, matching
               myAir's own swimlane presentation. */}
           <div style={{ marginTop: 14 }}>
-            {laneStages.map((stage) => {
+            {laneStages.map((stage, i) => {
               const Icon = STAGE_ICON[stage]
               return (
-                <div key={stage} style={{ display: 'grid', gridTemplateColumns: '58px 1fr', alignItems: 'center', height: 26 }}>
+                <div key={stage} style={{ display: 'grid', gridTemplateColumns: '58px 1fr', alignItems: 'center', height: 26, borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
                     <Icon size={12} style={{ color: STAGE_COLOR[stage] }} />
                     <span className="font-display" style={{ fontSize: 11.5, fontWeight: 600, color: T.muted }}>{STAGE_LABEL[stage]}</span>
@@ -190,6 +188,11 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
               const mins = stageMinutes[stage]
               const pct = Math.round((mins / totalStageMinutes) * 100)
               const h = Math.floor(mins / 60), m = Math.round(mins % 60)
+              // Same source as Band's own "AHI by stage" section — not a
+              // separate lookup, so the two views can't disagree about the
+              // same night. Omitted (not a fake 0.0/hr) when hasEventDetail
+              // is false, matching Band's own quiet-omission convention.
+              const ahiRow = ahiByStage?.find((r) => r.stage === stage)
               return (
                 <div key={stage} style={{ padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -200,6 +203,7 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
                     <span className="font-display" style={{ fontSize: 13.5 }}>
                       <b style={{ fontWeight: 700, color: T.ink }}>{h > 0 ? `${h}hr ${m}min` : `${m}min`}</b>
                       <span style={{ color: T.muted, fontWeight: 600, marginLeft: 4 }}>{pct}%</span>
+                      {ahiRow && <b style={{ fontWeight: 700, color: T.ink, marginLeft: 8 }}>{ahiRow.ahi.toFixed(1)}/hr</b>}
                     </span>
                   </div>
                   <div style={{ height: 5, borderRadius: 3, background: T.line, overflow: 'hidden' }}>
