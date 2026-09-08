@@ -18,6 +18,11 @@ dist-ssr
 # committed.
 Sample_CPAP_Data/
 
+# Personal hardware experiment notes (WiFi SD card sync proof of concept) —
+# documents home-network specifics the user wants kept private, and this
+# repo is public.
+docs/wifi-sd-sync.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
