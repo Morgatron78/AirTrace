@@ -177,7 +177,7 @@ export function ImportScreen({ onBack, nights }) {
       return
     }
 
-    const { strFile, nightFolders } = groupImportFiles(files)
+    const { strFile, nightFolders, incompleteFolders } = groupImportFiles(files)
     if (!strFile) {
       const sample = files.slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
       setError(`Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together). Picker returned ${files.length} file(s). Sample paths: ${sample || '(none)'}`)
@@ -215,6 +215,12 @@ export function ImportScreen({ onBack, nights }) {
       return
     }
     const inWindowFolders = nightFolders.filter((n) => n.date >= cutoff)
+    // Same window applied to the folders groupImportFiles found but
+    // couldn't use (missing a required file) — only the ones inside the
+    // window are actually relevant to surface; an incomplete folder from
+    // years before the retention cutoff was never going to be imported
+    // anyway and isn't worth mentioning.
+    const incompleteInWindow = incompleteFolders.filter((f) => f.date >= cutoff)
 
     startedAtRef.current = Date.now()
     setWaveformDone(0)
@@ -291,7 +297,15 @@ export function ImportScreen({ onBack, nights }) {
         await setMeta('lastImport', record)
         await setMeta('importHistory', newHistory)
 
-        if (msg.errors.length) setError(`${msg.errors.length} night(s) failed to parse and were skipped: ${msg.errors.map((e) => `${e.date} (${e.message})`).join('; ')}`)
+        // Two distinct failure classes, worth telling apart rather than
+        // merging into one message: parse errors (a real file existed and
+        // something went wrong reading it) vs. incomplete folders (one of
+        // the required files was never there to begin with — caught
+        // before parsing is even attempted, see groupImportFiles.js).
+        const problems = []
+        if (msg.errors.length) problems.push(`${msg.errors.length} night(s) failed to parse: ${msg.errors.map((e) => `${e.date} (${e.message})`).join('; ')}`)
+        if (incompleteInWindow.length) problems.push(`${incompleteInWindow.length} night(s) on the card are missing required files, so they can't be imported: ${incompleteInWindow.map((f) => `${f.date} (no ${f.missing.join('/')})`).join('; ')}`)
+        if (problems.length) setError(problems.join(' — '))
         worker.terminate()
         setStage('done')
       }
