@@ -139,6 +139,20 @@ its header), both easy to get wrong and both confirmed against real values:
   consecutive records, which breaks on the very first imported record and
   on any gap).
 
+- **Removing the SD card mid-use loses that night's DATALOG waveform
+  detail permanently, but not its STR.edf summary.** Confirmed by
+  tracing a real "stuck below 90 nights" report all the way to its
+  actual cause: the user had pulled the card for a few days, used the
+  machine without it, then reinserted it. STR.edf's daily summary
+  (AHI, usage, leak, etc.) for those nights came through fine once the
+  card went back in — the device clearly buffers at least that much
+  internally — but no `DATALOG/YYYYMMDD/` folder was ever created for
+  them at all, meaning the full waveform detail for those specific
+  nights is gone for good, not recoverable by any later import. Not a
+  bug anywhere in this app; a real limitation of the device's own
+  internal buffering (summary-only, not full waveform) when it has
+  nowhere to write the heavier per-night files.
+
 ## EDF parsing — start from a real reference, not from spec alone
 
 `github.com/tedpearson/edf-importer` (Go, MIT license) is real-device-tested
