@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse } from 'lucide-react'
+import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse, FolderOpen } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
@@ -289,7 +289,15 @@ export function ImportScreen({ onBack, nights }) {
         const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)
         const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
         const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-        const record = { date: dateStr, nightsAdded: msg.addedCount, pruned, duration: durationStr }
+        // Ground truth for diagnosing an enumeration shortfall — the total
+        // DATALOG folders the picker itself returned this import (complete
+        // + incomplete), independent of the retention window or what's
+        // already stored. Nothing else in the UI shows this: "Nights
+        // added" only counts new ones, so a picker silently returning
+        // fewer folders than actually exist on the card looks identical
+        // to "nothing new to import" without this.
+        const foldersFound = nightFolders.length + incompleteFolders.length
+        const record = { date: dateStr, nightsAdded: msg.addedCount, pruned, duration: durationStr, foldersFound }
         const newHistory = [{ date: dateStr, nights: `${msg.addedCount} night${msg.addedCount === 1 ? '' : 's'}` }, ...history]
 
         setLastImport(record)
@@ -407,6 +415,13 @@ export function ImportScreen({ onBack, nights }) {
             </div>
             <div className="font-display" style={{ fontSize: 16, fontWeight: 700, color: T.ink, marginBottom: 14 }}>Import complete</div>
             <div style={{ textAlign: 'left' }}>
+              {/* Ground truth for spotting a picker enumeration shortfall
+                  — every DATALOG folder found this import, regardless of
+                  the retention window or what's already stored. Compare
+                  against a real folder count checked another way (e.g.
+                  the card plugged into a PC) if the numbers here ever
+                  look stuck below what you know is really on the card. */}
+              <StatRow icon={FolderOpen} iconColor={T.muted} label="DATALOG folders found" value={lastImport.foldersFound} />
               <StatRow icon={Sparkles} iconColor={C.purple} label="Nights added" value={lastImport.nightsAdded} />
               <StatRow icon={HardDrive} iconColor={C.blue} label="Waveform parsed" value={`${lastImport.nightsAdded} nights`} />
               <StatRow icon={Package} iconColor={T.muted} label="Waveform pruned" value={`${lastImport.pruned} nights`} />
@@ -456,6 +471,12 @@ export function ImportScreen({ onBack, nights }) {
             <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
               <CardTitle>Last import</CardTitle>
               <StatRow icon={Calendar} iconColor={C.blue} label="Date" value={lastImport.date} />
+              {/* Absent, not shown as blank/undefined, for a record saved
+                  before this field existed — same quiet-omission
+                  convention used throughout the app for missing data. */}
+              {lastImport.foldersFound != null && (
+                <StatRow icon={FolderOpen} iconColor={T.muted} label="DATALOG folders found" value={lastImport.foldersFound} />
+              )}
               <StatRow icon={Sparkles} iconColor={C.purple} label="Nights added" value={lastImport.nightsAdded} />
               <StatRow icon={Package} iconColor={T.muted} label="Waveform pruned" value={`${lastImport.pruned} night${lastImport.pruned === 1 ? '' : 's'}`}
                 description="Nights that fell outside your last 90 used nights this import. Their nightly summary is untouched — only the detailed waveform was dropped." />
