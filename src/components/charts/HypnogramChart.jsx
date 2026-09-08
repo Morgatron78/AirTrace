@@ -9,14 +9,13 @@ import { hourTicks } from './chartHelpers'
 import { Segmented } from '../Segmented'
 import { formatClock, formatDuration } from '../../utils/dates'
 
-// Fixed display order, matching the legend below — not insertion order,
-// which would otherwise depend on which stage happened to occur first.
+// Fixed display order, matching the legend below and both of Stages
+// view's own lists — deliberately the one order used everywhere in this
+// card, not insertion order (which would otherwise depend on which stage
+// happened to occur first) and not myAir's own Awake/REM/Core/Deep
+// convention, so Band and Stages always agree on where to find a given
+// stage.
 const STAGE_ORDER = ['awake', 'core', 'deep', 'rem']
-// Separate top-to-bottom order for the Stages view's own lanes/rows,
-// matching myAir's own convention (Awake/REM/Core/Deep) rather than
-// STAGE_ORDER above, which is tuned for the AHI-by-stage list instead —
-// the two views don't need to agree on row order, only on color/label.
-const LANE_ORDER = ['awake', 'rem', 'core', 'deep']
 
 // Standalone card, deliberately not added to DrillDownScreen's own
 // CHANNEL_REGISTRY — same precedent EventsChart.jsx already set for a
@@ -68,7 +67,7 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
   const stageMinutes = {}
   for (const s of segments) stageMinutes[s.stage] = (stageMinutes[s.stage] || 0) + ((s.x1 - s.x0) * totalMs) / 60000
   const totalStageMinutes = Object.values(stageMinutes).reduce((a, b) => a + b, 0)
-  const laneStages = LANE_ORDER.filter((s) => stagesPresent.includes(s))
+  const laneStages = STAGE_ORDER.filter((s) => stagesPresent.includes(s))
 
   return (
     <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
@@ -143,10 +142,10 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
             {laneStages.map((stage, i) => {
               const Icon = STAGE_ICON[stage]
               return (
-                <div key={stage} style={{ display: 'grid', gridTemplateColumns: '58px 1fr', alignItems: 'center', height: 26, borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-                    <Icon size={12} style={{ color: STAGE_COLOR[stage] }} />
-                    <span className="font-display" style={{ fontSize: 11.5, fontWeight: 600, color: T.muted }}>{STAGE_LABEL[stage]}</span>
+                <div key={stage} style={{ display: 'grid', gridTemplateColumns: '64px 1fr', alignItems: 'center', height: 26, borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Icon size={13} style={{ color: STAGE_COLOR[stage] }} />
+                    <span style={{ fontSize: 12.5, color: T.ink }}>{STAGE_LABEL[stage]}</span>
                   </span>
                   <div style={{ position: 'relative', height: 16 }}>
                     {segments.filter((s) => s.stage === stage).map((s, i) => (
@@ -158,7 +157,7 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
             })}
           </div>
 
-          <div style={{ position: 'relative', height: 14, margin: '2px 0 14px 58px' }}>
+          <div style={{ position: 'relative', height: 14, margin: '2px 0 14px 64px' }}>
             {ticks.map((t) => (
               <span key={t.label} className="font-display" style={{ position: 'absolute', left: `${t.frac * 100}%`, transform: t.frac < 0.05 ? 'none' : t.frac > 0.95 ? 'translateX(-100%)' : 'translateX(-50%)', fontSize: 10, fontWeight: 600, color: T.muted, whiteSpace: 'nowrap' }}>{t.label}</span>
             ))}
@@ -196,14 +195,18 @@ export function HypnogramChart({ night, stages, events, hasEventDetail }) {
               return (
                 <div key={stage} style={{ padding: '10px 0', borderTop: i === 0 ? 'none' : `1px solid ${T.line}` }}>
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <span className="font-display" style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: 13.5, fontWeight: 600, color: T.ink }}>
-                      <Icon size={14} style={{ color: STAGE_COLOR[stage], flexShrink: 0 }} />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6, fontSize: 12.5, color: T.ink }}>
+                      <Icon size={13} style={{ color: STAGE_COLOR[stage], flexShrink: 0 }} />
                       {STAGE_LABEL[stage]}
                     </span>
                     <span className="font-display" style={{ fontSize: 13.5 }}>
                       <b style={{ fontWeight: 700, color: T.ink }}>{h > 0 ? `${h}hr ${m}min` : `${m}min`}</b>
                       <span style={{ color: T.muted, fontWeight: 600, marginLeft: 4 }}>{pct}%</span>
-                      {ahiRow && <b style={{ fontWeight: 700, color: T.ink, marginLeft: 8 }}>{ahiRow.ahi.toFixed(1)}/hr</b>}
+                      {/* Prefixed with "AHI" — Stages view has no section
+                          heading the way Band's own "AHI by stage" list
+                          does, so a bare "6.6/hr" here has no context for
+                          what it's measuring. */}
+                      {ahiRow && <b style={{ fontWeight: 700, color: T.ink, marginLeft: 8 }}>AHI {ahiRow.ahi.toFixed(1)}/hr</b>}
                     </span>
                   </div>
                   <div style={{ height: 5, borderRadius: 3, background: T.line, overflow: 'hidden' }}>
