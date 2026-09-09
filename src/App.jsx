@@ -156,6 +156,10 @@ export default function App() {
     // standalone mode) and landing straight back on the report itself,
     // not just the app's home screen.
     if (nagParam === 'clinicianReport') setShowReport(true)
+    // Same reason as clinicianReport above — 'settings' is an App.jsx
+    // overlay (showSettings), not a tab key, even though it's a real
+    // getPrimaryInsight target (the backup-overdue nag).
+    else if (nagParam === 'settings') setShowSettings(true)
     else if (nagParam) setTab(nagParam)
     const url = new URL(window.location.href)
     url.search = ''
@@ -239,7 +243,7 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '12px 18px 0' }}>
-        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} />}
+        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} onOpenSettings={() => setShowSettings(true)} />}
         {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} />}
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate}

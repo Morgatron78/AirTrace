@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react'
 import { Clock, Activity, Gauge, LockKeyhole, PowerOff, Moon, ChevronRight, Sparkles, Flame, Pencil } from 'lucide-react'
 import { T, C } from '../constants/theme'
 import { EQUIPMENT } from '../constants/equipment'
@@ -10,9 +11,10 @@ import { MiniDots } from '../components/MiniDots'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
 import { useNightDetail } from '../db/detail.js'
+import { getMeta } from '../db/meta.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
-export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport }) {
+export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport, onOpenSettings }) {
   const last = nights[nights.length - 1]
   const prev = nights[nights.length - 2]
   // Same useNightDetail hook Night View uses (db/detail.js) — "last
@@ -32,7 +34,12 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   const apneaPct = (timeInApneaSec / (last.usage * 3600)) * 100
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)
-  const insight = getPrimaryInsight(nights, targets, equipment)
+  // Same screen-local read-on-mount pattern SettingsScreen already uses
+  // for this exact meta key — nothing else needs it threaded through
+  // App.jsx.
+  const [lastBackupExport, setLastBackupExport] = useState(null)
+  useEffect(() => { getMeta('lastBackupExport').then((v) => v && setLastBackupExport(v)) }, [])
+  const insight = getPrimaryInsight(nights, targets, equipment, lastBackupExport)
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
   // prevVal == null means "no previous night to compare" (already
   // guarded separately at each call site below) or "no previous data at
@@ -52,6 +59,10 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   const goToInsight = () => (
     insight.target === 'night' ? onSelectNight(nights.length - 1) :
     insight.target === 'import' ? onOpenImport() :
+    // Settings is its own App.jsx-level overlay (showSettings), not one
+    // of the bottom-tab targets onNavigate/setTab already understands —
+    // same special-case shape as 'import' above, for the same reason.
+    insight.target === 'settings' ? onOpenSettings() :
     onNavigate(insight.target)
   )
 

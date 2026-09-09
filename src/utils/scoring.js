@@ -1,4 +1,4 @@
-import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind, Upload } from 'lucide-react'
+import { TrendingUp, TriangleAlert, Trophy, Sparkles, RefreshCw, Droplets, Wind, Upload, Download } from 'lucide-react'
 import { C, SEV, T } from '../constants/theme'
 import { daysAgo, formatDuration } from './dates'
 import { isOverdue, isApproaching, filterIntervalDays } from './nagLogic.js'
@@ -128,6 +128,10 @@ export function isConcern(kind, night, targets) {
 // reset per calendar month, not a rolling 30-day window — myAir's own
 // wording is "4 free freezes a month."
 export const STREAK_FREEZES_PER_MONTH = 4
+
+// How long since the last backup export before Today's insight banner
+// nags about it — see getPrimaryInsight below.
+export const BACKUP_REMINDER_DAYS = 14
 export function computeStreak(nights, targets) {
   let streak = 0
   const freezesUsedByMonth = {} // 'YYYY-MM' -> count already spent
@@ -183,7 +187,7 @@ export function freezesUsedThisMonth(nights, targets) {
 
 // The single most relevant thing to surface right now — used for Today's
 // proactive banner. Insights itself shows the fuller list.
-export function getPrimaryInsight(nights, targets, equipment) {
+export function getPrimaryInsight(nights, targets, equipment, lastBackupExport) {
   const avgUsed = (arr, k) => {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
@@ -261,6 +265,22 @@ export function getPrimaryInsight(nights, targets, equipment) {
   }
   if (filterDays >= filterIntervalDays(nights)) {
     return { icon: Wind, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Filter overdue for replacement', subtitle: `${filterDays} days since it was last changed`, target: 'equipment' }
+  }
+  // Data-loss risk, not a therapy/comfort one — deliberately ranked below
+  // every equipment check above, not above them. !lastBackupExport (never
+  // backed up at all) counts as overdue too, not just a stale date: by
+  // the time this function runs there's real data worth protecting
+  // already (the last.noUsage guard above only returns for "nothing
+  // imported for today", not "nothing imported ever"), so "never" is a
+  // real case to nag about, not a first-run artifact to special-case
+  // away. daysAgo(undefined) is NaN, which every >= comparison silently
+  // treats as false — the explicit !lastBackupExport check is what
+  // actually catches that case, not a gap in daysAgo.
+  if (!lastBackupExport || daysAgo(lastBackupExport) >= BACKUP_REMINDER_DAYS) {
+    return {
+      icon: Download, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Backup overdue',
+      subtitle: lastBackupExport ? `${daysAgo(lastBackupExport)} days since your last export` : "You haven't exported a backup yet", target: 'settings',
+    }
   }
   if (trajDiff < -5) {
     return { icon: Trophy, dot: `linear-gradient(135deg,${C.blue},${SEV.good})`, title: 'Trending in the right direction', subtitle: `AHI down ${Math.abs(trajDiff)}% over this window — keep it up`, target: 'trends' }
