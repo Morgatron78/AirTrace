@@ -369,8 +369,14 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
             is gone half a second after launch — no way to check it again
             without a fresh screenshot. Useful for confirming a fix has
             actually deployed (GitHub Pages + the service worker can both
-            lag a push by a minute or two) without restarting the app. */}
-        <div style={{ textAlign: 'center', fontSize: 11.5, color: T.muted, marginTop: 4 }}>AirTrace v{APP_VERSION}</div>
+            lag a push by a minute or two) without restarting the app.
+            location.host alongside it for the same reason: an installed
+            Home Screen PWA has no address bar at all, so after a domain
+            migration this is the only way to confirm which origin (and
+            therefore which IndexedDB storage) a given installed icon is
+            actually still pointing at, short of deleting and reinstalling
+            it to find out. */}
+        <div style={{ textAlign: 'center', fontSize: 11.5, color: T.muted, marginTop: 4 }}>AirTrace v{APP_VERSION} · {window.location.host}</div>
       </main>
     </div>
   )
