@@ -10,7 +10,7 @@
 </p>
 
 <p align="center">
-  <a href="https://morgatron78.github.io/AirTrace/">Live app →</a>
+  <a href="https://airtrace.morgantech.co.uk/">Live app →</a>
 </p>
 
 ---
