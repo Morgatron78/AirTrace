@@ -27,17 +27,26 @@ export function StatsScreen({ nights, targets }) {
   const avg = (arr, k) => arr.reduce((s, n) => s + n[k], 0) / arr.length
   // avgUsed skips no-usage nights for anything that only exists because a
   // session happened (AHI, leak, event mix) — same reasoning as Trends'
-  // avgUsed. Threshold/hit-rate stats below take a different approach: a
-  // no-usage night stays in the denominator but can never count as a pass,
-  // since "no session" isn't the same as "target met."
+  // avgUsed.
   const avgUsed = (arr, k) => {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
   }
   const obs = avgUsed(data, 'obstructive'), cen = avgUsed(data, 'central'), hyp = avgUsed(data, 'hypopnea')
-  const under3 = Math.round((data.filter((n) => !n.noUsage && n.ahi < targets.ahi).length / data.length) * 100)
-  const leakUnder20 = Math.round((data.filter((n) => !n.noUsage && n.leak < targets.leak).length / data.length) * 100)
-  const maskOffUnder = Math.round((data.filter((n) => !n.noUsage && n.maskOff <= targets.maskOff).length / data.length) * 100)
+  // under3/leakUnder20/maskOffUnder are hit-rates over nights that actually
+  // *have* an AHI/leak/mask-off reading — a no-usage night has none of
+  // these, so it's excluded from the denominator here rather than counted
+  // as an automatic fail (previously it was: a 30-night window with 3
+  // no-usage nights capped every one of these at 90% even on a month with
+  // zero real target misses). This is unlike Lifetime compliance/streak
+  // below, where a no-usage night legitimately *is* a failure — 0h usage
+  // is a real, measured value below the usage target, not an absence of
+  // data.
+  const usedData = data.filter((n) => !n.noUsage)
+  const hitRate = (k, pass) => (usedData.length ? Math.round((usedData.filter((n) => pass(n[k])).length / usedData.length) * 100) : 0)
+  const under3 = hitRate('ahi', (v) => v < targets.ahi)
+  const leakUnder20 = hitRate('leak', (v) => v < targets.leak)
+  const maskOffUnder = hitRate('maskOff', (v) => v <= targets.maskOff)
   // Streak intentionally uses the full history, not the 30-night slice —
   // it's not labeled "30-night" anywhere on this screen, and a genuinely
   // longer streak would be wrongly truncated by capping the scan window.
