@@ -176,7 +176,13 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                 its own there, so the popover needs to sit above it, not
                 behind it. */}
             <div style={{
-              position: 'fixed', top: 'max(16px, env(safe-area-inset-top, 0px))', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
+              // Real buffer below the safe area, not max(16px, inset) —
+              // on a Dynamic Island phone the inset alone is already
+              // ~59px, so max() added nothing and the card sat right in
+              // iOS's translucent status bar blur. Matches the
+              // inset-plus-buffer pattern already used for header padding
+              // elsewhere (DrillDownScreen's Jump-to-date, TagEntryScreen).
+              position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 12px)', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
               background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, width: 'calc(100% - 32px)', maxWidth: 260,
             }}>
               {openCluster.items.map((it, i) => (
