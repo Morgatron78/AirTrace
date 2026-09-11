@@ -62,8 +62,12 @@ export function ImportScreen({ onBack, nights }) {
   // history, same reasoning as keeping every night's summary forever).
   // Just how much of it renders by default before it turns into an
   // ever-growing wall of "0 nights" entries from routine daily syncs.
-  const [showAllHistory, setShowAllHistory] = useState(false)
-  const HISTORY_PREVIEW_COUNT = 10
+  // A repeatable "Load 10 more" rather than one "Show all N" jump —
+  // this needs to stay reasonable at hundreds of imports (a year of
+  // daily syncs, more once WiFi auto-sync exists), not just the dozen
+  // or so it's actually seen in testing so far.
+  const HISTORY_PAGE_SIZE = 10
+  const [historyShown, setHistoryShown] = useState(HISTORY_PAGE_SIZE)
   // How many nights currently have real waveform detail stored — not the
   // same as RETENTION_USED_NIGHTS (the cap), since a fresh install or one
   // with under 90 used nights ever will genuinely have fewer than that.
@@ -491,18 +495,28 @@ export function ImportScreen({ onBack, nights }) {
             </div>
 
             {history.length > 0 && (() => {
-              const visibleHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW_COUNT)
-              const hasMore = history.length > HISTORY_PREVIEW_COUNT
+              const visibleHistory = history.slice(0, historyShown)
+              const remaining = history.length - visibleHistory.length
               return (
                 <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
                   <CardTitle>Import history</CardTitle>
                   {visibleHistory.map((h, i) => (
-                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={!hasMore && i === visibleHistory.length - 1} />
+                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={remaining === 0 && i === visibleHistory.length - 1} />
                   ))}
-                  {hasMore && (
-                    <button onClick={() => setShowAllHistory((s) => !s)} className="font-display"
+                  {/* Repeatable "load more", not one "show all N" jump —
+                      only ever renders HISTORY_PAGE_SIZE additional rows
+                      per tap regardless of how large history has grown,
+                      so this stays reasonable at hundreds of imports. */}
+                  {remaining > 0 && (
+                    <button onClick={() => setHistoryShown((n) => n + HISTORY_PAGE_SIZE)} className="font-display"
                       style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.blue }}>
-                      {showAllHistory ? 'Show fewer' : `Show all ${history.length} imports`}
+                      Load {Math.min(HISTORY_PAGE_SIZE, remaining)} more ({remaining} left)
+                    </button>
+                  )}
+                  {remaining === 0 && historyShown > HISTORY_PAGE_SIZE && (
+                    <button onClick={() => setHistoryShown(HISTORY_PAGE_SIZE)} className="font-display"
+                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.blue }}>
+                      Show fewer
                     </button>
                   )}
                 </div>
