@@ -164,25 +164,39 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                 (handleSelectEvent in DrillDownScreen), and a popover
                 positioned relative to this chart scrolled away with it
                 before there was any real chance to read it. Pinning it
-                near the top of the screen instead means it survives that
-                scroll intact, dismissing only the way it already did —
-                tap outside, or select a different event — never on a
-                timer or by the page moving under it. zIndex 55 clears the
-                expanded-chart overlay (50) for the one case they can
-                still coexist: an ambiguous cluster tapped inside the
-                fullscreen Events view, which opens this list without
-                triggering the scroll (see handleClusterClick's
-                atDeepestZoom branch) — the expanded view doesn't close on
-                its own there, so the popover needs to sit above it, not
-                behind it. */}
+                near the bottom of the screen instead means it survives
+                that scroll intact, dismissing only the way it already
+                did — tap outside, or select a different event — never on
+                a timer or by the page moving under it.
+
+                Anchored to the bottom, not the top: a top anchor (tried
+                first) still ended up under iOS's own translucent
+                status-bar chrome on a real device even with a generous
+                safe-area buffer — that chrome doesn't seem to be a fixed
+                height reliably describable by env(safe-area-inset-top)
+                alone. The bottom of the screen has no equivalent
+                system-chrome ambiguity, just the home-indicator gesture
+                area env(safe-area-inset-bottom) already accounts for.
+                96px matches App.jsx's own reserved space for the bottom
+                tab bar (its root paddingBottom) — that number is already
+                the single tuned value for "how tall the nav bar gets,
+                worst-case inset included," so it's reused as-is rather
+                than adding another safe-area-inset-bottom on top of it
+                and double-counting. Sits just above the nav with a 12px
+                gap — including inside the expanded fullscreen Events
+                view, where that tab bar is hidden behind an opaque
+                overlay but the same clearance still reads as intentional
+                spacing rather than nav-bar-shaped dead space.
+
+                zIndex 55 clears the expanded-chart overlay (50) for the
+                one case they can still coexist: an ambiguous cluster
+                tapped inside the fullscreen Events view, which opens this
+                list without triggering the scroll (see
+                handleClusterClick's atDeepestZoom branch) — the expanded
+                view doesn't close on its own there, so the popover needs
+                to sit above it, not behind it. */}
             <div style={{
-              // Real buffer below the safe area, not max(16px, inset) —
-              // on a Dynamic Island phone the inset alone is already
-              // ~59px, so max() added nothing and the card sat right in
-              // iOS's translucent status bar blur. Matches the
-              // inset-plus-buffer pattern already used for header padding
-              // elsewhere (DrillDownScreen's Jump-to-date, TagEntryScreen).
-              position: 'fixed', top: 'calc(env(safe-area-inset-top, 0px) + 12px)', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
+              position: 'fixed', bottom: 'calc(96px + 12px)', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
               background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, width: 'calc(100% - 32px)', maxWidth: 260,
             }}>
               {openCluster.items.map((it, i) => (
