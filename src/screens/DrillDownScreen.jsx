@@ -376,6 +376,21 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
   // render, regardless of load state) — the actual detailStatus gate on
   // what renders happens once, right before the JSX return.
   const events = nightData?.events ?? []
+  // The charts' own time axis (waveform curve, tick labels) needs to use
+  // the exact same night-length denominator every event.x fraction was
+  // already computed from — parseNight.js derives event.x as
+  // startSec / totalNightSec, using BRP.edf's own recorded duration, not
+  // STR.edf's separately-reported `usage` figure. The two aren't
+  // guaranteed to match to the second (summed MaskOn/MaskOff durations
+  // vs. the DATALOG file's own header), and mixing them is exactly what
+  // put an event dot visibly before its own tick label on a real device:
+  // event position drawn from totalNightSec, but the axis/curve under it
+  // drawn from night.usage. chartHours is that one shared denominator,
+  // used for every chart's usageHours prop below — night.usage itself
+  // stays exactly where it already was for the actual displayed "Usage"
+  // stat and the time-in-apnea percentage, both of which really do mean
+  // the officially reported duration, not the waveform file's own span.
+  const chartHours = nightData?.totalNightSec ? nightData.totalNightSec / 3600 : night.usage
   // Per-field fallback, not just "the whole detail object or nothing" —
   // a night stored by an older build of parseNight.js (before some
   // channel existed) still has a real `detail` object, just missing that
@@ -590,7 +605,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
     const visEvents = events
       .filter((e) => e.x >= winStartFrac && e.x <= winEndFrac)
       .map((e) => ({ ...e, origX: e.x, x: (e.x - winStartFrac) / (winEndFrac - winStartFrac) }))
-    const t0 = winStartFrac * night.usage, t1 = winEndFrac * night.usage
+    const t0 = winStartFrac * chartHours, t1 = winEndFrac * chartHours
     const ticks = hourTicks(night.startHour + t0, t1 - t0, w > 400 ? 9 : 5)
     const flowBandIndex = selectedChannels.indexOf('flow')
     const accentColor = bandsFull[0]?.color || C.orange
@@ -883,7 +898,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           panels — Night summary/Tags/Events/Sleep stages are all things
           you just look at; Synchronized view/Individual channels/
           Statistics are the tools for exploring further yourself. */}
-      <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
+      <EventsChart events={events} usageHours={chartHours} startHour={night.startHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
         date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
 
       {/* APPLE-HEALTH: only renders when a matched entry actually exists —
@@ -1005,7 +1020,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           return (
             <MiniChart key={key} label={ch.label} sub={ch.sub} fullLabel={ch.fullLabel} unitLabel={ch.unitLabel} values={ch.values} color={ch.color} mode={ch.mode}
               axisMax={ch.axisMax} axisMin={ch.axisMin ?? 0} unit={ch.unit} decimals={ch.decimals ?? 1}
-              usageHours={night.usage} startHour={night.startHour} onExpand={() => setExpandedChart(key)} events={events}
+              usageHours={chartHours} startHour={night.startHour} onExpand={() => setExpandedChart(key)} events={events}
               {...linkProps} />
           )
         })
@@ -1080,13 +1095,13 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                   </>
                 ) : expandedChart === 'events' ? (
                   <div style={{ flex: 1, minHeight: 0 }}>
-                    <EventsChart events={events} usageHours={night.usage} startHour={night.startHour} big onSelectEvent={handleSelectEvent}
+                    <EventsChart events={events} usageHours={chartHours} startHour={night.startHour} big onSelectEvent={handleSelectEvent}
                       date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
                   </div>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>
                     <BigChannelChart values={meta.values} color={meta.color} mode={meta.mode} axisMax={meta.axisMax} axisMin={meta.axisMin ?? 0} unit={meta.unit} decimals={meta.decimals ?? 1}
-                      usageHours={night.usage} startHour={night.startHour} events={events} sub={meta.sub} label={meta.label} fullLabel={meta.fullLabel} unitLabel={meta.unitLabel} />
+                      usageHours={chartHours} startHour={night.startHour} events={events} sub={meta.sub} label={meta.label} fullLabel={meta.fullLabel} unitLabel={meta.unitLabel} />
                   </div>
                 )}
               </div>
