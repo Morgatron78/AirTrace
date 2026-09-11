@@ -57,6 +57,13 @@ export function ImportScreen({ onBack, nights }) {
   const fileInputRef = useRef(null)
   const [lastImport, setLastImport] = useState(null)
   const [history, setHistory] = useState([])
+  // Display-only cap — the stored importHistory meta itself is never
+  // trimmed, so the full record stays available (useful diagnostic
+  // history, same reasoning as keeping every night's summary forever).
+  // Just how much of it renders by default before it turns into an
+  // ever-growing wall of "0 nights" entries from routine daily syncs.
+  const [showAllHistory, setShowAllHistory] = useState(false)
+  const HISTORY_PREVIEW_COUNT = 10
   // How many nights currently have real waveform detail stored — not the
   // same as RETENTION_USED_NIGHTS (the cap), since a fresh install or one
   // with under 90 used nights ever will genuinely have fewer than that.
@@ -483,14 +490,24 @@ export function ImportScreen({ onBack, nights }) {
               <StatRow icon={Clock} iconColor={C.orange} label="Duration" value={lastImport.duration} last />
             </div>
 
-            {history.length > 0 && (
-              <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-                <CardTitle>Import history</CardTitle>
-                {history.map((h, i) => (
-                  <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={i === history.length - 1} />
-                ))}
-              </div>
-            )}
+            {history.length > 0 && (() => {
+              const visibleHistory = showAllHistory ? history : history.slice(0, HISTORY_PREVIEW_COUNT)
+              const hasMore = history.length > HISTORY_PREVIEW_COUNT
+              return (
+                <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+                  <CardTitle>Import history</CardTitle>
+                  {visibleHistory.map((h, i) => (
+                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={!hasMore && i === visibleHistory.length - 1} />
+                  ))}
+                  {hasMore && (
+                    <button onClick={() => setShowAllHistory((s) => !s)} className="font-display"
+                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.blue }}>
+                      {showAllHistory ? 'Show fewer' : `Show all ${history.length} imports`}
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
           </>
         )}
       </main>
