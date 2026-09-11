@@ -509,13 +509,13 @@ export function ImportScreen({ onBack, nights }) {
                       so this stays reasonable at hundreds of imports. */}
                   {remaining > 0 && (
                     <button onClick={() => setHistoryShown((n) => n + HISTORY_PAGE_SIZE)} className="font-display"
-                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.blue }}>
+                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
                       Load {Math.min(HISTORY_PAGE_SIZE, remaining)} more ({remaining} left)
                     </button>
                   )}
                   {remaining === 0 && historyShown > HISTORY_PAGE_SIZE && (
                     <button onClick={() => setHistoryShown(HISTORY_PAGE_SIZE)} className="font-display"
-                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: C.blue }}>
+                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
                       Show fewer
                     </button>
                   )}
