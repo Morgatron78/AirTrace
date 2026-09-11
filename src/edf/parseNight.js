@@ -21,6 +21,27 @@ function readNamedSignal(arrayBuffer, header, label) {
 // loudly instead of silently dropping it (see CLAUDE.md — only
 // "Obstructive Apnea"/"Central Apnea" are confirmed from real bytes so
 // far).
+// BRP's own header start moment, as { date: 'YYYY-MM-DD', clockHour }
+// (clockHour is plain hours-since-midnight-of-that-date, 0-24, no
+// cross-midnight adjustment — the caller reconciles that against
+// whichever calendar date it's actually charting against, since only it
+// knows that). Header format is "DD.MM.YY" / "HH.MM.SS" — see CLAUDE.md's
+// EDF parsing notes for the same format on STR.edf's own header. Needed
+// because night.startHour (STR.edf, derived from a MaskOn value) and
+// this file's own recorded start aren't guaranteed to be the same
+// instant to the second — mixing the two is exactly what left event
+// markers a real device showed several seconds to a minute off from
+// their own tick marks on the chart, even after totalNightSec/chartHours
+// (this file's own duration) got fixed to stop the two disagreeing on
+// how long the night was. Trusting BRP's own header for the start
+// moment too fixes the same class of bug for *when* it started.
+function parseHeaderStart(header) {
+  const [dd, mm, yy] = header.startDate.split('.').map(Number)
+  const [hh, min, ss] = header.startTime.split('.').map(Number)
+  const date = `${2000 + yy}-${String(mm).padStart(2, '0')}-${String(dd).padStart(2, '0')}`
+  return { date, clockHour: hh + min / 60 + ss / 3600 }
+}
+
 function parseEvents(arrayBuffer) {
   const header = parseEdfHeader(arrayBuffer)
   const annotIdx = findSignalIndex(header, 'EDF Annotations')
@@ -100,6 +121,7 @@ export function parseNight(files) {
     events,
     timeInApneaSec,
     totalNightSec,
+    brpStart: parseHeaderStart(brpHeader),
     unmappedEventTypes: [...unmappedEventTypes],
   }
 }

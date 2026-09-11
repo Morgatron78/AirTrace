@@ -16,7 +16,7 @@ import { getDB } from './schema.js'
 // already-stored night's timeInApneaSec was computed with the old (buggy)
 // logic and won't self-correct just because the code changed — a version
 // mismatch is what actually forces it to be re-parsed instead of skipped.
-export const DETAIL_SCHEMA_VERSION = 4 // 2: added therapyPressure. 3: added inspTime/expTime. 4: timeInApneaSec excludes Hypopnea (matches OSCAR)
+export const DETAIL_SCHEMA_VERSION = 5 // 2: added therapyPressure. 3: added inspTime/expTime. 4: timeInApneaSec excludes Hypopnea (matches OSCAR). 5: added brpStart (fixes event markers drifting off their own tick marks — see parseNight.js)
 
 export async function getDetail(date) {
   const db = await getDB()
