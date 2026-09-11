@@ -82,7 +82,8 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
   }
   const pct = (a, b) => Math.round(((a - b) / b) * 100)
-  const compliance = Math.round((data.filter((n) => n.usage >= targets.usage).length / data.length) * 100)
+  const complianceOf = (arr) => (arr.length ? Math.round((arr.filter((n) => n.usage >= targets.usage).length / arr.length) * 100) : 0)
+  const compliance = complianceOf(data)
   const noUsageCount = data.filter((n) => n.noUsage).length
   // best/worst are picked only among nights actually used — a no-usage
   // night's zeroed AHI would otherwise win "best night" trivially every
@@ -179,6 +180,13 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
     : 'A steady period overall, no real drift either way.'
 
   const wkLeakAvg = avgUsed(data, 'leak'), wkUsageAvg = avg(data, 'usage')
+  // AHI and compliance both get a delta, same as Avg leak/Avg usage below
+  // — they're rates, so "this period vs last period" is a meaningful
+  // percent change either way. Nights not used deliberately doesn't: it's
+  // a small raw count, and percent change on a 1-night swing (1→3 nights
+  // reads as "+200%") is more alarming than the swing actually warrants.
+  const ahiDelta = prevPeriod.length ? pct(avgUsed(data, 'ahi'), avgUsed(prevPeriod, 'ahi')) : undefined
+  const complianceDelta = prevPeriod.length ? pct(compliance, complianceOf(prevPeriod)) : undefined
 
   const metricTabs = [
     { key: 'ahi', label: 'Events', color: C.pink, icon: Activity, max: 10,
@@ -389,9 +397,16 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
         <div style={{ display: 'flex', marginTop: 4 }}>
           <div style={{ flex: 1 }}>
             <div style={{ fontSize: 12, color: T.muted, marginBottom: 4 }}>This {periodLabel}</div>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5 }}>
+            {/* nowrap + inline-flex, not the flex-wrap this row used to
+                allow — the delta previously wrapped onto its own line
+                below "1.1 AHI" (wasted space to the right of a short
+                label), rather than sitting inline where there's room. */}
+            <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, flexWrap: 'nowrap' }}>
               <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: T.ink }}>{avgUsed(data, 'ahi').toFixed(1)}</span>
               <span style={{ fontSize: 12, color: T.muted }}>AHI</span>
+              {ahiDelta !== undefined && (
+                <span style={{ fontSize: 12, color: T.muted, whiteSpace: 'nowrap' }}>{ahiDelta > 0 ? '↑' : ahiDelta < 0 ? '↓' : '–'} {Math.abs(ahiDelta)}%</span>
+              )}
             </div>
           </div>
           <div style={{ width: 1, background: T.line, margin: '4px 20px' }} />
@@ -410,7 +425,7 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
         <div style={{ marginTop: 8 }}>
           <StatRow icon={LeakIcon} iconColor={C.purple} label="Avg leak" value={`${wkLeakAvg.toFixed(0)} L/min`} warn={wkLeakAvg >= targets.leak} delta={prevPeriod.length ? pct(wkLeakAvg, avgUsed(prevPeriod, 'leak')) : undefined} />
           <StatRow icon={Clock} iconColor={C.blue} label="Avg usage" value={formatDuration(wkUsageAvg)} warn={wkUsageAvg < targets.usage} delta={prevPeriod.length ? pct(wkUsageAvg, avg(prevPeriod, 'usage')) : undefined} />
-          <StatRow icon={Gauge} iconColor={C.orange} label={`${rangeDays}-night compliance`} value={`${compliance}%`} warn={compliance < targets.compliance} />
+          <StatRow icon={Gauge} iconColor={C.orange} label={`${rangeDays}-night compliance`} value={`${compliance}%`} warn={compliance < targets.compliance} delta={complianceDelta} />
           <StatRow icon={Calendar} iconColor={SEV.bad} label="Nights not used" value={noUsageCount} warn={noUsageCount > 0} last />
         </div>
       </div>
