@@ -138,7 +138,7 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
             padding: '7px 14px', borderRadius: 10,
             background: y === year ? T.ink : T.surface, border: y === year ? 'none' : `1px solid ${T.line}`,
           }}>
-            <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: y === year ? '#FFFFFF' : T.ink }}>{y}</span>
+            <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: y === year ? T.bg : T.ink }}>{y}</span>
           </button>
         ))}
       </div>
@@ -156,7 +156,7 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
               background: isSelected ? T.ink : T.surface, border: isSelected ? 'none' : `1px solid ${T.line}`,
               opacity: has ? 1 : 0.35,
             }}>
-              <span className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: isSelected ? '#FFFFFF' : T.ink }}>{m}</span>
+              <span className="font-display" style={{ fontSize: 12.5, fontWeight: 700, color: isSelected ? T.bg : T.ink }}>{m}</span>
             </button>
           )
         })}
@@ -900,7 +900,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
             <ChartInfoButton show={syncShowInfo} onToggle={() => setSyncShowInfo((s) => !s)} size={32} />
             <button onClick={() => { setSyncSelectMode((s) => !s) }}
               style={{ width: 32, height: 32, borderRadius: '50%', background: syncSelectMode ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <Crosshair size={13} style={{ color: syncSelectMode ? '#FFFFFF' : T.ink }} />
+              <Crosshair size={13} style={{ color: syncSelectMode ? T.bg : T.ink }} />
             </button>
             {syncZoom < 0.999 && (
               <button onClick={() => { setSyncZoom(1); setSyncPan(0) }}
@@ -1052,7 +1052,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                     <ChartInfoButton show={syncShowInfo} onToggle={() => setSyncShowInfo((s) => !s)} size={32} />
                     <button onClick={() => setSyncSelectMode((s) => !s)}
                       style={{ width: 32, height: 32, borderRadius: '50%', background: syncSelectMode ? T.ink : T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Crosshair size={14} style={{ color: syncSelectMode ? '#FFFFFF' : T.ink }} />
+                      <Crosshair size={14} style={{ color: syncSelectMode ? T.bg : T.ink }} />
                     </button>
                     {syncZoom < 0.999 && (
                       <button onClick={() => { setSyncZoom(1); setSyncPan(0) }}

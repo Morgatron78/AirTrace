@@ -94,11 +94,11 @@ export function MiniChart({ label, sub, fullLabel, unitLabel, values, color, mod
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
           <button onClick={() => setShowMore((s) => !s)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MoreHorizontal size={15} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
+            <MoreHorizontal size={15} style={{ color: showMore ? T.bg : T.muted }} />
           </button>
           <button onClick={() => { setSelectMode((s) => !s); setShowMore(false) }}
             style={{ width: 32, height: 32, borderRadius: '50%', background: selectMode ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Crosshair size={13} style={{ color: selectMode ? '#FFFFFF' : T.ink }} />
+            <Crosshair size={13} style={{ color: selectMode ? T.bg : T.ink }} />
           </button>
           {isZoomedIn && (
             <button onClick={() => { setZoom(1); setPanStart(0) }}

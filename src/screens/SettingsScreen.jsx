@@ -273,7 +273,11 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   style={{
                     padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700,
                     background: subscription ? T.bg : T.ink,
-                    color: subscription ? T.ink : '#FFFFFF',
+                    // T.bg, not a hardcoded white — T.ink is near-white in
+                    // dark mode, and white text on that was invisible.
+                    // T.bg is always T.ink's correct contrast partner,
+                    // in either theme.
+                    color: subscription ? T.ink : T.bg,
                     border: subscription ? `1px solid ${T.line}` : 'none',
                     opacity: notifBusy ? 0.6 : 1,
                   }}
@@ -328,7 +332,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
             })() : 'Never backed up'}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
-            <button onClick={handleExport} className="font-display" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.ink, color: '#FFFFFF', fontSize: 13.5, fontWeight: 700 }}>
+            <button onClick={handleExport} className="font-display" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.ink, color: T.bg, fontSize: 13.5, fontWeight: 700 }}>
               <Download size={15} /> Export backup
             </button>
             <button onClick={() => fileInputRef.current?.click()} className="font-display" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}` }}>

@@ -6,7 +6,7 @@ import { T } from '../constants/theme'
 export function ChartInfoButton({ show, onToggle, size = 26, iconSize = 13 }) {
   return (
     <button onClick={onToggle} style={{ width: size, height: size, borderRadius: '50%', background: show ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Info size={iconSize} style={{ color: show ? '#FFFFFF' : T.muted }} />
+      <Info size={iconSize} style={{ color: show ? T.bg : T.muted }} />
     </button>
   )
 }

@@ -8,7 +8,7 @@ import { T } from '../constants/theme'
 export function ChartStatsButton({ show, onToggle, size = 26, iconSize = 13 }) {
   return (
     <button onClick={onToggle} style={{ width: size, height: size, borderRadius: '50%', background: show ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-      <Sigma size={iconSize} style={{ color: show ? '#FFFFFF' : T.muted }} />
+      <Sigma size={iconSize} style={{ color: show ? T.bg : T.muted }} />
     </button>
   )
 }

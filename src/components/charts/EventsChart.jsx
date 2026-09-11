@@ -266,7 +266,7 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
           <div style={{ display: 'flex', gap: 5 }}>
             <button onClick={() => setShowMore((s) => !s)}
               style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <MoreHorizontal size={16} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
+              <MoreHorizontal size={16} style={{ color: showMore ? T.bg : T.muted }} />
             </button>
             {isZoomedIn && (
               <button onClick={() => { setZoom(1); setPanStart(0) }}
@@ -304,7 +304,7 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
         <div style={{ display: 'flex', gap: 5, flexShrink: 0 }}>
           <button onClick={() => setShowMore((s) => !s)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MoreHorizontal size={15} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
+            <MoreHorizontal size={15} style={{ color: showMore ? T.bg : T.muted }} />
           </button>
           {isZoomedIn && (
             <button onClick={() => { setZoom(1); setPanStart(0) }}

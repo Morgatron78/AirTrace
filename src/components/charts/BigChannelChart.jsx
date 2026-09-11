@@ -82,11 +82,11 @@ export function BigChannelChart({ values, color, mode, axisMax, axisMin = 0, uni
         <div style={{ display: 'flex', gap: 5 }}>
           <button onClick={() => setShowMore((s) => !s)}
             style={{ width: 32, height: 32, borderRadius: '50%', background: showMore ? T.ink : T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <MoreHorizontal size={16} style={{ color: showMore ? '#FFFFFF' : T.muted }} />
+            <MoreHorizontal size={16} style={{ color: showMore ? T.bg : T.muted }} />
           </button>
           <button onClick={() => { setSelectMode((s) => !s); setShowMore(false) }}
             style={{ width: 32, height: 32, borderRadius: '50%', background: selectMode ? T.ink : T.surface, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Crosshair size={14} style={{ color: selectMode ? '#FFFFFF' : T.ink }} />
+            <Crosshair size={14} style={{ color: selectMode ? T.bg : T.ink }} />
           </button>
           {isZoomedIn && (
             <button onClick={() => { setZoom(1); setPanStart(0) }}
