@@ -123,7 +123,6 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
 
   const t0 = winStartFrac * usageHours, t1 = winEndFrac * usageHours
   const ticks = hourTicks(startHour + t0, t1 - t0, big ? 9 : 5)
-  const popoverLeftPct = openCluster ? Math.max(14, Math.min(86, (openCluster.px / w) * 100)) : 0
   // APPLE-HEALTH: only computed when both a date and matched health data
   // exist for this night — see the popover rows below.
   const healthNightStartMs = date && healthEntry ? getNightWindowMs({ date, startHour, usage: usageHours }).startMs : null
@@ -158,10 +157,27 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
         })}
         {openCluster && (
           <>
-            <div onClick={() => setOpenCluster(null)} style={{ position: 'fixed', inset: 0, zIndex: 9 }} />
+            <div onClick={() => setOpenCluster(null)} style={{ position: 'fixed', inset: 0, zIndex: 54 }} />
+            {/* Fixed to the viewport, not anchored to the dot's on-screen
+                position inside this chart — selecting a single event also
+                triggers a smooth-scroll down to Individual channels
+                (handleSelectEvent in DrillDownScreen), and a popover
+                positioned relative to this chart scrolled away with it
+                before there was any real chance to read it. Pinning it
+                near the top of the screen instead means it survives that
+                scroll intact, dismissing only the way it already did —
+                tap outside, or select a different event — never on a
+                timer or by the page moving under it. zIndex 55 clears the
+                expanded-chart overlay (50) for the one case they can
+                still coexist: an ambiguous cluster tapped inside the
+                fullscreen Events view, which opens this list without
+                triggering the scroll (see handleClusterClick's
+                atDeepestZoom branch) — the expanded view doesn't close on
+                its own there, so the popover needs to sit above it, not
+                behind it. */}
             <div style={{
-              position: 'absolute', left: `${popoverLeftPct}%`, bottom: '100%', marginBottom: 10, transform: 'translateX(-50%)', zIndex: 10,
-              background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, minWidth: 150, maxWidth: 260,
+              position: 'fixed', top: 'max(16px, env(safe-area-inset-top, 0px))', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
+              background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, width: 'calc(100% - 32px)', maxWidth: 260,
             }}>
               {openCluster.items.map((it, i) => (
                 // Two events close enough in time to still overlap into one
