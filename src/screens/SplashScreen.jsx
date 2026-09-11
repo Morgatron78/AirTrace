@@ -5,7 +5,13 @@ import logo from '../assets/logo.webp'
 export function SplashScreen({ fadingOut }) {
   return (
     <div style={{
-      position: 'fixed', inset: 0, zIndex: 100, background: '#FFFFFF',
+      // T.bg, not a hardcoded '#FFFFFF' — same class of bug as the
+      // earlier dark-mode sweep, just inverted: here the BACKGROUND was
+      // the hardcoded literal while the text (T.ink) correctly followed
+      // the theme, so dark mode got near-white text on an always-white
+      // screen. T.bg matches every other full-screen root in the app
+      // (App.jsx, TagEntryScreen).
+      position: 'fixed', inset: 0, zIndex: 100, background: T.bg,
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       opacity: fadingOut ? 0 : 1, transition: 'opacity 0.3s ease',
     }}>
