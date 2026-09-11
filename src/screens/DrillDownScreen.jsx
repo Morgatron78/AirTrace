@@ -135,7 +135,7 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
       <div style={{ display: 'flex', justifyContent: 'center', gap: 6, marginBottom: 10, flexShrink: 0 }}>
         {years.map((y) => (
           <button key={y} onClick={() => selectYear(y)} style={{
-            padding: '7px 14px', borderRadius: 10,
+            padding: '7px 14px', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
             background: y === year ? T.ink : T.surface, border: y === year ? 'none' : `1px solid ${T.line}`,
           }}>
             <span className="font-display" style={{ fontSize: 13, fontWeight: 700, color: y === year ? T.bg : T.ink }}>{y}</span>
@@ -152,7 +152,7 @@ function JumpToDateOverlay({ nights, idx, setIdx, targets, onClose }) {
           const isSelected = i === month
           return (
             <button key={m} disabled={!has} onClick={() => setMonth(i)} style={{
-              padding: '7px 4px', borderRadius: 10,
+              padding: '7px 4px', borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center',
               background: isSelected ? T.ink : T.surface, border: isSelected ? 'none' : `1px solid ${T.line}`,
               opacity: has ? 1 : 0.35,
             }}>
