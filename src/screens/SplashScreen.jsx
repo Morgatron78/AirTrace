@@ -1,17 +1,21 @@
-import { T } from '../constants/theme'
+import { T, currentMode } from '../constants/theme'
 import { APP_NAME, APP_VERSION } from '../constants/app'
 import logo from '../assets/logo.webp'
 
 export function SplashScreen({ fadingOut }) {
   return (
     <div style={{
-      // T.bg, not a hardcoded '#FFFFFF' — same class of bug as the
-      // earlier dark-mode sweep, just inverted: here the BACKGROUND was
-      // the hardcoded literal while the text (T.ink) correctly followed
-      // the theme, so dark mode got near-white text on an always-white
-      // screen. T.bg matches every other full-screen root in the app
-      // (App.jsx, TagEntryScreen).
-      position: 'fixed', inset: 0, zIndex: 100, background: T.bg,
+      // Deliberately not T.bg — that's a pale grey (#F3F3F5) in light
+      // mode, and the splash is meant to be true white there, matching
+      // how it always looked before dark mode existed. The earlier fix
+      // for this screen's real bug (a hardcoded white background behind
+      // theme-aware white text — illegible in dark mode) reached for
+      // T.bg as the generic "theme-aware background" token without
+      // noticing it isn't actually pure white in light mode. Asking
+      // currentMode directly instead of reusing one of T's tokens gets
+      // both ends right: true white in light, DARK_T.bg's near-black in
+      // dark, not the app's usual off-white/near-black surface tones.
+      position: 'fixed', inset: 0, zIndex: 100, background: currentMode === 'dark' ? '#0B0C10' : '#FFFFFF',
       display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
       opacity: fadingOut ? 0 : 1, transition: 'opacity 0.3s ease',
     }}>

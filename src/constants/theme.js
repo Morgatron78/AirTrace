@@ -21,6 +21,16 @@ export const T = { ...LIGHT_T }
 export const C = { blue: '#3B6FE0', purple: '#7C4DE0', pink: '#E85C9A', orange: '#F0A23C', red: '#E5484D' }
 export const SEV = { good: '#22B36B', fair: '#F0A23C', bad: '#E5484D' }
 
+// A live export, same reasoning as T's own in-place mutation above (a
+// reassigned `let` binding is still a live reference across an ES module
+// import, so a reader always sees the current value without needing its
+// own change-notification). Exists for the rare case that actually wants
+// "is it dark right now," not one of T's five theme-relative tokens —
+// SplashScreen's own background is the first one: it deliberately does
+// NOT want T.bg's light value (a pale grey), it wants true white, so it
+// needs to ask the mode question directly instead.
+export let currentMode = 'light'
+
 // mode: 'light' | 'dark'. Called once on load (after resolving the
 // user's stored preference, defaulting to their OS setting) and again
 // any time either changes — see App.jsx's own useEffect for both. Every
@@ -28,5 +38,6 @@ export const SEV = { good: '#22B36B', fair: '#F0A23C', bad: '#E5484D' }
 // properties doesn't itself notify React); App.jsx does this by keying
 // its whole tree on the resolved mode.
 export function applyTheme(mode) {
+  currentMode = mode === 'dark' ? 'dark' : 'light'
   Object.assign(T, mode === 'dark' ? DARK_T : LIGHT_T)
 }
