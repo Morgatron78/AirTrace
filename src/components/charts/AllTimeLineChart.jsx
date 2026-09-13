@@ -15,6 +15,14 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
   const w = 400
   const h = showXAxisLabels ? 142 : 130
   const padTop = 10, padBottom = showXAxisLabels ? 22 : 10, padLeft = 4, padRight = 4
+  // Reserved for the y-axis label text itself — matching FlatBarChart's own
+  // real layout, which keeps its tick labels in a dedicated width:24 HTML
+  // column entirely separate from the plot area, so labels can never share
+  // horizontal space with gridlines or data. Wide enough for the longest
+  // realistic label here ("17st 12lb"), which is longer than anything
+  // FlatBarChart itself ever has to show.
+  const labelWidth = 44
+  const plotLeft = padLeft + labelWidth
 
   if (!data.length) return null
 
@@ -23,18 +31,18 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
   const span = (max - min) || 1
   const yPad = span * 0.18 // never zero-anchored — a narrow real range shouldn't look flattened
   const yMin = min - yPad, yMax = max + yPad
-  const x = (week) => padLeft + (week / maxWeek) * (w - padLeft - padRight)
+  const x = (week) => plotLeft + (week / maxWeek) * (w - plotLeft - padRight)
   const y = (v) => padTop + (1 - (v - yMin) / (yMax - yMin)) * (h - padTop - padBottom)
   const weekOf = (dateStr) => (Date.parse(dateStr) - gridStartMs) / WEEK_MS
 
-  // Clamped to the chart's own visible range: the confound's real start
-  // date can predate week-index 0's own labeled date (week 0 absorbs
-  // whatever partial-week remainder is left once the grid is anchored
-  // from the latest night backward — see weeklyTrend.js), which without
-  // clamping computed a negative x here and bled the shaded region off
-  // the left edge, overlapping the y-axis labels.
-  const confoundX0 = confound ? Math.max(padLeft, x(weekOf(confound.shadeStartDate))) : null
-  const confoundX1 = confound ? Math.min(w - padRight, Math.max(padLeft, x(weekOf(confound.boundaryDate)))) : null
+  // Clamped to the chart's own visible plot range (never into the label
+  // margin): the confound's real start date can predate week-index 0's own
+  // labeled date (week 0 absorbs whatever partial-week remainder is left
+  // once the grid is anchored from the latest night backward — see
+  // weeklyTrend.js), which without clamping computed an x here that bled
+  // into (or past) the label column.
+  const confoundX0 = confound ? Math.max(plotLeft, x(weekOf(confound.shadeStartDate))) : null
+  const confoundX1 = confound ? Math.min(w - padRight, Math.max(plotLeft, x(weekOf(confound.boundaryDate)))) : null
 
   return (
     <div style={{ position: 'relative' }}>
@@ -49,9 +57,15 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
         {/* No vertical gridlines here — FlatBarChart/SessionTimesChart never
             draw one either, only horizontal ticks; x-axis position is
             conveyed by the labels alone. */}
+        {/* Positioned within the reserved padBottom strip (below the plot's
+            own bottom edge, h-padBottom), not past the SVG's own declared
+            height — y={h+9} previously placed this text outside the viewBox
+            entirely, relying on overflow:visible to show it at all, which
+            let it bleed into whatever followed in normal document flow
+            below the chart (the confound caption). */}
         {ticks.map((t) => (
           showXAxisLabels && (
-            <text key={t.week} x={x(t.week)} y={h + 9} textAnchor="middle" fontSize={9} fontWeight={600} fill={T.muted} fontFamily="'Plus Jakarta Sans', sans-serif">{t.label}</text>
+            <text key={t.week} x={x(t.week)} y={h - padBottom + 16} textAnchor="middle" fontSize={9} fontWeight={600} fill={T.muted} fontFamily="'Plus Jakarta Sans', sans-serif">{t.label}</text>
           )
         ))}
         {yTicks(yMin, yMax).map((v) => (
@@ -60,7 +74,7 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
                 FlatBarChart's real `border-top: 1px dashed` gridlines —
                 CSS doesn't expose an exact dash length to match against,
                 but the previous "2 2" read visibly denser/tighter. */}
-            <line x1={padLeft} x2={w - padRight} y1={y(v)} y2={y(v)} stroke={T.line} strokeWidth={1} strokeDasharray="3 3" />
+            <line x1={plotLeft} x2={w - padRight} y1={y(v)} y2={y(v)} stroke={T.line} strokeWidth={1} strokeDasharray="3 3" />
             {/* Centered on its gridline (dominantBaseline="middle"), matching
                 FlatBarChart's own real y-axis tick convention (translateY(-50%))
                 — a fixed baseline offset instead read as sitting low, almost
