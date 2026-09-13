@@ -9,6 +9,7 @@ import { buildBackup, parseBackup, restoreBackup } from '../db/backup.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { VAPID_PUBLIC_KEY } from '../constants/push.js'
 import { APP_VERSION } from '../constants/app.js'
+import { cmToFeetInches } from '../utils/units.js'
 
 // Standard Web Push conversion — pushManager.subscribe wants the VAPID
 // public key as a raw Uint8Array, not the base64url string it's
@@ -39,9 +40,17 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
   )
 }
 
-export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode }) {
+export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode, heightUnit, onChangeHeightUnit, weightUnit, onChangeWeightUnit }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
   const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
+
+  // APPLE-HEALTH: self-fetched purely to decide whether the weight-unit
+  // toggle is worth showing at all — same self-fetch-for-a-single-screen
+  // pattern TrendsScreen/StatsScreen already use independently for
+  // healthData. No weight data imported yet means no unit preference to
+  // set, so the toggle stays hidden rather than greyed out.
+  const [hasWeightData, setHasWeightData] = useState(false)
+  useEffect(() => { getMeta('weightReadings').then((v) => setHasWeightData(!!v?.length)) }, [])
 
   // 'confirm' (a valid file was picked, showing what it'll restore before
   // touching anything) -> 'restoring' -> 'done' (reloads shortly after,
@@ -241,7 +250,33 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
           </CardTitle>
           <TextEditRow icon={User} iconColor={T.muted} label="Patient name" value={profile.patientName} placeholder="Not set" onChange={setProfile('patientName')} />
           <TextEditRow icon={Hash} iconColor={T.muted} label="Patient number" value={profile.patientNumber} placeholder="Not set" onChange={setProfile('patientNumber')} />
-          <TextEditRow icon={Phone} iconColor={T.muted} label="Clinic phone" value={profile.clinicPhone} placeholder="Not set" type="tel" onChange={setProfile('clinicPhone')} last />
+          <TextEditRow icon={Phone} iconColor={T.muted} label="Clinic phone" value={profile.clinicPhone} placeholder="Not set" type="tel" onChange={setProfile('clinicPhone')} last={!hasWeightData} />
+          {/* Height: used only for Trends' All Time BMI. Stored value
+              always stays in cm — heightUnit only changes how this
+              stepper is entered/displayed, same "store the real number,
+              convert at the display layer only" principle as formatClock. */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44, borderBottom: hasWeightData ? `1px solid ${T.line}` : 'none' }}>
+            <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>Height</span>
+            <Segmented options={[{ key: 'cm', label: 'cm' }, { key: 'ft', label: 'ft/in' }]} active={heightUnit} onChange={onChangeHeightUnit} />
+          </div>
+          <StepperRow label="Height value" value={profile.heightCm ?? 170}
+            step={heightUnit === 'cm' ? 1 : 2.54} min={100} max={250}
+            onChange={setProfile('heightCm')} last={!hasWeightData}
+            formatValue={(v) => {
+              if (heightUnit === 'cm') return `${Math.round(v)} cm`
+              const { feet, inches } = cmToFeetInches(v)
+              return `${feet}'${inches}"`
+            }} />
+          {/* APPLE-HEALTH: only shown once weight data actually exists —
+              same optional-data-optional-UI rule as the rest of Trends'
+              All Time section. Resolves the weight-unit preference this
+              feature's spec originally left "considered, not decided". */}
+          {hasWeightData && (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+              <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>Weight unit</span>
+              <Segmented options={[{ key: 'stlb', label: 'St/lb' }, { key: 'kg', label: 'kg' }]} active={weightUnit} onChange={onChangeWeightUnit} />
+            </div>
+          )}
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>

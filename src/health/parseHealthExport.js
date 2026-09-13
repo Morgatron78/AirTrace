@@ -26,6 +26,12 @@ export function parseHealthExport(json) {
   const sleepMetric = (json.category_metrics || []).find((m) => m.id === 'Sleep Analysis')
   const hrMetric = (json.metrics || []).find((m) => m.id === 'HKQuantityTypeIdentifierHeartRate')
   const spo2Metric = (json.metrics || []).find((m) => m.id === 'HKQuantityTypeIdentifierOxygenSaturation')
+  // APPLE-HEALTH: weight, not BMI — BMI is always computed from weight +
+  // the user's own stored height (see utils/units.js), never read from
+  // Apple Health's own separate BMI channel, which showed independent
+  // glitches (zero/near-zero readings on nights when weight itself was
+  // fine) in real export data this feature was built against.
+  const weightMetric = (json.metrics || []).find((m) => m.id === 'HKQuantityTypeIdentifierBodyMass')
 
   const stages = (sleepMetric?.data_points || [])
     .map((p) => ({ startMs: Date.parse(p.start_date), endMs: Date.parse(p.end_date), stage: STAGE_BY_VALUE[p.value] }))
@@ -49,5 +55,15 @@ export function parseHealthExport(json) {
     .filter((s) => Number.isFinite(s.ts))
     .sort((a, b) => a.ts - b.ts)
 
-  return { stages, heartRate, spo2 }
+  // APPLE-HEALTH: each point's own `unit` is checked rather than assumed
+  // — the same "trust the data, not a blanket assumption" precedent as
+  // spo2's %-vs-fraction correction above. Real exports seen so far are
+  // all 'kg', but a source app or a different export format could
+  // plausibly report 'lb'.
+  const weightReadings = (weightMetric?.data_points || [])
+    .map((p) => ({ ts: Date.parse(p.timestamp), kg: p.unit === 'lb' ? p.value * 0.45359237 : p.value }))
+    .filter((s) => Number.isFinite(s.ts) && Number.isFinite(s.kg))
+    .sort((a, b) => a.ts - b.ts)
+
+  return { stages, heartRate, spo2, weightReadings }
 }

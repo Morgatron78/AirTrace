@@ -50,7 +50,10 @@ export default function App() {
   // top-level state rather than folded into either. Nothing imported from
   // the SD card could ever know a patient's name, same reasoning as
   // equipment's own make/model/serial fields above.
-  const [profile, setProfile] = useState({ patientName: '', patientNumber: '', clinicPhone: '' })
+  // heightCm: null until the user sets one — a pure user-entered field,
+  // same reasoning as the other three (nothing imported could ever know
+  // it), used only for Trends' All Time BMI computation.
+  const [profile, setProfile] = useState({ patientName: '', patientNumber: '', clinicPhone: '', heightCm: null })
   // 'system' (default) | 'light' | 'dark'. Resolved against the OS
   // preference when 'system', applied by mutating T's own properties in
   // place (see theme.js) rather than threading a theme value through
@@ -75,6 +78,16 @@ export default function App() {
   const resolvedTheme = themeMode === 'system' ? (systemPrefersDark ? 'dark' : 'light') : themeMode
   applyTheme(resolvedTheme)
   const updateThemeMode = (next) => { setThemeMode(next); setMeta('themeMode', next) }
+  // Two independent display-preference toggles for Trends' All Time
+  // section, same persisted-top-level-state pattern as themeMode above.
+  // heightUnit only affects how Settings' height stepper is entered —
+  // it never reaches Trends, since the stored value is always cm.
+  // weightUnit DOES reach Trends — it changes what's actually displayed
+  // there, not just how a Settings field is entered.
+  const [heightUnit, setHeightUnit] = useState('cm')
+  const [weightUnit, setWeightUnit] = useState('stlb')
+  const updateHeightUnit = (next) => { setHeightUnit(next); setMeta('heightUnit', next) }
+  const updateWeightUnit = (next) => { setWeightUnit(next); setMeta('weightUnit', next) }
   // targets/equipment/profile previously lived only in memory — any change
   // (a custom AHI target, a logged filter-change date) was silently lost
   // on every reload. All three persist via the same generic meta store
@@ -87,6 +100,8 @@ export default function App() {
     getMeta('equipment').then((v) => v && setEquipment(v))
     getMeta('profile').then((v) => v && setProfile(v))
     getMeta('themeMode').then((v) => v && setThemeMode(v))
+    getMeta('heightUnit').then((v) => v && setHeightUnit(v))
+    getMeta('weightUnit').then((v) => v && setWeightUnit(v))
   }, [])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
@@ -200,7 +215,8 @@ export default function App() {
   }
   if (showSettings) {
     return <SettingsScreen key={resolvedTheme} onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile}
-      themeMode={themeMode} onChangeThemeMode={updateThemeMode} />
+      themeMode={themeMode} onChangeThemeMode={updateThemeMode}
+      heightUnit={heightUnit} onChangeHeightUnit={updateHeightUnit} weightUnit={weightUnit} onChangeWeightUnit={updateWeightUnit} />
   }
   if (status === 'empty') {
     return (
@@ -244,7 +260,7 @@ export default function App() {
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '12px 18px 0' }}>
         {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} onOpenSettings={() => setShowSettings(true)} />}
-        {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} />}
+        {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} profile={profile} weightUnit={weightUnit} />}
         {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate}
           showJump={showJumpToDate} onCloseJump={() => setShowJumpToDate(false)} />}

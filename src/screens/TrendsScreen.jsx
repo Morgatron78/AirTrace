@@ -10,10 +10,13 @@ import { ahiTrend } from '../utils/nagLogic.js'
 // strip-out list; this screen's whole Sleep architecture card is one of
 // the entries.
 import { getAllHealthData } from '../db/health.js'
+import { getMeta } from '../db/meta.js'
 import { stageMinutes } from '../health/stageMinutes.js'
 import { architectureTrend } from '../health/architectureTrend.js'
 import { STAGE_COLOR, STAGE_LABEL } from '../constants/sleepStages.js'
+import { mostRecentValue } from '../utils/scoring'
 import { Segmented } from '../components/Segmented'
+import { AllTimeTrendCard } from '../components/AllTimeTrendCard'
 import { IconTabRow } from '../components/IconTabRow'
 import { ChartInfoButton } from '../components/ChartInfoButton'
 import { ChartStatsButton } from '../components/ChartStatsButton'
@@ -28,7 +31,7 @@ import { StatRow } from '../components/StatRow'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
 
-export function TrendsScreen({ nights, onSelectNight, targets }) {
+export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUnit }) {
   const [range, setRange] = useState('month')
   const [metric, setMetric] = useState('ahi')
   const [chartDetailIdx, setChartDetailIdx] = useState(null)
@@ -46,6 +49,11 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
   // change. See docs/apple-health-integration.md.
   const [healthData, setHealthData] = useState({})
   useEffect(() => { getAllHealthData().then(setHealthData) }, [])
+  // APPLE-HEALTH: same self-fetch-per-screen pattern as healthData above
+  // — optional data, single consumer (All Time's weight/BMI panel), not
+  // worth lifting into App.jsx.
+  const [weightReadings, setWeightReadings] = useState([])
+  useEffect(() => { getMeta('weightReadings').then((v) => v && setWeightReadings(v)) }, [])
   const [archNightIdx, setArchNightIdx] = useState(null)
   const [archFocus, setArchFocus] = useState(null) // 'core' | 'deep' | 'rem' | null
   const [showArchInfo, setShowArchInfo] = useState(false)
@@ -482,6 +490,8 @@ export function TrendsScreen({ nights, onSelectNight, targets }) {
           )}
         </div>
       )}
+
+      <AllTimeTrendCard nights={nights} weightReadings={weightReadings} heightCm={profile?.heightCm} weightUnit={weightUnit} mode={mostRecentValue(nights, 'mode', null)} />
     </div>
   )
 }

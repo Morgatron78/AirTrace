@@ -67,6 +67,20 @@ export function hourTicks(startHour, spanHours, maxLabels = 5) {
   return list
 }
 
+// Same idea as NICE_STEP_MINUTES above, for a value (y) axis instead of a
+// time one — picks the smallest round step that still keeps the tick
+// count reasonable, rather than just labeling a panel's two extremes.
+// Used by Trends' All Time line panels (AHI, Weight/BMI).
+const NICE_Y_STEPS = [0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100]
+export function yTicks(yMin, yMax, targetCount = 4) {
+  const rough = (yMax - yMin) / targetCount
+  const step = NICE_Y_STEPS.find((s) => s >= rough) || NICE_Y_STEPS[NICE_Y_STEPS.length - 1]
+  const first = Math.ceil(yMin / step) * step
+  const out = []
+  for (let v = first; v <= yMax + 1e-9; v += step) out.push(+v.toFixed(2))
+  return out
+}
+
 export function bandPath(values, y0, y1, w) {
   const h = y1 - y0
   return values.map((v, i) => `${(i / (values.length - 1)) * w},${(y1 - v * h).toFixed(1)}`).join(' L ')

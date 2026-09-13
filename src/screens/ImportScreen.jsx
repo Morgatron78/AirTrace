@@ -106,6 +106,17 @@ export function ImportScreen({ onBack, nights }) {
       const matched = matchHealthDataToNights(parsed, nights || [])
       const dates = Object.keys(matched)
       await Promise.all(dates.map((date) => setHealthEntry(date, { ...matched[date], importedAt: new Date().toISOString() })))
+      // APPLE-HEALTH: weight deliberately does NOT go through
+      // matchHealthDataToNights above — it has no per-night sleep-window
+      // relationship the way heart rate/SpO2/sleep-stage do (a reading
+      // every few days at most, unrelated to any specific session), so
+      // bucketing it against night windows doesn't make sense. Stored
+      // whole under its own meta key instead, same generic getMeta/setMeta
+      // pattern `profile`/`themeMode` already use elsewhere. This is a
+      // whole-array replace, not a merge — a smaller re-import will
+      // shrink the stored history, an accepted tradeoff matching this
+      // function's existing no-confirm-before-write stance.
+      if (parsed.weightReadings.length) await setMeta('weightReadings', parsed.weightReadings)
       // Against the export's own actual date coverage, not the user's
       // whole therapy history — see countEligibleNights's own comment.
       const eligible = countEligibleNights(parsed, nights || [])
