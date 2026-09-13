@@ -132,7 +132,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
                     <span style={{ fontSize: 12, color: T.muted }}>events/hr</span>
                   </div>
                   <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Avg - Last 7 days utilised</div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{deltaArrow(ahiDeltaPct)} {Math.abs(ahiDeltaPct)}% since start</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{deltaArrow(ahiDeltaPct)} {Math.abs(ahiDeltaPct)}% since therapy began</div>
                 </div>
                 <div style={{ flex: 1, background: T.surface, borderRadius: 16, padding: 16 }}>
                   <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Weight</div>
@@ -140,7 +140,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
                     <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: T.ink }}>{formatWeightKg(latestWeightKg, weightUnit)}</span>
                   </div>
                   <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Recent average</div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{deltaArrow(weightDeltaPct)} {Math.abs(weightDeltaPct)}% since start</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{deltaArrow(weightDeltaPct)} {Math.abs(weightDeltaPct)}% since therapy began</div>
                 </div>
               </>
             ) : (
@@ -154,7 +154,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
                     <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: T.ink }}>{latestAhi.toFixed(1)}</span>
                     <span style={{ fontSize: 12, color: T.muted }}>events/hr</span>
                   </div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>{deltaArrow(ahiDeltaPct)} {Math.abs(ahiDeltaPct)}% since start</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 4 }}>{deltaArrow(ahiDeltaPct)} {Math.abs(ahiDeltaPct)}% since therapy began</div>
                 </div>
               </div>
             )}

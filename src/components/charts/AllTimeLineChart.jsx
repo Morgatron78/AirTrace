@@ -94,9 +94,15 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
         <circle cx={x(data[data.length - 1].weekIndex)} cy={y(data[data.length - 1].value)} r={3} fill={color} />
       </svg>
       {confound && confoundOpen && (
-        <div style={{
+        // Tap-to-dismiss on the popover itself — matching ChartInfoOverlay's
+        // own real convention (both its backdrop and its visible card carry
+        // onClick={onClose}). Without this, the popover had no dismiss path
+        // of its own and visually covered the one thing that did (the
+        // confound rect underneath it), leaving no way to close it at all.
+        <div onClick={() => setConfoundOpen(false)} style={{
           position: 'absolute', zIndex: 20, left: 10, top: 8, background: T.surface, borderRadius: 12,
           boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: '10px 12px', fontSize: 11.5, color: T.muted, lineHeight: 1.6, maxWidth: 210,
+          cursor: 'pointer',
         }}>
           <b style={{ color: T.ink }}>Pressure adjusted early on</b><br />
           {confound.transitions.map((t) => `${t.date}: ${t.setPressure} cmH₂O`).join(', ')}
