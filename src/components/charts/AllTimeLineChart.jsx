@@ -51,7 +51,11 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
         {yTicks(yMin, yMax).map((v) => (
           <g key={v}>
             <line x1={padLeft} x2={w - padRight} y1={y(v)} y2={y(v)} stroke={T.line} strokeWidth={1} strokeDasharray="2 2" />
-            <text x={padLeft} y={y(v) - 3} fontSize={9} fontWeight={600} fill={T.muted} fontFamily="'Plus Jakarta Sans', sans-serif">{formatY(v)}</text>
+            {/* Centered on its gridline (dominantBaseline="middle"), matching
+                FlatBarChart's own real y-axis tick convention (translateY(-50%))
+                — a fixed baseline offset instead read as sitting low, almost
+                touching the line, rather than centered on it. */}
+            <text x={padLeft} y={y(v)} dominantBaseline="middle" fontSize={9} fontWeight={600} fill={T.muted} fontFamily="'Plus Jakarta Sans', sans-serif">{formatY(v)}</text>
           </g>
         ))}
         {data.slice(0, -1).map((a, i) => {

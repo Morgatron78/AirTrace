@@ -83,18 +83,31 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
     : []
   const weightFormatY = effectiveWeightMode === 'bmi' ? (v) => v.toFixed(1) : (v) => formatWeightKg(v, weightUnit)
 
-  const infoOverlay = (
+  // The correlation/causation caveat only makes sense once there are two
+  // series to correlate — with weight absent this is just the AHI chart,
+  // so the copy shouldn't reference a metric that isn't on screen. Same
+  // optional-data-optional-UI rule as everything else here, applied to
+  // the info text itself, not just which panels render.
+  const infoOverlay = hasWeight ? (
     <ChartInfoOverlay show={showInfo} onClose={() => setShowInfo(false)} color={C.pink}
       title="AHI & Weight"
       desc="Shown together because they're plausibly related — obesity is a well-established factor in OSA severity — not because one's been proven to cause the other. Other changes over time (equipment, pressure) can move AHI independently too." />
+  ) : (
+    <ChartInfoOverlay show={showInfo} onClose={() => setShowInfo(false)} color={C.pink}
+      title="AHI"
+      desc="Your Apnea-Hypopnea Index, averaged by week since you started therapy — smooths out night-to-night noise so the real long-run trend is easier to see." />
   )
 
   const header = (
     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8, marginBottom: expanded ? 0 : 10 }}>
       <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>All Time</div>
       <div style={{ display: 'flex', gap: 6, flexShrink: 0 }}>
-        <ChartInfoButton show={showInfo} onToggle={() => setShowInfo((s) => !s)} />
-        <ChartExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+        {/* Collapsed state has no card behind this header (a bare row,
+            matching "Individual channels"' own precedent) — onBareBg
+            swaps the resting T.bg fill for T.surface+border, or these
+            buttons disappear into the page's own T.bg background. */}
+        <ChartInfoButton show={showInfo} onToggle={() => setShowInfo((s) => !s)} onBareBg={!expanded} />
+        <ChartExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} onBareBg={!expanded} />
       </div>
     </div>
   )
@@ -113,7 +126,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
                     <span className="font-display" style={{ fontSize: 24, fontWeight: 800, color: T.ink }}>{latestAhi.toFixed(1)}</span>
                     <span style={{ fontSize: 12, color: T.muted }}>events/hr</span>
                   </div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Recent weekly avg</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Avg - Last 7 days utilised</div>
                   <div style={{ fontSize: 12, color: T.muted, marginTop: 6 }}>{deltaArrow(ahiDeltaPct)} {Math.abs(ahiDeltaPct)}% since start</div>
                 </div>
                 <div style={{ flex: 1, background: T.surface, borderRadius: 16, padding: 16 }}>
@@ -129,7 +142,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
               <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: T.surface, borderRadius: 16, padding: 16 }}>
                 <div>
                   <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>AHI</div>
-                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Recent weekly avg</div>
+                  <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>Avg - Last 7 days utilised</div>
                 </div>
                 <div style={{ textAlign: 'right', flexShrink: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'baseline', gap: 5, justifyContent: 'flex-end' }}>
