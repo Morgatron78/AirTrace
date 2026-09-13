@@ -22,13 +22,23 @@ function buildQuarterTicks(gridStartMs, maxWeek) {
   cursor.setUTCMonth(Math.ceil((cursor.getUTCMonth() + 1) / 3) * 3)
   cursor.setUTCDate(1)
   const endMs = gridStartMs + maxWeek * WEEK_MS
+  // Show the year whenever it differs from the previously-shown tick's
+  // year (always true for the very first tick), not just when a tick
+  // happens to land in January. The quarterly cycle is rounded up from
+  // an arbitrary gridStartMs, so it can just as easily land on
+  // Feb/May/Aug/Nov as on Jan/Apr/Jul/Oct — a real user's actual
+  // multi-year data confirmed this: every tick landed on May/Aug/Nov/Feb,
+  // so the old January-only check never fired once across 18 months of
+  // real ticks, leaving a multi-year chart with no year markers at all.
+  let lastYear = null
   while (cursor.getTime() <= endMs) {
     const week = (cursor.getTime() - gridStartMs) / WEEK_MS
-    const label = cursor.getUTCMonth() === 0
-      ? `Jan '${String(cursor.getUTCFullYear()).slice(2)}`
-      : cursor.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })
+    const year = cursor.getUTCFullYear()
+    const month = cursor.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })
+    const label = year !== lastYear ? `${month} '${String(year).slice(2)}` : month
+    lastYear = year
     out.push({ week, label })
-    cursor = new Date(Date.UTC(cursor.getUTCFullYear(), cursor.getUTCMonth() + 3, 1))
+    cursor = new Date(Date.UTC(year, cursor.getUTCMonth() + 3, 1))
   }
   return out
 }
@@ -171,8 +181,15 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
       <div style={{ position: 'relative' }}>
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, marginBottom: 6, padding: '0 2px' }}>AHI</div>
+          {/* Each panel gets its own date labels now, even though weight
+              also has them below — the original "only the bottom panel"
+              rule assumed the two panels read as one continuous timeline,
+              but the Weight/BMI toggle and panel label sitting between
+              them visually break that connection, leaving the AHI chart
+              with no visible time reference at all when weight is
+              present. A little duplication reads far better than that. */}
           <AllTimeLineChart data={ahiWeekly} maxWeek={maxWeek} gridStartMs={gridStartMs} color={C.pink}
-            formatY={(v) => v.toFixed(1)} ticks={ticks} showXAxisLabels={!hasWeight} confound={confound} />
+            formatY={(v) => v.toFixed(1)} ticks={ticks} showXAxisLabels confound={confound} />
           {confound && (
             <div style={{ fontSize: 12, color: T.muted, marginTop: 6, padding: '0 2px', lineHeight: 1.4 }}>
               Shaded — pressure was still being adjusted here. Tap the shaded area for detail.

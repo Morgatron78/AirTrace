@@ -71,8 +71,17 @@ export function hourTicks(startHour, spanHours, maxLabels = 5) {
 // time one — picks the smallest round step that still keeps the tick
 // count reasonable, rather than just labeling a panel's two extremes.
 // Used by Trends' All Time line panels (AHI, Weight/BMI).
+//
+// targetCount defaults to 5, not 4: confirmed against a real weight range
+// (76-117kg padded) that 4 rounds up to a 20kg step, landing only 2 ticks
+// with the highest 11kg short of the real peak — a big unlabeled gap at
+// the exact top of the chart, reading as "the scale stops short" even
+// though the line itself has correct headroom. 5 picks a 10kg step there
+// instead (four ticks, last one within ~1kg of the real peak), with zero
+// change to the already-correct AHI axis (verified: both 4 and 5 land on
+// the same step for that range).
 const NICE_Y_STEPS = [0.25, 0.5, 1, 2, 2.5, 5, 10, 20, 25, 50, 100]
-export function yTicks(yMin, yMax, targetCount = 4) {
+export function yTicks(yMin, yMax, targetCount = 5) {
   const rough = (yMax - yMin) / targetCount
   const step = NICE_Y_STEPS.find((s) => s >= rough) || NICE_Y_STEPS[NICE_Y_STEPS.length - 1]
   const first = Math.ceil(yMin / step) * step

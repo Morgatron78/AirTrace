@@ -104,8 +104,10 @@ export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, t
           boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: '10px 12px', fontSize: 11.5, color: T.muted, lineHeight: 1.6, maxWidth: 210,
           cursor: 'pointer',
         }}>
-          <b style={{ color: T.ink }}>Pressure adjusted early on</b><br />
-          {confound.transitions.map((t) => `${t.date}: ${t.setPressure} cmH₂O`).join(', ')}
+          <b style={{ color: T.ink }}>Titration Period</b>
+          {confound.transitions.map((t) => (
+            <div key={t.date}>{t.date}: {t.setPressure} cmH₂O</div>
+          ))}
         </div>
       )}
     </div>
