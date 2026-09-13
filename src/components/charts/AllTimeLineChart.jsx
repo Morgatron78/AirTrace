@@ -10,7 +10,7 @@ const WEEK_MS = 7 * 86400000
 // by their actual weekIndex against the shared maxWeek span, not by array
 // index — a missing week has to look like a gap, not get silently
 // compressed away.
-export function AllTimeLineChart({ data, maxWeek, anchorMs, color, formatY, ticks, showXAxisLabels, confound }) {
+export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, ticks, showXAxisLabels, confound }) {
   const [confoundOpen, setConfoundOpen] = useState(false)
   const w = 400
   const h = showXAxisLabels ? 142 : 130
@@ -25,7 +25,7 @@ export function AllTimeLineChart({ data, maxWeek, anchorMs, color, formatY, tick
   const yMin = min - yPad, yMax = max + yPad
   const x = (week) => padLeft + (week / maxWeek) * (w - padLeft - padRight)
   const y = (v) => padTop + (1 - (v - yMin) / (yMax - yMin)) * (h - padTop - padBottom)
-  const weekOf = (dateStr) => (Date.parse(dateStr) - anchorMs) / WEEK_MS
+  const weekOf = (dateStr) => (Date.parse(dateStr) - gridStartMs) / WEEK_MS
 
   const confoundX0 = confound ? x(weekOf(confound.shadeStartDate)) : null
   const confoundX1 = confound ? x(weekOf(confound.boundaryDate)) : null

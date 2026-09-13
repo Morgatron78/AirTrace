@@ -6,8 +6,12 @@
 // arrays (nights vs. Apple Health readings).
 const WEEK_MS = 7 * 86400000
 
-function weekIndexFor(ms, anchorMs) {
-  return Math.floor((ms - anchorMs) / WEEK_MS)
+// Raw (<= 0) index counting backward from anchorMs: 0 for the 7 days
+// ending on anchorMs itself, -1 for the 7 days before that, and so on.
+// Bucket functions add `shift` (getWeekSpan's return value) to land on a
+// friendly 0-based grid instead of exposing negative indices.
+function rawWeekIndex(ms, anchorMs) {
+  return -Math.floor((anchorMs - ms) / WEEK_MS)
 }
 
 function median(values) {
@@ -16,15 +20,32 @@ function median(values) {
   return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2
 }
 
-// The shared anchor every weekly series (AHI, weight, x-axis ticks,
-// confound date mapping) is bucketed against — the earliest used night,
-// so week 0 always starts on real therapy start, not an arbitrary
-// calendar boundary. Exposed so the caller can pass the exact same value
-// into bucketWeightWeekly and into tick/confound x-position math, rather
-// than each recomputing it and risking drift.
+// The anchor every weekly series counts backward from — the LATEST used
+// night, not the earliest. This guarantees the newest bucket is always a
+// genuinely full week: any partial week now falls at the OLDEST end
+// (therapy start) instead of silently attaching to "today", which
+// previously made the headline "recent" figure an unrepresentative
+// small-sample number — confirmed against real production data: a
+// 5-night final bucket read 0.9 while the actual last-30-nights trend
+// was 1.3. A partial *first* bucket only affects the "since start"
+// baseline, which tolerates imprecision far better than "how am I doing
+// right now" does.
 export function getAnchorMs(nights) {
   const used = nights.filter((n) => !n.noUsage)
-  return used.length ? Date.parse(used[0].date) : null
+  return used.length ? Date.parse(used[used.length - 1].date) : null
+}
+
+// How many weeks back the earliest used night sits from anchorMs — the
+// single shift both bucketAhiWeekly and bucketWeightWeekly apply so they
+// land on the identical 0-based grid regardless of each series' own data
+// extent (weight readings can start later, or stop earlier, than the
+// earliest/latest CPAP night). Also doubles as the chart's maxWeek, and
+// (anchorMs - shift*WEEK_MS) is week-index 0's real calendar start date,
+// for tick/confound date math.
+export function getWeekSpan(nights, anchorMs) {
+  const used = nights.filter((n) => !n.noUsage)
+  if (!used.length || anchorMs == null) return 0
+  return -rawWeekIndex(Date.parse(used[0].date), anchorMs)
 }
 
 // AHI, weekly-averaged across the FULL night history (not the 30-night
@@ -34,28 +55,29 @@ export function getAnchorMs(nights) {
 export function bucketAhiWeekly(nights, anchorMs) {
   const used = nights.filter((n) => !n.noUsage)
   if (!used.length || anchorMs == null) return []
+  const shift = getWeekSpan(nights, anchorMs)
   const buckets = new Map()
   for (const n of used) {
-    const wi = weekIndexFor(Date.parse(n.date), anchorMs)
+    const wi = rawWeekIndex(Date.parse(n.date), anchorMs) + shift
     if (!buckets.has(wi)) buckets.set(wi, { sum: 0, count: 0 })
     const b = buckets.get(wi)
     b.sum += n.ahi
     b.count += 1
   }
-  const maxWeek = Math.max(...buckets.keys())
+  const gridStartMs = anchorMs - shift * WEEK_MS
   const out = []
-  for (let wi = 0; wi <= maxWeek; wi++) {
+  for (let wi = 0; wi <= shift; wi++) {
     const b = buckets.get(wi)
     if (!b) continue // a week with zero used nights just isn't a point, not a fabricated gap-fill
-    out.push({ weekIndex: wi, date: new Date(anchorMs + wi * WEEK_MS), value: b.sum / b.count, count: b.count })
+    out.push({ weekIndex: wi, date: new Date(gridStartMs + wi * WEEK_MS), value: b.sum / b.count, count: b.count })
   }
   return out
 }
 
-// APPLE-HEALTH: weight, bucketed onto the SAME week grid as AHI (anchorMs passed in,
-// not recomputed) — a shared anchor is what keeps the two stacked panels
-// genuinely aligned on one time axis rather than two independent
-// timelines that happen to look similar.
+// Weight, bucketed onto the SAME week grid as AHI (anchorMs AND shift
+// passed in, not recomputed) — a shared grid is what keeps the two
+// stacked panels genuinely aligned on one time axis rather than two
+// independent timelines that happen to look similar.
 //
 // Per-week outlier rejection before averaging: any single raw reading
 // more than 10kg from that week's own median is dropped. Confirmed
@@ -65,16 +87,17 @@ export function bucketAhiWeekly(nights, anchorMs) {
 // shared-scale artifact), without touching any genuine reading. A week
 // with exactly one reading has nothing to reject it against (its median
 // is itself), so it always survives untouched.
-export function bucketWeightWeekly(weightReadings, anchorMs) {
+export function bucketWeightWeekly(weightReadings, anchorMs, shift) {
   if (!weightReadings.length) return []
   const buckets = new Map()
   for (const r of weightReadings) {
-    const wi = weekIndexFor(r.ts, anchorMs)
-    if (wi < 0) continue // a reading from before therapy start doesn't have a week to belong to on this chart
+    const wi = rawWeekIndex(r.ts, anchorMs) + shift
+    if (wi < 0) continue // a reading from before the earliest CPAP night doesn't have a week to belong to on this chart
     if (!buckets.has(wi)) buckets.set(wi, [])
     buckets.get(wi).push(r.kg)
   }
-  const maxWeek = Math.max(...buckets.keys())
+  const gridStartMs = anchorMs - shift * WEEK_MS
+  const maxWeek = buckets.size ? Math.max(...buckets.keys()) : -1
   const out = []
   for (let wi = 0; wi <= maxWeek; wi++) {
     const raw = buckets.get(wi)
@@ -82,7 +105,7 @@ export function bucketWeightWeekly(weightReadings, anchorMs) {
     const med = median(raw)
     const clean = raw.filter((kg) => Math.abs(kg - med) <= 10)
     if (!clean.length) continue
-    out.push({ weekIndex: wi, date: new Date(anchorMs + wi * WEEK_MS), value: clean.reduce((s, v) => s + v, 0) / clean.length, count: clean.length })
+    out.push({ weekIndex: wi, date: new Date(gridStartMs + wi * WEEK_MS), value: clean.reduce((s, v) => s + v, 0) / clean.length, count: clean.length })
   }
   return out
 }

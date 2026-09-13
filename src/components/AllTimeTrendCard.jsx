@@ -5,7 +5,7 @@ import { ChartExpandButton } from './ChartExpandButton'
 import { ChartInfoOverlay } from './ChartInfoOverlay'
 import { Segmented } from './Segmented'
 import { AllTimeLineChart } from './charts/AllTimeLineChart.jsx'
-import { getAnchorMs, bucketAhiWeekly, bucketWeightWeekly } from '../utils/weeklyTrend.js'
+import { getAnchorMs, getWeekSpan, bucketAhiWeekly, bucketWeightWeekly } from '../utils/weeklyTrend.js'
 import { findPressureConfound } from '../utils/pressureConfound.js'
 import { formatWeightKg, bmiFromWeightKg } from '../utils/units.js'
 
@@ -13,15 +13,17 @@ const WEEK_MS = 7 * 86400000
 
 // Real wall-clock quarter boundaries mapped through the same week-index
 // math the data itself uses, so gridlines and data points can never read
-// as two independent timelines that happen to look similar.
-function buildQuarterTicks(anchorMs, maxWeek) {
+// as two independent timelines that happen to look similar. gridStartMs
+// is week-index 0's real calendar date — NOT the same as the bucketing
+// anchor (the latest night), which counts backward from the other end.
+function buildQuarterTicks(gridStartMs, maxWeek) {
   const out = []
-  let cursor = new Date(anchorMs)
+  let cursor = new Date(gridStartMs)
   cursor.setUTCMonth(Math.ceil((cursor.getUTCMonth() + 1) / 3) * 3)
   cursor.setUTCDate(1)
-  const endMs = anchorMs + maxWeek * WEEK_MS
+  const endMs = gridStartMs + maxWeek * WEEK_MS
   while (cursor.getTime() <= endMs) {
-    const week = (cursor.getTime() - anchorMs) / WEEK_MS
+    const week = (cursor.getTime() - gridStartMs) / WEEK_MS
     const label = cursor.getUTCMonth() === 0
       ? `Jan '${String(cursor.getUTCFullYear()).slice(2)}`
       : cursor.toLocaleString('en-GB', { month: 'short', timeZone: 'UTC' })
@@ -41,12 +43,17 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
   const anchorMs = getAnchorMs(nights)
   if (anchorMs == null) return null // no used nights at all yet — nothing to show
 
+  // shift is also the chart's maxWeek: the latest night's raw index is
+  // always 0, so its shifted (displayed) index is always exactly `shift`.
+  const shift = getWeekSpan(nights, anchorMs)
+  const gridStartMs = anchorMs - shift * WEEK_MS
+
   const ahiWeekly = bucketAhiWeekly(nights, anchorMs)
   if (!ahiWeekly.length) return null
 
   // APPLE-HEALTH: from here down, every hasWeight/canShowBmi-gated branch
   // is Apple-Health-dependent — see docs/apple-health-integration.md.
-  const weightWeekly = bucketWeightWeekly(weightReadings, anchorMs)
+  const weightWeekly = bucketWeightWeekly(weightReadings, anchorMs, shift)
   const hasWeight = weightWeekly.length > 0
   const hasHeight = heightCm != null
   // BMI needs a height to mean anything — offer the toggle only when both
@@ -55,8 +62,8 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
   const canShowBmi = hasWeight && hasHeight
   const effectiveWeightMode = weightMode === 'bmi' && !canShowBmi ? 'weight' : weightMode
 
-  const maxWeek = Math.max(ahiWeekly[ahiWeekly.length - 1].weekIndex, hasWeight ? weightWeekly[weightWeekly.length - 1].weekIndex : 0)
-  const ticks = buildQuarterTicks(anchorMs, maxWeek)
+  const maxWeek = shift
+  const ticks = buildQuarterTicks(gridStartMs, maxWeek)
 
   const latestAhi = ahiWeekly[ahiWeekly.length - 1].value, firstAhi = ahiWeekly[0].value
   const ahiDeltaPct = Math.round(((latestAhi - firstAhi) / firstAhi) * 100)
@@ -146,7 +153,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
       <div style={{ position: 'relative' }}>
         <div style={{ marginTop: 14 }}>
           <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, marginBottom: 6, padding: '0 2px' }}>AHI</div>
-          <AllTimeLineChart data={ahiWeekly} maxWeek={maxWeek} anchorMs={anchorMs} color={C.pink}
+          <AllTimeLineChart data={ahiWeekly} maxWeek={maxWeek} gridStartMs={gridStartMs} color={C.pink}
             formatY={(v) => v.toFixed(1)} ticks={ticks} showXAxisLabels={!hasWeight} confound={confound} />
           {confound && (
             <div style={{ fontSize: 12, color: T.muted, marginTop: 6, padding: '0 2px', lineHeight: 1.4 }}>
@@ -163,7 +170,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
             </div>
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, marginBottom: 6, padding: '0 2px' }}>{effectiveWeightMode === 'bmi' ? 'BMI' : 'Weight'}</div>
-              <AllTimeLineChart data={weightPanelData} maxWeek={maxWeek} anchorMs={anchorMs} color={C.purple}
+              <AllTimeLineChart data={weightPanelData} maxWeek={maxWeek} gridStartMs={gridStartMs} color={C.purple}
                 formatY={weightFormatY} ticks={ticks} showXAxisLabels />
             </div>
           </>
