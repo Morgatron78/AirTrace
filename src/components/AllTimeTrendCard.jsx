@@ -117,7 +117,12 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
       <div>
         {header}
         <div style={{ position: 'relative' }}>
-          <div style={{ display: 'flex', gap: 12 }}>
+          {/* The whole collapsed area expands on tap — more forgiving on
+              touch than the small header button alone — matching the
+              same button-wraps-a-tile-row pattern Best/Worst night
+              already uses. infoOverlay is a sibling below, not a
+              descendant, so dismissing it can never also trigger this. */}
+          <button onClick={() => setExpanded(true)} style={{ display: 'flex', gap: 12, width: '100%', textAlign: 'left' }}>
             {hasWeight ? (
               <>
                 <div style={{ flex: 1, background: T.surface, borderRadius: 16, padding: 16 }}>
@@ -153,7 +158,7 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
                 </div>
               </div>
             )}
-          </div>
+          </button>
           {infoOverlay}
         </div>
       </div>
