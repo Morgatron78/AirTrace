@@ -23,6 +23,10 @@ Sample_CPAP_Data/
 # repo is public.
 docs/wifi-sd-sync.md
 
+# Feature spec drafted with a separate Claude.ai session, kept local at the
+# user's request rather than committed to the public repo's history.
+docs/trends-all-time-chart-spec.md
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
