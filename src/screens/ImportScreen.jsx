@@ -1,19 +1,30 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse, FolderOpen } from 'lucide-react'
+import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse, FolderOpen, Cloud } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
 import { groupImportFiles } from '../edf/groupImportFiles.js'
-import { parseSummaries } from '../edf/parseSummaries.js'
 import { upsertSummaries } from '../db/nights.js'
 import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { toDateStr } from '../utils/dates.js'
+import { computeRetentionCutoff, RETENTION_USED_NIGHTS } from '../utils/retentionWindow.js'
 // APPLE-HEALTH — see docs/apple-health-integration.md for the full
 // strip-out list; this whole card + handler below is one of the entries.
 import { parseHealthExport } from '../health/parseHealthExport.js'
 import { matchHealthDataToNights, countEligibleNights } from '../health/matchNights.js'
 import { setHealthEntry } from '../db/health.js'
+// ONEDRIVE — see docs/wifi-sd-sync.md (gitignored) for the full
+// background. Reads whatever CardSync's most recent run backed up to
+// OneDrive, converging on the exact same File-shaped objects a physical
+// card import produces, so everything downstream (groupImportFiles, the
+// worker, retention pruning) is shared code, not a parallel path.
+import { isSignedIn, signIn, completeSignIn } from '../onedrive/graphClient.js'
+import { fetchOneDriveFiles } from '../onedrive/oneDriveImport.js'
+
+// Matches CardSync's own default BackupDest (see card-sync/cardsync.config.json,
+// gitignored) - the OneDrive folder CardSync actually writes into.
+const ONEDRIVE_BASE_PATH = 'CPAP backup'
 
 // Ordered import stages — index also drives the checklist's done/current/pending
 // states, so the two can never drift out of sync with each other.
@@ -24,13 +35,6 @@ const IMPORT_STAGE_LABEL = {
   waveform: 'Parsing waveform detail',
   pruning: 'Pruning older waveform detail',
 }
-// Nights actually used, not calendar days — a calendar-day cutoff quietly
-// delivers fewer than its own promised number for anyone who doesn't use
-// the machine every single night (confirmed by a real user: 76 real
-// nights inside what a 90-*day* window would have called "90 days"). See
-// the cutoff computation in onFilesSelected below.
-const RETENTION_USED_NIGHTS = 90
-
 function ImportStageRow({ label, status }) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
@@ -94,6 +98,19 @@ export function ImportScreen({ onBack, nights }) {
   const [healthImportError, setHealthImportError] = useState('')
   const healthFileInputRef = useRef(null)
 
+  // ONEDRIVE — oneDriveConnected reflects MSAL's own cached session, not
+  // anything this component tracks itself; refreshed after
+  // completeSignIn() resolves (below) and again after syncFromOneDrive
+  // finishes, since a first-ever sign-in only becomes visible once the
+  // redirect round-trip completes and the page reloads.
+  const [oneDriveConnected, setOneDriveConnected] = useState(false)
+  const [oneDriveSyncing, setOneDriveSyncing] = useState(false)
+  // ONEDRIVE — surfaces fetchOneDriveFiles's own onProgress, which used to
+  // go nowhere: a real ~100-night fetch runs several minutes even with
+  // concurrency, and a bare spinner for that whole stretch is
+  // indistinguishable from a hang. null until the first progress event.
+  const [oneDriveProgress, setOneDriveProgress] = useState(null)
+
   const handleHealthFileSelected = async (e) => {
     // Same iOS Safari ordering as onFilesSelected below — capture the
     // File before touching .value.
@@ -134,6 +151,10 @@ export function ImportScreen({ onBack, nights }) {
     getMeta('lastImport').then((v) => v && setLastImport(v))
     getMeta('importHistory').then((v) => v && setHistory(v))
     getExistingDetailDates().then((dates) => setDetailCount(dates.size))
+    // ONEDRIVE — completes the redirect-based sign-in if this load is the
+    // return trip from Microsoft (a no-op otherwise), then reflects
+    // whatever the real cached session state turns out to be.
+    completeSignIn().then(() => setOneDriveConnected(isSignedIn()))
   }, [])
 
   useEffect(() => () => workerRef.current?.terminate(), [])
@@ -182,27 +203,21 @@ export function ImportScreen({ onBack, nights }) {
     fileInputRef.current?.click()
   }
 
-  const onFilesSelected = async (e) => {
-    setPicking(false)
-    // Snapshot into a real array BEFORE touching e.target.value — on iOS
-    // Safari, clearing the input's value right after reading .files was
-    // silently emptying the FileList out from under us (confirmed via a
-    // side-by-side test: a plain page with no such reset correctly saw
-    // hundreds of real files from the same card that this app reported
-    // as 0). Array.from copies the entries out, so the later reset can't
-    // touch them.
-    const files = Array.from(e.target.files || [])
-    e.target.value = '' // allow re-selecting the same folder later
-
+  // Shared by both import sources — physical card (onFilesSelected below)
+  // and OneDrive (syncFromOneDrive below) converge here once they've each
+  // produced the same File-shaped array, so grouping, the retention
+  // cutoff, worker orchestration and persistence are all one code path
+  // regardless of where the files actually came from.
+  const runImportPipeline = async (files, { sourceLabel = 'the selected folder' } = {}) => {
     if (files.length === 0) {
-      setError('The folder picker returned 0 files — please let Claude know this happened so it can be investigated further.')
+      setError(`No files were found in ${sourceLabel} — please let Claude know this happened so it can be investigated further.`)
       return
     }
 
     const { strFile, nightFolders, incompleteFolders } = groupImportFiles(files)
     if (!strFile) {
       const sample = files.slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
-      setError(`Couldn't find STR.edf in that folder — select the SD card's root folder (the one containing STR.edf and DATALOG together). Picker returned ${files.length} file(s). Sample paths: ${sample || '(none)'}`)
+      setError(`Couldn't find STR.edf in ${sourceLabel} — the root should contain STR.edf and DATALOG together. Found ${files.length} file(s). Sample paths: ${sample || '(none)'}`)
       return
     }
 
@@ -213,25 +228,19 @@ export function ImportScreen({ onBack, nights }) {
     // full history regardless, from STR.edf alone.
     //
     // The window is the last RETENTION_USED_NIGHTS nights that actually
-    // have a real session, not the last N calendar days — see that
-    // constant's own comment. STR.edf is parsed here, on the main thread,
-    // purely to compute that cutoff before deciding which DATALOG folders
-    // are even worth handing to the worker; the worker re-parses it a
-    // moment later as part of its own normal pipeline (msg.type ===
-    // 'summaries' below) — a small duplicate parse of one small, fast
-    // file, kept separate rather than threading this cutoff logic into
-    // the worker, so the worker keeps its own stated "no opinion on
-    // retention policy" contract intact (see importWorker.js).
+    // have a real session, not the last N calendar days — see
+    // computeRetentionCutoff's own comment. STR.edf is parsed here, on
+    // the main thread, purely to compute that cutoff before deciding
+    // which DATALOG folders are even worth handing to the worker; the
+    // worker re-parses it a moment later as part of its own normal
+    // pipeline (msg.type === 'summaries' below) — a small duplicate parse
+    // of one small, fast file, kept separate rather than threading this
+    // cutoff logic into the worker, so the worker keeps its own stated
+    // "no opinion on retention policy" contract intact (see importWorker.js).
     let cutoff
     try {
       const strBufferForCutoff = await strFile.arrayBuffer()
-      const summariesForCutoff = parseSummaries(strBufferForCutoff)
-      cutoff = summariesForCutoff[0]?.date ?? toDateStr(new Date())
-      let usedSeen = 0
-      for (let i = summariesForCutoff.length - 1; i >= 0; i--) {
-        if (!summariesForCutoff[i].noUsage) usedSeen++
-        if (usedSeen >= RETENTION_USED_NIGHTS) { cutoff = summariesForCutoff[i].date; break }
-      }
+      cutoff = computeRetentionCutoff(strBufferForCutoff).cutoff
     } catch (err) {
       setError(`Couldn't read STR.edf: ${err.message}`)
       return
@@ -343,6 +352,45 @@ export function ImportScreen({ onBack, nights }) {
     worker.postMessage({ strFile, nightFolders: inWindowFolders, skipDates })
   }
 
+  const onFilesSelected = async (e) => {
+    setPicking(false)
+    // Snapshot into a real array BEFORE touching e.target.value — on iOS
+    // Safari, clearing the input's value right after reading .files was
+    // silently emptying the FileList out from under us (confirmed via a
+    // side-by-side test: a plain page with no such reset correctly saw
+    // hundreds of real files from the same card that this app reported
+    // as 0). Array.from copies the entries out, so the later reset can't
+    // touch them.
+    const files = Array.from(e.target.files || [])
+    e.target.value = '' // allow re-selecting the same folder later
+    await runImportPipeline(files, { sourceLabel: 'the folder picker returned' })
+  }
+
+  // ONEDRIVE — mirrors onFilesSelected above, just fetching files from
+  // OneDrive (via CardSync's own backed-up copy) instead of reading a
+  // physical card. Everything from runImportPipeline onward is identical
+  // either way.
+  const syncFromOneDrive = async () => {
+    setError(null)
+    if (!isSignedIn()) {
+      await signIn() // navigates away - resumes after the redirect completes
+      return
+    }
+    setOneDriveSyncing(true)
+    setOneDriveProgress(null)
+    try {
+      const storedSchemaVersion = await getMeta('detailSchemaVersion')
+      const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
+      const files = await fetchOneDriveFiles(ONEDRIVE_BASE_PATH, { skipDates, onProgress: setOneDriveProgress })
+      await runImportPipeline(files, { sourceLabel: 'your OneDrive backup' })
+    } catch (err) {
+      setError(`OneDrive sync failed: ${err.message}`)
+    } finally {
+      setOneDriveSyncing(false)
+      setOneDriveProgress(null)
+    }
+  }
+
   const cancelImport = () => {
     workerRef.current?.terminate()
     setStage('idle')
@@ -398,6 +446,39 @@ export function ImportScreen({ onBack, nights }) {
             </button>
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
             <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>Reading a large card can take a few minutes. The import itself completes quickly once the card read is done, and later imports only process what's new.</div>
+          </div>
+        )}
+
+        {/* ONEDRIVE — a second, independent way to get the same CPAP data
+            in, alongside the physical-card card above rather than a
+            toggle against it (matches the Apple Health card's own
+            existing pattern below: parallel data-source cards, not
+            mutually exclusive modes). Reads whatever CardSync's most
+            recent run backed up to OneDrive - see docs/wifi-sd-sync.md
+            (gitignored) for the full background on why this exists. */}
+        {stage === 'idle' && (
+          <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+            <CardTitle sub="Syncs whatever your WiFi SD card last backed up to OneDrive">OneDrive Sync</CardTitle>
+            <button onClick={syncFromOneDrive} disabled={oneDriveSyncing} className="font-display"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: oneDriveSyncing ? 0.6 : 1 }}>
+              {oneDriveSyncing ? <RefreshCw size={15} className="spin" /> : <Cloud size={15} />}
+              <span>
+                {oneDriveSyncing
+                  ? oneDriveProgress?.stage === 'str' ? 'Reading STR.edf…'
+                    : oneDriveProgress?.stage === 'listing' ? 'Listing DATALOG…'
+                    : oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 ? `Night ${oneDriveProgress.done} of ${oneDriveProgress.total}…`
+                    : 'Syncing…'
+                  : !oneDriveConnected ? 'Connect OneDrive' : 'Sync from OneDrive'}
+              </span>
+            </button>
+            {oneDriveSyncing && oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 && (
+              <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: T.bg, overflow: 'hidden' }}>
+                <div style={{ width: `${(oneDriveProgress.done / oneDriveProgress.total) * 100}%`, height: '100%', background: C.blue, borderRadius: 3, transition: 'width 0.15s linear' }} />
+              </div>
+            )}
+            {oneDriveConnected && !oneDriveSyncing && (
+              <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>Only pulls nights that are new since your last import, same retention window as a physical card import.</div>
+            )}
           </div>
         )}
 

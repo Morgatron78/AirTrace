@@ -27,6 +27,17 @@ docs/wifi-sd-sync.md
 # user's request rather than committed to the public repo's history.
 docs/trends-all-time-chart-spec.md
 
+# WiFi SD sync sub-project: a personal fork of the FYSETC SD-WiFi card's
+# stock ESPWebDAV firmware (adds CORS headers), built/flashed locally.
+# Not part of AirTrace itself, same "personal, never distributed" status
+# as docs/wifi-sd-sync.md above.
+wifi-sd-firmware/
+
+# CardSync: the PC-side backup/housekeeping companion script for the WiFi
+# SD card, same private/personal status as the two entries above - nothing
+# to do with AirTrace itself.
+card-sync/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
