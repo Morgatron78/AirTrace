@@ -68,7 +68,12 @@ export async function fetchOneDriveFiles(basePath, { skipDates = [], onProgress 
   // part's cheap - only a few files), but NIGHT_CONCURRENCY nights now run
   // at once. onProgress fires as each night actually finishes downloading,
   // not as it starts, so the count the UI shows only ever grows.
-  const NIGHT_CONCURRENCY = 3
+  // AIRTRACE-FIX: was 3 - confirmed live (twice, on a real device) that
+  // this was enough to trigger real Graph API 429 throttling partway
+  // through a ~100-night sync. graphClient.js's shared cooldown now
+  // handles a 429 correctly when one happens, but a lower concurrency
+  // also just means one happens less often in the first place.
+  const NIGHT_CONCURRENCY = 2
   let completed = 0
   onProgress?.({ stage: 'nights', done: 0, total: inWindow.length })
 

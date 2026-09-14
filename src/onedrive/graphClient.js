@@ -70,8 +70,9 @@ async function getAccessToken() {
   }
 }
 
-// AIRTRACE-FIX: confirmed live, twice, against a real ~100-night sync -
-// two distinct throttling failures, both needing their own handling:
+// AIRTRACE-FIX: confirmed live, three times now, against a real ~100-night
+// sync - each fix so far addressed a real failure but not the underlying
+// one:
 //
 // 1) A burst of concurrent /content requests (each redirects to a short-
 //    lived, pre-authenticated SharePoint download.aspx URL) started
@@ -83,17 +84,29 @@ async function getAccessToken() {
 //    surfacing the actual throttling response. No Retry-After to read
 //    here (the browser hides the throttled response entirely), so this
 //    case just gets a short fixed backoff.
-// 2) A real 429 "Too Many Requests" directly from Graph API itself,
-//    confirmed on a real device partway through a real sync (broke at
-//    night 75 of 100 after ~90s). The first version of this function
-//    threw a plain Error before the 429's own Retry-After header could
-//    ever be read, so it always fell back to blind exponential backoff
-//    regardless of what Graph actually asked for - not long enough for
-//    a sustained throttle window. Reading and honoring Retry-After (the
-//    exact wait Graph itself specifies, in seconds) is Microsoft's own
-//    documented guidance for this, not a guess.
-const MAX_RETRIES = 4
+// 2) A real 429 "Too Many Requests" directly from Graph API itself
+//    (broke at night 75 of 100 after ~90s). Reading and honoring
+//    Retry-After (the exact wait Graph itself specifies) fixed that
+//    specific request - but confirmed still failing on a retry: with
+//    NIGHT_CONCURRENCY nights fetching at once, a throttling event tends
+//    to hit several of them at the same moment, and each one backing off
+//    and retrying independently meant they all came back in lockstep and
+//    re-triggered the exact same throttle, burning through every retry
+//    without ever actually spacing the request rate out.
+// 3) The real fix: a MODULE-LEVEL shared cooldown, not a per-request one.
+//    The instant any request sees a 429, every other request - in-flight
+//    retries and requests that haven't started yet alike - waits out the
+//    same cooldown before hitting Graph again, so one throttle event
+//    actually slows the whole sync down instead of just the one unlucky
+//    request that happened to receive it.
+const MAX_RETRIES = 5
+let throttledUntilMs = 0
+async function waitOutSharedThrottle() {
+  const remaining = throttledUntilMs - Date.now()
+  if (remaining > 0) await new Promise((resolve) => setTimeout(resolve, remaining))
+}
 async function graphFetchWithRetry(url, options, attempt = 0) {
+  await waitOutSharedThrottle()
   const token = await getAccessToken()
   let res
   try {
@@ -111,7 +124,12 @@ async function graphFetchWithRetry(url, options, attempt = 0) {
   if (res.ok) return res
   if (res.status === 429 && attempt < MAX_RETRIES) {
     const retryAfterSec = Number(res.headers.get('Retry-After')) || 2 * 2 ** attempt
-    await new Promise((resolve) => setTimeout(resolve, retryAfterSec * 1000))
+    // Math.max, not a plain overwrite - a second, later 429 with a
+    // shorter Retry-After (or one that arrives after another request
+    // already extended the cooldown further) must never shrink the
+    // window everyone else is already waiting on.
+    throttledUntilMs = Math.max(throttledUntilMs, Date.now() + retryAfterSec * 1000)
+    await waitOutSharedThrottle()
     return graphFetchWithRetry(url, options, attempt + 1)
   }
   throw new Error(`Graph API error: ${res.status} ${res.statusText}`)
