@@ -70,32 +70,51 @@ async function getAccessToken() {
   }
 }
 
-// AIRTRACE-FIX: confirmed live against a real ~100-night sync - a burst of
-// concurrent /content requests (each redirects to a short-lived, pre-
-// authenticated SharePoint download.aspx URL) started throwing partway
-// through, every time as a browser CORS error even though most of the
-// same burst succeeded fine. That's SharePoint's own throttling under
-// concurrent load, not a real CORS misconfiguration - a throttled
-// redirect target can come back without the CORS header a healthy one
-// carries, and the browser reports that as a blocked-by-CORS fetch
-// failure rather than surfacing the actual throttling response. Standard
-// Graph API guidance is to retry transient failures with backoff rather
-// than treat them as permanent - one retry after a short pause is enough
-// to ride out a throttling window without silently losing nights.
+// AIRTRACE-FIX: confirmed live, twice, against a real ~100-night sync -
+// two distinct throttling failures, both needing their own handling:
+//
+// 1) A burst of concurrent /content requests (each redirects to a short-
+//    lived, pre-authenticated SharePoint download.aspx URL) started
+//    throwing as a browser CORS error even though most of the same burst
+//    succeeded fine. That's SharePoint's own throttling under concurrent
+//    load, not a real CORS misconfiguration - a throttled redirect
+//    target can come back without the CORS header a healthy one carries,
+//    and the browser reports that as a blocked fetch rather than
+//    surfacing the actual throttling response. No Retry-After to read
+//    here (the browser hides the throttled response entirely), so this
+//    case just gets a short fixed backoff.
+// 2) A real 429 "Too Many Requests" directly from Graph API itself,
+//    confirmed on a real device partway through a real sync (broke at
+//    night 75 of 100 after ~90s). The first version of this function
+//    threw a plain Error before the 429's own Retry-After header could
+//    ever be read, so it always fell back to blind exponential backoff
+//    regardless of what Graph actually asked for - not long enough for
+//    a sustained throttle window. Reading and honoring Retry-After (the
+//    exact wait Graph itself specifies, in seconds) is Microsoft's own
+//    documented guidance for this, not a guess.
+const MAX_RETRIES = 4
 async function graphFetchWithRetry(url, options, attempt = 0) {
   const token = await getAccessToken()
+  let res
   try {
-    const res = await fetch(url, {
+    res = await fetch(url, {
       ...options,
       headers: { ...options.headers, Authorization: `Bearer ${token}` },
     })
-    if (!res.ok) throw new Error(`Graph API error: ${res.status} ${res.statusText}`)
-    return res
   } catch (err) {
-    if (attempt >= 2) throw err
+    // Network-level failure (fetch threw outright) - the SharePoint-
+    // redirect CORS case above. No response to inspect, just back off.
+    if (attempt >= MAX_RETRIES) throw err
     await new Promise((resolve) => setTimeout(resolve, 500 * 2 ** attempt))
     return graphFetchWithRetry(url, options, attempt + 1)
   }
+  if (res.ok) return res
+  if (res.status === 429 && attempt < MAX_RETRIES) {
+    const retryAfterSec = Number(res.headers.get('Retry-After')) || 2 * 2 ** attempt
+    await new Promise((resolve) => setTimeout(resolve, retryAfterSec * 1000))
+    return graphFetchWithRetry(url, options, attempt + 1)
+  }
+  throw new Error(`Graph API error: ${res.status} ${res.statusText}`)
 }
 
 async function graphFetch(url, options = {}) {
