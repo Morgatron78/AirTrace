@@ -37,6 +37,14 @@ export function isSignedIn() {
   return msalInstance.getAllAccounts().length > 0
 }
 
+// The signed-in account's own username (its email/UPN, per MSAL) - Settings'
+// "Connected as ___" line is the only current consumer. null when signed
+// out; never throws even if called before ensureInitialized() has run.
+export function getAccountEmail() {
+  const account = msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0]
+  return account?.username ?? null
+}
+
 export async function signIn() {
   await ensureInitialized()
   // prompt: 'select_account' forces Microsoft's own account chooser to

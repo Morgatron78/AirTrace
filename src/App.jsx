@@ -88,6 +88,16 @@ export default function App() {
   const [weightUnit, setWeightUnit] = useState('stlb')
   const updateHeightUnit = (next) => { setHeightUnit(next); setMeta('heightUnit', next) }
   const updateWeightUnit = (next) => { setWeightUnit(next); setMeta('weightUnit', next) }
+  // ONEDRIVE — off by default (most AirTrace installs will never have a
+  // WiFi SD card behind them at all), same persisted-top-level-state
+  // pattern as the two above. Read by both SettingsScreen (to show/hide
+  // its own config fields) and ImportScreen (to show/hide the whole
+  // OneDrive Sync card), which is the actual point of a settings-driven
+  // toggle rather than a purely cosmetic one.
+  const [oneDriveSyncEnabled, setOneDriveSyncEnabled] = useState(false)
+  const [oneDriveBasePath, setOneDriveBasePath] = useState('CPAP backup')
+  const updateOneDriveSyncEnabled = (next) => { setOneDriveSyncEnabled(next); setMeta('oneDriveSyncEnabled', next) }
+  const updateOneDriveBasePath = (next) => { setOneDriveBasePath(next); setMeta('oneDriveBasePath', next) }
   // targets/equipment/profile previously lived only in memory — any change
   // (a custom AHI target, a logged filter-change date) was silently lost
   // on every reload. All three persist via the same generic meta store
@@ -102,6 +112,8 @@ export default function App() {
     getMeta('themeMode').then((v) => v && setThemeMode(v))
     getMeta('heightUnit').then((v) => v && setHeightUnit(v))
     getMeta('weightUnit').then((v) => v && setWeightUnit(v))
+    getMeta('oneDriveSyncEnabled').then((v) => v != null && setOneDriveSyncEnabled(v))
+    getMeta('oneDriveBasePath').then((v) => v && setOneDriveBasePath(v))
   }, [])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
@@ -211,12 +223,15 @@ export default function App() {
     return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} />
   }
   if (showImport) {
-    return <ImportScreen key={resolvedTheme} onBack={closeImport} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */ />
+    return <ImportScreen key={resolvedTheme} onBack={closeImport} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */
+      oneDriveSyncEnabled={oneDriveSyncEnabled} oneDriveBasePath={oneDriveBasePath} />
   }
   if (showSettings) {
     return <SettingsScreen key={resolvedTheme} onBack={() => setShowSettings(false)} targets={targets} onChange={updateTargets} profile={profile} onChangeProfile={updateProfile}
       themeMode={themeMode} onChangeThemeMode={updateThemeMode}
-      heightUnit={heightUnit} onChangeHeightUnit={updateHeightUnit} weightUnit={weightUnit} onChangeWeightUnit={updateWeightUnit} />
+      heightUnit={heightUnit} onChangeHeightUnit={updateHeightUnit} weightUnit={weightUnit} onChangeWeightUnit={updateWeightUnit}
+      oneDriveSyncEnabled={oneDriveSyncEnabled} onChangeOneDriveSyncEnabled={updateOneDriveSyncEnabled}
+      oneDriveBasePath={oneDriveBasePath} onChangeOneDriveBasePath={updateOneDriveBasePath} />
   }
   if (status === 'empty') {
     return (

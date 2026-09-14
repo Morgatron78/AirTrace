@@ -10,6 +10,12 @@ import { getMeta, setMeta } from '../db/meta.js'
 import { VAPID_PUBLIC_KEY } from '../constants/push.js'
 import { APP_VERSION } from '../constants/app.js'
 import { cmToFeetInches } from '../utils/units.js'
+// ONEDRIVE — see docs/wifi-sd-sync.md (gitignored) for the full
+// background. This screen only ever reads sign-in status and offers
+// disconnect - the sign-in flow itself stays on the Import screen, where
+// the actual sync action lives, so there's exactly one place that starts
+// it rather than two slightly different entry points that could drift.
+import { completeSignIn, getAccountEmail, signOut } from '../onedrive/graphClient.js'
 
 // Standard Web Push conversion — pushManager.subscribe wants the VAPID
 // public key as a raw Uint8Array, not the base64url string it's
@@ -40,9 +46,22 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
   )
 }
 
-export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode, heightUnit, onChangeHeightUnit, weightUnit, onChangeWeightUnit }) {
+export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode, heightUnit, onChangeHeightUnit, weightUnit, onChangeWeightUnit,
+  oneDriveSyncEnabled, onChangeOneDriveSyncEnabled, oneDriveBasePath, onChangeOneDriveBasePath }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
   const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
+
+  // ONEDRIVE — self-fetched the same way hasWeightData is below: a
+  // screen-local read on mount, since nothing else on this screen needs
+  // it. null until completeSignIn() resolves (a no-op unless this load
+  // happens to be the return trip from a Microsoft redirect) or if
+  // genuinely signed out - the "Connected as ___" line and Disconnect
+  // button both key off this being non-null.
+  const [oneDriveEmail, setOneDriveEmail] = useState(null)
+  useEffect(() => { completeSignIn().then(() => setOneDriveEmail(getAccountEmail())) }, [])
+  const handleOneDriveDisconnect = () => {
+    signOut() // navigates away via logoutRedirect; nothing after this runs
+  }
 
   // APPLE-HEALTH: self-fetched purely to decide whether the weight-unit
   // toggle is worth showing at all — same self-fetch-for-a-single-screen
@@ -351,6 +370,62 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   Copy subscription JSON again
                 </button>
               )}
+            </>
+          )}
+        </div>
+
+        {/* ONEDRIVE — a settings-gated feature rather than an always-on
+            card on the Import screen, since most AirTrace installs will
+            never have a WiFi SD card (and CardSync) behind them at all -
+            the toggle keeps Import clean for everyone else. Enabling it
+            never requires signing in again if a session already exists;
+            disabling it never signs out - the two are deliberately
+            independent, so toggling this off is just "don't show me
+            this for now," not "forget my Microsoft account." */}
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Adds a second import option on the Import screen, alongside the physical card"
+            info="A companion PC tool (CardSync) backs your WiFi SD card up to a OneDrive folder on whatever schedule you run it. Turning this on lets AirTrace pull straight from that backup instead of needing the physical card in hand every time. Off by default - most installs won't have this hardware set up at all.">
+            OneDrive Sync
+          </CardTitle>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
+            <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>Enable OneDrive Sync</span>
+            <button
+              onClick={() => onChangeOneDriveSyncEnabled(!oneDriveSyncEnabled)}
+              className="font-display"
+              style={{
+                padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                background: oneDriveSyncEnabled ? T.bg : T.ink,
+                color: oneDriveSyncEnabled ? T.ink : T.bg,
+                border: oneDriveSyncEnabled ? `1px solid ${T.line}` : 'none',
+              }}
+            >
+              {oneDriveSyncEnabled ? 'On' : 'Turn on'}
+            </button>
+          </div>
+
+          {oneDriveSyncEnabled && (
+            <>
+              <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
+                <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8, lineHeight: 1.4 }}>Backup folder, relative to your OneDrive root — must match CardSync's own <code>BackupDest</code> setting exactly.</div>
+                <input
+                  type="text"
+                  value={oneDriveBasePath}
+                  onChange={(e) => onChangeOneDriveBasePath(e.target.value)}
+                  className="font-display"
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: T.bg, color: T.ink, fontSize: 14, border: `1px solid ${T.line}` }}
+                />
+              </div>
+
+              <div style={{ marginTop: 14, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                <span style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.4 }}>
+                  {oneDriveEmail ? <>Connected as <b style={{ color: T.ink }}>{oneDriveEmail}</b></> : "Not connected yet — connect from the Import screen's Sync from OneDrive button."}
+                </span>
+                {oneDriveEmail && (
+                  <button onClick={handleOneDriveDisconnect} className="font-display" style={{ flexShrink: 0, fontSize: 12.5, fontWeight: 700, color: SEV.bad, background: 'none', padding: 0 }}>
+                    Disconnect
+                  </button>
+                )}
+              </div>
             </>
           )}
         </div>

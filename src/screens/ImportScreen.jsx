@@ -22,10 +22,6 @@ import { setHealthEntry } from '../db/health.js'
 import { isSignedIn, signIn, completeSignIn } from '../onedrive/graphClient.js'
 import { fetchOneDriveFiles } from '../onedrive/oneDriveImport.js'
 
-// Matches CardSync's own default BackupDest (see card-sync/cardsync.config.json,
-// gitignored) - the OneDrive folder CardSync actually writes into.
-const ONEDRIVE_BASE_PATH = 'CPAP backup'
-
 const IMPORT_STAGE_LABEL = {
   reading: 'Reading folder',
   summaries: 'Parsing nightly summaries',
@@ -43,7 +39,7 @@ function ThinProgressBar({ pct }) {
   )
 }
 
-export function ImportScreen({ onBack, nights }) {
+export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBasePath }) {
   // idle -> reading -> summaries -> waveform -> pruning -> done -> (back to idle)
   const [stage, setStage] = useState('idle')
   const [waveformDone, setWaveformDone] = useState(0)
@@ -381,7 +377,7 @@ export function ImportScreen({ onBack, nights }) {
     try {
       const storedSchemaVersion = await getMeta('detailSchemaVersion')
       const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
-      const files = await fetchOneDriveFiles(ONEDRIVE_BASE_PATH, { skipDates, onProgress: setOneDriveProgress })
+      const files = await fetchOneDriveFiles(oneDriveBasePath, { skipDates, onProgress: setOneDriveProgress })
       await runImportPipeline(files, { sourceLabel: 'your OneDrive backup', source: 'onedrive' })
     } catch (err) {
       setError(`OneDrive sync failed: ${err.message}`)
@@ -473,8 +469,12 @@ export function ImportScreen({ onBack, nights }) {
             currently in its own fetch phase (oneDriveSyncing) or in the
             shared runImportPipeline parse phase afterward
             (oneDriveParsing) - one consistent treatment regardless of
-            which half of the sync is actually running. */}
-        {stage !== 'done' && (
+            which half of the sync is actually running. Hidden entirely
+            (not greyed out) when the Settings toggle is off - same rule
+            as everywhere else in this app for a feature/data source that
+            doesn't apply to this install, most of which will never have
+            a WiFi SD card behind them at all. */}
+        {stage !== 'done' && oneDriveSyncEnabled && (
           <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
             <CardTitle sub="Syncs whatever your WiFi SD card last backed up to OneDrive">OneDrive Sync</CardTitle>
             <button onClick={syncFromOneDrive} disabled={oneDriveSyncing || anyImportBusy} className="font-display"
