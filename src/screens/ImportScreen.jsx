@@ -26,26 +26,19 @@ import { fetchOneDriveFiles } from '../onedrive/oneDriveImport.js'
 // gitignored) - the OneDrive folder CardSync actually writes into.
 const ONEDRIVE_BASE_PATH = 'CPAP backup'
 
-// Ordered import stages — index also drives the checklist's done/current/pending
-// states, so the two can never drift out of sync with each other.
-const IMPORT_STAGES = ['reading', 'summaries', 'waveform', 'pruning']
 const IMPORT_STAGE_LABEL = {
   reading: 'Reading folder',
   summaries: 'Parsing nightly summaries',
   waveform: 'Parsing waveform detail',
   pruning: 'Pruning older waveform detail',
 }
-function ImportStageRow({ label, status }) {
+// Shared by every "syncing/parsing" button (SD card, OneDrive's own fetch
+// phase, OneDrive's own subsequent parse phase) so the three never drift
+// into three slightly different progress-bar implementations.
+function ThinProgressBar({ pct }) {
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0' }}>
-      <div style={{
-        width: 22, height: 22, borderRadius: '50%', flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: status === 'done' ? SEV.good : status === 'current' ? C.blue : T.bg,
-      }}>
-        {status === 'done' && <Check size={13} style={{ color: '#FFFFFF' }} strokeWidth={3} />}
-        {status === 'current' && <RefreshCw size={12} className="spin" style={{ color: '#FFFFFF' }} strokeWidth={2.5} />}
-      </div>
-      <span className="font-display" style={{ fontSize: 13, fontWeight: status === 'pending' ? 500 : 700, color: status === 'pending' ? T.muted : T.ink }}>{label}</span>
+    <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: T.bg, overflow: 'hidden' }}>
+      <div style={{ width: `${pct}%`, height: '100%', background: C.blue, borderRadius: 3, transition: 'width 0.15s linear' }} />
     </div>
   )
 }
@@ -110,6 +103,11 @@ export function ImportScreen({ onBack, nights }) {
   // concurrency, and a bare spinner for that whole stretch is
   // indistinguishable from a hang. null until the first progress event.
   const [oneDriveProgress, setOneDriveProgress] = useState(null)
+  // Which source triggered the import currently in progress ('sd' |
+  // 'onedrive' | null) - both paths converge on the same runImportPipeline
+  // and the same `stage` state machine, so this is the only way to know
+  // which button should show that shared progress inline on itself.
+  const [importSource, setImportSource] = useState(null)
 
   const handleHealthFileSelected = async (e) => {
     // Same iOS Safari ordering as onFilesSelected below — capture the
@@ -208,7 +206,7 @@ export function ImportScreen({ onBack, nights }) {
   // produced the same File-shaped array, so grouping, the retention
   // cutoff, worker orchestration and persistence are all one code path
   // regardless of where the files actually came from.
-  const runImportPipeline = async (files, { sourceLabel = 'the selected folder' } = {}) => {
+  const runImportPipeline = async (files, { sourceLabel = 'the selected folder', source } = {}) => {
     if (files.length === 0) {
       setError(`No files were found in ${sourceLabel} — please let Claude know this happened so it can be investigated further.`)
       return
@@ -256,6 +254,7 @@ export function ImportScreen({ onBack, nights }) {
     startedAtRef.current = Date.now()
     setWaveformDone(0)
     setWaveformTotal(0)
+    setImportSource(source)
     setStage('reading')
 
     // If the last import predates a parseNight.js field addition (see
@@ -296,6 +295,7 @@ export function ImportScreen({ onBack, nights }) {
       if (msg.type === 'error') {
         setError(msg.message)
         setStage('idle')
+        setImportSource(null)
         worker.terminate()
         return
       }
@@ -363,7 +363,7 @@ export function ImportScreen({ onBack, nights }) {
     // touch them.
     const files = Array.from(e.target.files || [])
     e.target.value = '' // allow re-selecting the same folder later
-    await runImportPipeline(files, { sourceLabel: 'the folder picker returned' })
+    await runImportPipeline(files, { sourceLabel: 'the folder picker returned', source: 'sd' })
   }
 
   // ONEDRIVE — mirrors onFilesSelected above, just fetching files from
@@ -382,7 +382,7 @@ export function ImportScreen({ onBack, nights }) {
       const storedSchemaVersion = await getMeta('detailSchemaVersion')
       const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
       const files = await fetchOneDriveFiles(ONEDRIVE_BASE_PATH, { skipDates, onProgress: setOneDriveProgress })
-      await runImportPipeline(files, { sourceLabel: 'your OneDrive backup' })
+      await runImportPipeline(files, { sourceLabel: 'your OneDrive backup', source: 'onedrive' })
     } catch (err) {
       setError(`OneDrive sync failed: ${err.message}`)
     } finally {
@@ -395,6 +395,7 @@ export function ImportScreen({ onBack, nights }) {
     workerRef.current?.terminate()
     setStage('idle')
     setWaveformDone(0)
+    setImportSource(null)
   }
   const handleBack = () => {
     // An accidental tap here mid-import would otherwise silently abandon
@@ -404,13 +405,22 @@ export function ImportScreen({ onBack, nights }) {
     workerRef.current?.terminate()
     onBack()
   }
-  const stageIdx = stage === 'done' ? IMPORT_STAGES.length : IMPORT_STAGES.indexOf(stage)
-  const stageDetail = {
-    reading: 'Scanning card contents…',
-    summaries: 'Reading STR.edf for your full history',
-    waveform: `Night ${waveformDone} of ${waveformTotal}`,
-    pruning: "Dropping waveform detail that's aged out",
-  }[stage]
+  // Shared by every button that can show this shared runImportPipeline
+  // progress inline on itself (SD card, and OneDrive's own subsequent
+  // parse phase once its fetch is done) — one string so the two never
+  // drift into slightly different wording for the same underlying stage.
+  const activeStageLabel = stage === 'waveform' && waveformTotal > 0
+    ? `Night ${waveformDone} of ${waveformTotal}…`
+    : `${IMPORT_STAGE_LABEL[stage]}…`
+  const sdActive = importSource === 'sd' && isActive
+  const oneDriveParsing = importSource === 'onedrive' && isActive
+  // Only one import (either source) can ever run at once — both buttons
+  // disable together the instant either one starts, closing what was
+  // otherwise a real race: nothing previously stopped tapping "Choose
+  // folder" while a OneDrive fetch was still in flight (stage stays
+  // 'idle' throughout that phase), which would have run two imports
+  // concurrently against the same IndexedDB stores.
+  const anyImportBusy = isActive || oneDriveSyncing
 
   return (
     <div style={{ minHeight: '100vh', background: T.bg, fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", paddingBottom: 'max(40px, env(safe-area-inset-bottom, 0px))' }}>
@@ -424,7 +434,7 @@ export function ImportScreen({ onBack, nights }) {
       </div>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '16px 18px 0', display: 'flex', flexDirection: 'column', gap: 16 }}>
-        {stage === 'idle' && (
+        {stage !== 'done' && (
           <div style={{ background: T.surface, borderRadius: 22, padding: 24, textAlign: 'center' }}>
             <div style={{ width: 64, height: 64, borderRadius: '50%', background: `linear-gradient(135deg,${C.blue},${C.purple})`, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
               <Upload size={28} style={{ color: '#FFFFFF' }} strokeWidth={1.8} />
@@ -440,10 +450,12 @@ export function ImportScreen({ onBack, nights }) {
                 input. */}
             <input ref={fileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={onFilesSelected}
               style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
-            <button onClick={chooseFolder} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }} className="font-display">
-              {picking && <RefreshCw size={15} className="spin" style={{ color: '#FFFFFF' }} strokeWidth={2.5} />}
-              <span style={{ fontSize: 14, fontWeight: 700 }}>{picking ? 'Reading card…' : 'Choose folder'}</span>
+            <button onClick={chooseFolder} disabled={anyImportBusy} className="font-display"
+              style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: C.blue, color: '#FFFFFF', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8, opacity: anyImportBusy && !sdActive ? 0.5 : 1 }}>
+              {(picking || sdActive) && <RefreshCw size={15} className="spin" style={{ color: '#FFFFFF' }} strokeWidth={2.5} />}
+              <span style={{ fontSize: 14, fontWeight: 700 }}>{sdActive ? activeStageLabel : picking ? 'Reading card…' : 'Choose folder'}</span>
             </button>
+            {sdActive && stage === 'waveform' && waveformTotal > 0 && <ThinProgressBar pct={(waveformDone / waveformTotal) * 100} />}
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4 }}>{error}</div>}
             <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>Reading a large card can take a few minutes. The import itself completes quickly once the card read is done, and later imports only process what's new.</div>
           </div>
@@ -455,59 +467,52 @@ export function ImportScreen({ onBack, nights }) {
             existing pattern below: parallel data-source cards, not
             mutually exclusive modes). Reads whatever CardSync's most
             recent run backed up to OneDrive - see docs/wifi-sd-sync.md
-            (gitignored) for the full background on why this exists. */}
-        {stage === 'idle' && (
+            (gitignored) for the full background on why this exists.
+            Its button shows the exact same kind of inline status +
+            progress bar the SD card button above does, whether it's
+            currently in its own fetch phase (oneDriveSyncing) or in the
+            shared runImportPipeline parse phase afterward
+            (oneDriveParsing) - one consistent treatment regardless of
+            which half of the sync is actually running. */}
+        {stage !== 'done' && (
           <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
             <CardTitle sub="Syncs whatever your WiFi SD card last backed up to OneDrive">OneDrive Sync</CardTitle>
-            <button onClick={syncFromOneDrive} disabled={oneDriveSyncing} className="font-display"
-              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: oneDriveSyncing ? 0.6 : 1 }}>
-              {oneDriveSyncing ? <RefreshCw size={15} className="spin" /> : <Cloud size={15} />}
+            <button onClick={syncFromOneDrive} disabled={oneDriveSyncing || anyImportBusy} className="font-display"
+              style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: anyImportBusy && !oneDriveSyncing && !oneDriveParsing ? 0.5 : oneDriveSyncing ? 0.6 : 1 }}>
+              {(oneDriveSyncing || oneDriveParsing) ? <RefreshCw size={15} className="spin" /> : <Cloud size={15} />}
               <span>
-                {oneDriveSyncing
-                  ? oneDriveProgress?.stage === 'str' ? 'Reading STR.edf…'
-                    : oneDriveProgress?.stage === 'listing' ? 'Listing DATALOG…'
-                    : oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 ? `Night ${oneDriveProgress.done} of ${oneDriveProgress.total}…`
-                    : 'Syncing…'
-                  : !oneDriveConnected ? 'Connect OneDrive' : 'Sync from OneDrive'}
+                {oneDriveParsing
+                  ? activeStageLabel
+                  : oneDriveSyncing
+                    ? oneDriveProgress?.stage === 'str' ? 'Reading STR.edf…'
+                      : oneDriveProgress?.stage === 'listing' ? 'Listing DATALOG…'
+                      : oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 ? `Night ${oneDriveProgress.done} of ${oneDriveProgress.total}…`
+                      : 'Syncing…'
+                    : !oneDriveConnected ? 'Connect OneDrive' : 'Sync from OneDrive'}
               </span>
             </button>
-            {oneDriveSyncing && oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 && (
-              <div style={{ marginTop: 10, height: 6, borderRadius: 3, background: T.bg, overflow: 'hidden' }}>
-                <div style={{ width: `${(oneDriveProgress.done / oneDriveProgress.total) * 100}%`, height: '100%', background: C.blue, borderRadius: 3, transition: 'width 0.15s linear' }} />
-              </div>
-            )}
-            {oneDriveConnected && !oneDriveSyncing && (
+            {oneDriveSyncing && oneDriveProgress?.stage === 'nights' && oneDriveProgress.total > 0 && <ThinProgressBar pct={(oneDriveProgress.done / oneDriveProgress.total) * 100} />}
+            {oneDriveParsing && stage === 'waveform' && waveformTotal > 0 && <ThinProgressBar pct={(waveformDone / waveformTotal) * 100} />}
+            {oneDriveConnected && !oneDriveSyncing && !oneDriveParsing && (
               <div style={{ fontSize: 11, color: T.muted, marginTop: 10 }}>Only pulls nights that are new since your last import, same retention window as a physical card import.</div>
             )}
           </div>
         )}
 
+        {/* Compact, shared between both sources rather than a separate
+            full-screen replacement — the wake-lock caveat and cancel
+            option matter most for the SD card's own potentially very
+            long native read, but apply just as well to a slow OneDrive
+            sync, so one banner covers both instead of duplicating it. */}
         {isActive && (
-          <div style={{ background: T.surface, borderRadius: 22, padding: 24 }}>
-            <div style={{ textAlign: 'center' }}>
-              <div style={{ width: 56, height: 56, borderRadius: '50%', background: C.blue, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 14px' }}>
-                <RefreshCw size={22} className="spin" style={{ color: '#FFFFFF' }} strokeWidth={2} />
-              </div>
-              <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>{IMPORT_STAGE_LABEL[stage]}</div>
-              <div style={{ fontSize: 12, color: T.muted, marginTop: 3 }}>{stageDetail}</div>
-            </div>
-            {stage === 'waveform' && waveformTotal > 0 && (
-              <div style={{ marginTop: 16, height: 6, borderRadius: 3, background: T.bg, overflow: 'hidden' }}>
-                <div style={{ width: `${(waveformDone / waveformTotal) * 100}%`, height: '100%', background: C.blue, borderRadius: 3, transition: 'width 0.15s linear' }} />
-              </div>
-            )}
-            <div style={{ marginTop: 20, paddingTop: 16, borderTop: `1px solid ${T.line}` }}>
-              {IMPORT_STAGES.map((s, i) => (
-                <ImportStageRow key={s} label={IMPORT_STAGE_LABEL[s]} status={i < stageIdx ? 'done' : i === stageIdx ? 'current' : 'pending'} />
-              ))}
-            </div>
-            <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, marginTop: 16, padding: 12, background: T.bg, borderRadius: 12 }}>
-              <TriangleAlert size={15} style={{ color: T.muted, flexShrink: 0, marginTop: 1 }} />
+          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 8, padding: 12, background: T.surface, borderRadius: 16 }}>
+            <TriangleAlert size={15} style={{ color: T.muted, flexShrink: 0, marginTop: 1 }} />
+            <div style={{ flex: 1 }}>
               <span style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.4 }}>We try to keep your screen from locking automatically, but it's not guaranteed on every device — keep this screen open and avoid switching apps where you can. If you do get interrupted partway, nothing's lost: starting the import again picks up from where it left off rather than starting over.</span>
+              <button onClick={cancelImport} className="font-display" style={{ display: 'block', marginTop: 8, padding: 0, background: 'none' }}>
+                <span style={{ fontSize: 12.5, fontWeight: 700, color: T.ink, textDecoration: 'underline' }}>Cancel import</span>
+              </button>
             </div>
-            <button onClick={cancelImport} className="font-display" style={{ width: '100%', padding: '11px 0', borderRadius: 999, background: 'none', marginTop: 12 }}>
-              <span style={{ fontSize: 13, fontWeight: 700, color: T.muted }}>Cancel import</span>
-            </button>
           </div>
         )}
 
@@ -531,7 +536,7 @@ export function ImportScreen({ onBack, nights }) {
               <StatRow icon={Clock} iconColor={C.orange} label="Duration" value={lastImport.duration} last />
             </div>
             {error && <div style={{ fontSize: 12, color: SEV.bad, marginTop: 12, lineHeight: 1.4, textAlign: 'left' }}>{error}</div>}
-            <button onClick={() => { setError(null); setStage('idle') }} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: T.bg, marginTop: 16 }} className="font-display">
+            <button onClick={() => { setError(null); setStage('idle'); setImportSource(null) }} style={{ width: '100%', padding: '13px 0', borderRadius: 999, background: T.bg, marginTop: 16 }} className="font-display">
               <span style={{ fontSize: 14, fontWeight: 700, color: T.ink }}>Done</span>
             </button>
           </div>
