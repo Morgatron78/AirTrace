@@ -46,7 +46,12 @@ export const msalConfig = {
   },
 }
 
-// Files.Read is enough for CardSync's use case (read-only access to the
-// backed-up CPAP data) - never request write access, AirTrace has no
-// reason to ever modify anything in OneDrive.
-export const graphScopes = ['Files.Read']
+// AIRTRACE-FIX: was 'Files.Read' - read-only was correct while OneDrive
+// Sync only ever pulled CardSync's backed-up CPAP data in. Now that
+// AirTrace also pushes its own local backup file to OneDrive
+// (onedrive/oneDriveBackup.js), it genuinely needs write access too.
+// Real consequence, not free: anyone already signed in under the old
+// read-only scope needs a one-time re-consent - acquireTokenSilent fails
+// against a broader scope than what was originally granted, falling
+// through to an interactive prompt next time they touch OneDrive Sync.
+export const graphScopes = ['Files.ReadWrite']

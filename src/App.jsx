@@ -5,6 +5,7 @@ import { EQUIPMENT, DEFAULT_TARGETS } from './constants/equipment'
 import { useStoredNights } from './db/useStoredNights.js'
 import { getMeta, setMeta } from './db/meta.js'
 import { getUntaggedDates, toDateStr, computeNightTags } from './utils/nagLogic.js'
+import { maybeAutoSyncFromOneDrive } from './onedrive/autoSync.js'
 import { SplashScreen } from './screens/SplashScreen'
 import { TodayScreen } from './screens/TodayScreen'
 import { TrendsScreen } from './screens/TrendsScreen'
@@ -112,8 +113,24 @@ export default function App() {
     getMeta('themeMode').then((v) => v && setThemeMode(v))
     getMeta('heightUnit').then((v) => v && setHeightUnit(v))
     getMeta('weightUnit').then((v) => v && setWeightUnit(v))
-    getMeta('oneDriveSyncEnabled').then((v) => v != null && setOneDriveSyncEnabled(v))
-    getMeta('oneDriveBasePath').then((v) => v && setOneDriveBasePath(v))
+    // AIRTRACE-FEATURE: resolved together (not two independent .then()
+    // calls like the rest of this effect) because maybeAutoSyncFromOneDrive
+    // needs both values at once, and reading them back off React state
+    // right after setState would risk the stale-closure value rather than
+    // what was actually just loaded - passing the resolved values straight
+    // through avoids that entirely.
+    Promise.all([getMeta('oneDriveSyncEnabled'), getMeta('oneDriveBasePath')]).then(([enabled, basePath]) => {
+      const resolvedEnabled = enabled != null ? enabled : false
+      const resolvedBasePath = basePath || 'CPAP backup'
+      if (enabled != null) setOneDriveSyncEnabled(enabled)
+      if (basePath) setOneDriveBasePath(basePath)
+      // Fire-and-forget, deliberately not awaited - a background network
+      // operation that shouldn't block or delay anything else on this
+      // mount effect (splash timing included). Always safe to call
+      // unconditionally - see autoSync.js's own comments for why it no-ops
+      // immediately when the feature's off or nothing's signed in.
+      maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled: resolvedEnabled, oneDriveBasePath: resolvedBasePath })
+    })
   }, [])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }

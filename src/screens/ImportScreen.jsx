@@ -3,12 +3,10 @@ import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDri
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
-import { groupImportFiles } from '../edf/groupImportFiles.js'
-import { upsertSummaries } from '../db/nights.js'
-import { upsertDetail, pruneOlderThan, getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
+import { getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
 import { getMeta, setMeta } from '../db/meta.js'
-import { toDateStr } from '../utils/dates.js'
-import { computeRetentionCutoff, RETENTION_USED_NIGHTS } from '../utils/retentionWindow.js'
+import { RETENTION_USED_NIGHTS } from '../utils/retentionWindow.js'
+import { runImportPipeline as runImportPipelineCore } from '../import/runImportPipeline.js'
 // APPLE-HEALTH — see docs/apple-health-integration.md for the full
 // strip-out list; this whole card + handler below is one of the entries.
 import { parseHealthExport } from '../health/parseHealthExport.js'
@@ -45,7 +43,6 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
   const [waveformDone, setWaveformDone] = useState(0)
   const [waveformTotal, setWaveformTotal] = useState(0)
   const [error, setError] = useState(null)
-  const startedAtRef = useRef(null)
   const workerRef = useRef(null)
   const fileInputRef = useRef(null)
   const [lastImport, setLastImport] = useState(null)
@@ -198,155 +195,26 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
   }
 
   // Shared by both import sources — physical card (onFilesSelected below)
-  // and OneDrive (syncFromOneDrive below) converge here once they've each
-  // produced the same File-shaped array, so grouping, the retention
-  // cutoff, worker orchestration and persistence are all one code path
-  // regardless of where the files actually came from.
-  const runImportPipeline = async (files, { sourceLabel = 'the selected folder', source } = {}) => {
-    if (files.length === 0) {
-      setError(`No files were found in ${sourceLabel} — please let Claude know this happened so it can be investigated further.`)
-      return
-    }
-
-    const { strFile, nightFolders, incompleteFolders } = groupImportFiles(files)
-    if (!strFile) {
-      const sample = files.slice(0, 6).map((f) => f.webkitRelativePath).join(', ')
-      setError(`Couldn't find STR.edf in ${sourceLabel} — the root should contain STR.edf and DATALOG together. Found ${files.length} file(s). Sample paths: ${sample || '(none)'}`)
-      return
-    }
-
-    // Only ever parse full waveform detail for nights inside the retention
-    // window — anything older gets pruned right after import anyway, so
-    // parsing it first just to throw it away wastes time and (worse, on a
-    // large multi-year card) memory. Nightly summaries still cover the
-    // full history regardless, from STR.edf alone.
-    //
-    // The window is the last RETENTION_USED_NIGHTS nights that actually
-    // have a real session, not the last N calendar days — see
-    // computeRetentionCutoff's own comment. STR.edf is parsed here, on
-    // the main thread, purely to compute that cutoff before deciding
-    // which DATALOG folders are even worth handing to the worker; the
-    // worker re-parses it a moment later as part of its own normal
-    // pipeline (msg.type === 'summaries' below) — a small duplicate parse
-    // of one small, fast file, kept separate rather than threading this
-    // cutoff logic into the worker, so the worker keeps its own stated
-    // "no opinion on retention policy" contract intact (see importWorker.js).
-    let cutoff
-    try {
-      const strBufferForCutoff = await strFile.arrayBuffer()
-      cutoff = computeRetentionCutoff(strBufferForCutoff).cutoff
-    } catch (err) {
-      setError(`Couldn't read STR.edf: ${err.message}`)
-      return
-    }
-    const inWindowFolders = nightFolders.filter((n) => n.date >= cutoff)
-    // Same window applied to the folders groupImportFiles found but
-    // couldn't use (missing a required file) — only the ones inside the
-    // window are actually relevant to surface; an incomplete folder from
-    // years before the retention cutoff was never going to be imported
-    // anyway and isn't worth mentioning.
-    const incompleteInWindow = incompleteFolders.filter((f) => f.date >= cutoff)
-
-    startedAtRef.current = Date.now()
-    setWaveformDone(0)
-    setWaveformTotal(0)
-    setImportSource(source)
-    setStage('reading')
-
-    // If the last import predates a parseNight.js field addition (see
-    // DETAIL_SCHEMA_VERSION's own comment in db/detail.js), every
-    // already-stored night gets re-parsed once instead of skipped — the
-    // one-time catch-up that backfills the new field into existing
-    // history, rather than leaving it silently missing until a manual
-    // IndexedDB wipe. Normal fast incremental behavior resumes right
-    // after, once the meta version below is updated to match.
-    const storedSchemaVersion = await getMeta('detailSchemaVersion')
-    const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
-    const worker = new Worker(new URL('../edf/importWorker.js', import.meta.url), { type: 'module' })
-    workerRef.current = worker
-
-    let summaries = null
-
-    worker.onmessage = async (evt) => {
-      const msg = evt.data
-      if (msg.type === 'progress') {
-        setStage(msg.stage)
-        setWaveformDone(msg.waveformDone)
-        setWaveformTotal(msg.waveformTotal)
-        return
-      }
-      if (msg.type === 'summaries') {
-        summaries = msg.summaries
-        return
-      }
-      if (msg.type === 'nightResult') {
-        // Persisted one night at a time as it arrives, instead of held in
-        // memory for the whole import — this is what actually fixes the
-        // memory-pressure crash, not just the retention-window filter above
-        // (a first import can still be dozens of nights even within 90
-        // days).
-        await upsertDetail([{ date: msg.date, ...msg.night }])
-        return
-      }
-      if (msg.type === 'error') {
-        setError(msg.message)
-        setStage('idle')
-        setImportSource(null)
-        worker.terminate()
-        return
-      }
-      if (msg.type === 'done') {
-        setStage('pruning')
-        await upsertSummaries(summaries)
-        // Reuses the exact same cutoff computed above (not RETENTION_USED_NIGHTS
-        // recomputed here as a day count) — what got parsed and what gets kept
-        // need to agree on the identical boundary, or a folder just parsed in
-        // could get immediately pruned back out again.
-        const pruned = await pruneOlderThan(cutoff)
-        setDetailCount((await getExistingDetailDates()).size)
-
-        // Tagging start point per CLAUDE.md: set exactly once, the moment
-        // the *first ever* import completes — never recomputed after that,
-        // regardless of how many more imports happen later.
-        const existingTagStart = await getMeta('tagStartDate')
-        if (!existingTagStart) await setMeta('tagStartDate', toDateStr(new Date()))
-        await setMeta('detailSchemaVersion', DETAIL_SCHEMA_VERSION)
-
-        const elapsedMs = startedAtRef.current ? Date.now() - startedAtRef.current : 0
-        const mins = Math.floor(elapsedMs / 60000), secs = Math.round((elapsedMs % 60000) / 1000)
-        const durationStr = mins > 0 ? `${mins}m ${secs}s` : `${secs}s`
-        const dateStr = new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
-        // Ground truth for diagnosing an enumeration shortfall — the total
-        // DATALOG folders the picker itself returned this import (complete
-        // + incomplete), independent of the retention window or what's
-        // already stored. Nothing else in the UI shows this: "Nights
-        // added" only counts new ones, so a picker silently returning
-        // fewer folders than actually exist on the card looks identical
-        // to "nothing new to import" without this.
-        const foldersFound = nightFolders.length + incompleteFolders.length
-        const record = { date: dateStr, nightsAdded: msg.addedCount, pruned, duration: durationStr, foldersFound }
-        const newHistory = [{ date: dateStr, nights: `${msg.addedCount} night${msg.addedCount === 1 ? '' : 's'}` }, ...history]
-
-        setLastImport(record)
-        setHistory(newHistory)
-        await setMeta('lastImport', record)
-        await setMeta('importHistory', newHistory)
-
-        // Two distinct failure classes, worth telling apart rather than
-        // merging into one message: parse errors (a real file existed and
-        // something went wrong reading it) vs. incomplete folders (one of
-        // the required files was never there to begin with — caught
-        // before parsing is even attempted, see groupImportFiles.js).
-        const problems = []
-        if (msg.errors.length) problems.push(`${msg.errors.length} night(s) failed to parse: ${msg.errors.map((e) => `${e.date} (${e.message})`).join('; ')}`)
-        if (incompleteInWindow.length) problems.push(`${incompleteInWindow.length} night(s) on the card are missing required files, so they can't be imported: ${incompleteInWindow.map((f) => `${f.date} (no ${f.missing.join('/')})`).join('; ')}`)
-        if (problems.length) setError(problems.join(' — '))
-        worker.terminate()
-        setStage('done')
-      }
-    }
-    worker.postMessage({ strFile, nightFolders: inWindowFolders, skipDates })
-  }
+  // and OneDrive (syncFromOneDrive below), and (via the same extracted
+  // module) the automatic OneDrive auto-sync in onedrive/autoSync.js. The
+  // real orchestration (grouping, retention cutoff, worker, persistence)
+  // lives in src/import/runImportPipeline.js now — this is just this
+  // screen's own setState wiring passed in as callbacks, so the manual
+  // buttons' behavior/timing here is unchanged from before the extraction.
+  const runImportPipeline = (files, { sourceLabel, source } = {}) =>
+    runImportPipelineCore(files, {
+      sourceLabel,
+      source,
+      callbacks: {
+        onError: setError,
+        onStageChange: setStage,
+        onWaveformProgress: (done, total) => { setWaveformDone(done); setWaveformTotal(total) },
+        onImportSourceChange: setImportSource,
+        onDetailCountChange: setDetailCount,
+        onComplete: (record, newHistory) => { setLastImport(record); setHistory(newHistory) },
+        onWorkerReady: (worker) => { workerRef.current = worker },
+      },
+    })
 
   const onFilesSelected = async (e) => {
     setPicking(false)

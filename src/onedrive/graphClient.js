@@ -175,3 +175,20 @@ export async function downloadFile(path) {
   )
   return res.arrayBuffer()
 }
+
+// Graph's "simple upload" - a single PUT, whole file in one request, no
+// resumable-upload-session complexity. Only used for AirTrace's own local
+// backup file (onedrive/oneDriveBackup.js) - summaries/tags/settings only,
+// no waveform data, so it stays well under the 4MB ceiling this endpoint
+// imposes regardless of import history length. Requires Files.ReadWrite
+// (see msalConfig.js's own AIRTRACE-FIX note on that). Per Microsoft's
+// documented behavior for path-based addressing, a PUT to a path that
+// doesn't exist yet creates it along with any missing intermediate
+// folders - not independently confirmed against a real account yet, worth
+// checking on the very first real push rather than assuming.
+export async function uploadFile(path, content, contentType) {
+  await graphFetch(
+    `https://graph.microsoft.com/v1.0/me/drive/root:/${encodeURIComponent(path)}:/content`,
+    { method: 'PUT', headers: { 'Content-Type': contentType }, body: content }
+  )
+}

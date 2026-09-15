@@ -82,8 +82,28 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
   // Same pattern EquipmentScreen already uses for "Last synced" — a
   // screen-local read on mount, not threaded through App.jsx's props,
   // since nothing else on the app needs this value.
+  //
+  // AIRTRACE-FEATURE: reads both lastBackupExport (manual Export button)
+  // and lastOneDriveBackupPush (the automatic push in onedrive/autoSync.js)
+  // and shows whichever is more recent — a lexicographic comparison works
+  // fine since both are ISO 8601 strings. An automatic OneDrive push counts
+  // as a real backup for this indicator just as much as a manual export;
+  // there's deliberately no separate "last pushed" line elsewhere on this
+  // screen duplicating the same information.
   const [lastBackup, setLastBackup] = useState(null)
-  useEffect(() => { getMeta('lastBackupExport').then((v) => v && setLastBackup(v)) }, [])
+  useEffect(() => {
+    Promise.all([getMeta('lastBackupExport'), getMeta('lastOneDriveBackupPush')]).then(([exported, pushed]) => {
+      const latest = [exported, pushed].filter(Boolean).sort().at(-1)
+      if (latest) setLastBackup(latest)
+    })
+  }, [])
+
+  // ONEDRIVE — mirrors lastBackup's own pattern above, just for the
+  // separate "pulling new nights in" timestamp (as opposed to the backup
+  // push) written by onedrive/autoSync.js. null until an automatic sync
+  // has actually succeeded at least once.
+  const [lastOneDriveSync, setLastOneDriveSync] = useState(null)
+  useEffect(() => { getMeta('lastOneDriveSyncAt').then((v) => v && setLastOneDriveSync(v)) }, [])
 
   const handleExport = async () => {
     const data = await buildBackup()
@@ -426,13 +446,39 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   </button>
                 )}
               </div>
+
+              {/* AIRTRACE-FEATURE: onedrive/autoSync.js runs this
+                  automatically on app open (once per day, capped) once
+                  OneDrive Sync is on and signed in — this just surfaces
+                  when it last actually succeeded. Distinct from the
+                  Backup card's own "Last backed up" below, which is about
+                  pushing local data OUT rather than pulling new nights IN. */}
+              {lastOneDriveSync && (
+                <div style={{ marginTop: 10, fontSize: 11.5, color: T.muted }}>
+                  {(() => {
+                    const d = daysAgo(lastOneDriveSync)
+                    return `Last auto-synced ${d === 0 ? 'today' : d === 1 ? '1 day ago' : `${d} days ago`}`
+                  })()}
+                </div>
+              )}
             </>
           )}
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="A file you keep — nothing here is uploaded anywhere"
-            info="Local-first means this data lives in exactly one place — this phone's own storage. Export saves your night summaries and tagged nights (everything that can't be re-read off the SD card) to a file you control; keep it wherever you'd keep any other backup. Waveform detail isn't included — that's a cache of your last 90 used nights, regenerated the next time you import.">
+          {/* AIRTRACE-FEATURE: this promise ("nothing is uploaded
+              anywhere") stops being literally true the moment OneDrive
+              Sync is on — onedrive/autoSync.js also pushes this same data
+              to OneDrive automatically. Conditional rather than rewritten
+              outright: the non-OneDrive copy stays word-for-word what it
+              always was, since that promise is still completely accurate
+              for anyone without this feature turned on. */}
+          <CardTitle
+            sub={oneDriveSyncEnabled ? 'A copy is also kept in your OneDrive automatically' : 'A file you keep — nothing here is uploaded anywhere'}
+            info={oneDriveSyncEnabled
+              ? "Export saves your night summaries and tagged nights (everything that can't be re-read off the SD card) to a file you control. With OneDrive Sync on, the same data is also pushed to your OneDrive automatically once a day, as a second safety net — a lost or wiped phone doesn't lose this history. Waveform detail isn't included either way — that's a cache of your last 90 used nights, regenerated the next time you import."
+              : "Local-first means this data lives in exactly one place — this phone's own storage. Export saves your night summaries and tagged nights (everything that can't be re-read off the SD card) to a file you control; keep it wherever you'd keep any other backup. Waveform detail isn't included — that's a cache of your last 90 used nights, regenerated the next time you import."}
+          >
             Backup
           </CardTitle>
           <div style={{ fontSize: 12, color: lastBackup ? T.muted : SEV.fair, marginBottom: 14, fontWeight: lastBackup ? 400 : 600 }}>
