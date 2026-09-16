@@ -426,7 +426,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
           {oneDriveSyncEnabled && (
             <>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
-                <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8, lineHeight: 1.4 }}>Sync folder, relative to your OneDrive root — must match CardSync's own <code>BackupDest</code> setting exactly.</div>
+                <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8, lineHeight: 1.4 }}>Sync folder, relative to your OneDrive root — must match CardSync's own <code>OneDriveSyncDest</code> setting exactly.</div>
                 <input
                   type="text"
                   value={oneDriveBasePath}

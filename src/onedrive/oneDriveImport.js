@@ -30,9 +30,9 @@ function toFile(buffer, relativePath) {
   return file
 }
 
-// basePath: the OneDrive folder matching CardSync's own BackupDest
-// (e.g. "CPAP backup") - same layout CardSync itself writes, so this is
-// always reading whatever CardSync's most recent run last backed up.
+// basePath: the OneDrive folder matching CardSync's own OneDriveSyncDest
+// (e.g. "CPAP Data") - same layout CardSync itself writes, so this is
+// always reading whatever CardSync's most recent run last synced there.
 //
 // skipDates: ISO dates (YYYY-MM-DD) already imported - same pattern
 // ImportScreen.jsx's own skipDates already uses for the physical-card
