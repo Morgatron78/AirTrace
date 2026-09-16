@@ -62,7 +62,7 @@ async function syncNewNightsFromOneDrive(oneDriveBasePath) {
   const files = await fetchOneDriveFiles(oneDriveBasePath, { skipDates })
   await new Promise((resolve, reject) => {
     runImportPipeline(files, {
-      sourceLabel: 'your OneDrive backup',
+      sourceLabel: 'your OneDrive sync folder',
       source: 'onedrive',
       callbacks: {
         // onComplete fires on a genuine 'done', even if some individual

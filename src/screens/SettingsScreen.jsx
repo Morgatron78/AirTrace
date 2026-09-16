@@ -404,7 +404,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
             this for now," not "forget my Microsoft account." */}
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
           <CardTitle sub="Adds a second import option on the Import screen, alongside the physical card"
-            info="A companion PC tool (CardSync) backs your WiFi SD card up to a OneDrive folder on whatever schedule you run it. Turning this on lets AirTrace pull straight from that backup instead of needing the physical card in hand every time. Off by default - most installs won't have this hardware set up at all.">
+            info="A companion PC tool (CardSync) copies your WiFi SD card's data to a OneDrive folder on whatever schedule you run it. Turning this on lets AirTrace sync straight from there instead of needing the physical card in hand every time. Off by default - most installs won't have this hardware set up at all.">
             OneDrive Sync
           </CardTitle>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44 }}>
@@ -426,7 +426,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
           {oneDriveSyncEnabled && (
             <>
               <div style={{ marginTop: 14, paddingTop: 14, borderTop: `1px solid ${T.line}` }}>
-                <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8, lineHeight: 1.4 }}>Backup folder, relative to your OneDrive root — must match CardSync's own <code>BackupDest</code> setting exactly.</div>
+                <div style={{ fontSize: 12.5, color: T.muted, marginBottom: 8, lineHeight: 1.4 }}>Sync folder, relative to your OneDrive root — must match CardSync's own <code>BackupDest</code> setting exactly.</div>
                 <input
                   type="text"
                   value={oneDriveBasePath}

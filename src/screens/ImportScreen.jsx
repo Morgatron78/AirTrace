@@ -246,7 +246,7 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
       const storedSchemaVersion = await getMeta('detailSchemaVersion')
       const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
       const files = await fetchOneDriveFiles(oneDriveBasePath, { skipDates, onProgress: setOneDriveProgress })
-      await runImportPipeline(files, { sourceLabel: 'your OneDrive backup', source: 'onedrive' })
+      await runImportPipeline(files, { sourceLabel: 'your OneDrive sync folder', source: 'onedrive' })
     } catch (err) {
       setError(`OneDrive sync failed: ${err.message}`)
     } finally {
@@ -344,7 +344,7 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
             a WiFi SD card behind them at all. */}
         {stage !== 'done' && oneDriveSyncEnabled && (
           <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-            <CardTitle sub="Syncs whatever your WiFi SD card last backed up to OneDrive">OneDrive Sync</CardTitle>
+            <CardTitle sub="Syncs your WiFi SD card's data from OneDrive">OneDrive Sync</CardTitle>
             <button onClick={syncFromOneDrive} disabled={oneDriveSyncing || anyImportBusy} className="font-display"
               style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: anyImportBusy && !oneDriveSyncing && !oneDriveParsing ? 0.5 : oneDriveSyncing ? 0.6 : 1 }}>
               {(oneDriveSyncing || oneDriveParsing) ? <RefreshCw size={15} className="spin" /> : <Cloud size={15} />}
