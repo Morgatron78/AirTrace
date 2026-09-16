@@ -188,8 +188,12 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
               them visually break that connection, leaving the AHI chart
               with no visible time reference at all when weight is
               present. A little duplication reads far better than that. */}
+          {/* height=178 - see the matching Weight/BMI panel below for why
+              (~25% taller than AllTimeLineChart's own 142 default); turns
+              out this panel read just as squashed, not something specific
+              to Weight/BMI's own smaller swings after all. */}
           <AllTimeLineChart data={ahiWeekly} maxWeek={maxWeek} gridStartMs={gridStartMs} color={C.pink}
-            formatY={(v) => v.toFixed(1)} ticks={ticks} showXAxisLabels confound={confound} />
+            formatY={(v) => v.toFixed(1)} ticks={ticks} showXAxisLabels confound={confound} height={178} />
           {confound && (
             <div style={{ fontSize: 12, color: T.muted, marginTop: 6, padding: '0 2px', lineHeight: 1.4 }}>
               Shaded — pressure was still being adjusted here. Tap the shaded area for detail.
@@ -205,8 +209,14 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
             </div>
             <div style={{ marginTop: 14 }}>
               <div style={{ fontSize: 12, fontWeight: 700, color: T.ink, marginBottom: 6, padding: '0 2px' }}>{effectiveWeightMode === 'bmi' ? 'BMI' : 'Weight'}</div>
+              {/* height=178, matching the AHI panel above (both ~25% taller
+                  than AllTimeLineChart's own 142 default) - both panels
+                  read as squashed at the shared default, not something
+                  specific to either one. Still the same family as this
+                  page's other chart heights (FlatBarChart 130,
+                  SessionTimesChart 160), not an outlier. */}
               <AllTimeLineChart data={weightPanelData} maxWeek={maxWeek} gridStartMs={gridStartMs} color={C.purple}
-                formatY={weightFormatY} ticks={ticks} showXAxisLabels />
+                formatY={weightFormatY} ticks={ticks} showXAxisLabels height={178} />
             </div>
           </>
         )}

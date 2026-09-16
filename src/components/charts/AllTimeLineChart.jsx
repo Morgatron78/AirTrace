@@ -10,10 +10,10 @@ const WEEK_MS = 7 * 86400000
 // by their actual weekIndex against the shared maxWeek span, not by array
 // index — a missing week has to look like a gap, not get silently
 // compressed away.
-export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, ticks, showXAxisLabels, confound }) {
+export function AllTimeLineChart({ data, maxWeek, gridStartMs, color, formatY, ticks, showXAxisLabels, confound, height }) {
   const [confoundOpen, setConfoundOpen] = useState(false)
   const w = 400
-  const h = showXAxisLabels ? 142 : 130
+  const h = height ?? (showXAxisLabels ? 142 : 130)
   const padTop = 10, padBottom = showXAxisLabels ? 22 : 10, padLeft = 4, padRight = 4
   // Reserved for the y-axis label text itself — matching FlatBarChart's own
   // real layout, which keeps its tick labels in a dedicated width:24 HTML
