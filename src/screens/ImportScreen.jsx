@@ -466,7 +466,9 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
                 <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
                   <CardTitle>Import history</CardTitle>
                   {visibleHistory.map((h, i) => (
-                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted} label={h.date} value={h.nights} last={remaining === 0 && i === visibleHistory.length - 1} />
+                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted}
+                      label={h.automatic ? <>{h.date} <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>Auto</span></> : h.date}
+                      value={h.nights} last={remaining === 0 && i === visibleHistory.length - 1} />
                   ))}
                   {/* Repeatable "load more", not one "show all N" jump —
                       only ever renders HISTORY_PAGE_SIZE additional rows

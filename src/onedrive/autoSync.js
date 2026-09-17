@@ -64,6 +64,12 @@ async function syncNewNightsFromOneDrive(oneDriveBasePath) {
     runImportPipeline(files, {
       sourceLabel: 'your OneDrive sync folder',
       source: 'onedrive',
+      // AIRTRACE-FEATURE: `source` alone can't tell this apart from the
+      // Import screen's own manual "Sync from OneDrive" button - both
+      // pass source: 'onedrive'. `automatic` is the one thing genuinely
+      // unique to this background trigger, so Import history can show
+      // which entries never had a human involved at all.
+      automatic: true,
       callbacks: {
         // onComplete fires on a genuine 'done', even if some individual
         // nights had problems (those are reported separately via onError

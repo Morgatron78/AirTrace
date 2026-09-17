@@ -18,7 +18,7 @@ import { getMeta, setMeta } from '../db/meta.js'
 import { toDateStr } from '../utils/dates.js'
 import { computeRetentionCutoff } from '../utils/retentionWindow.js'
 
-export async function runImportPipeline(files, { sourceLabel = 'the selected folder', source, callbacks = {} } = {}) {
+export async function runImportPipeline(files, { sourceLabel = 'the selected folder', source, automatic = false, callbacks = {} } = {}) {
   const {
     onError,              // (message) => void
     onStageChange,        // (stage) => void - 'reading'|'summaries'|'waveform'|'pruning'|'done'|'idle'
@@ -132,7 +132,7 @@ export async function runImportPipeline(files, { sourceLabel = 'the selected fol
       // no live component state to hand over, and this is the same data
       // either way.
       const existingHistory = (await getMeta('importHistory')) || []
-      const newHistory = [{ date: dateStr, nights: `${msg.addedCount} night${msg.addedCount === 1 ? '' : 's'}` }, ...existingHistory]
+      const newHistory = [{ date: dateStr, nights: `${msg.addedCount} night${msg.addedCount === 1 ? '' : 's'}`, automatic }, ...existingHistory]
 
       await setMeta('lastImport', record)
       await setMeta('importHistory', newHistory)
