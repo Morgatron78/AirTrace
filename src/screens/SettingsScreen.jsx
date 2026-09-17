@@ -102,8 +102,21 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
   // separate "pulling new nights in" timestamp (as opposed to the backup
   // push) written by onedrive/autoSync.js. null until an automatic sync
   // has actually succeeded at least once.
+  //
+  // AIRTRACE-FIX: this used to read lastOneDriveSyncAt, which
+  // autoSync.js stamps on every *attempt* (success or failure alike,
+  // deliberately, for its own cooldown) - confirmed live that this
+  // label could read "Last auto-synced today" with nothing actually
+  // imported and a real failure silently caught underneath. Now reads
+  // lastOneDriveSyncSuccessAt, a separate field only ever stamped once
+  // syncNewNightsFromOneDrive genuinely completes without throwing.
   const [lastOneDriveSync, setLastOneDriveSync] = useState(null)
-  useEffect(() => { getMeta('lastOneDriveSyncAt').then((v) => v && setLastOneDriveSync(v)) }, [])
+  useEffect(() => { getMeta('lastOneDriveSyncSuccessAt').then((v) => v && setLastOneDriveSync(v)) }, [])
+  // Surfaces the most recent auto-sync failure (if the last attempt
+  // failed) - previously only reached a devtools console nobody could
+  // see on a real device with no remote debugging attached.
+  const [lastOneDriveSyncError, setLastOneDriveSyncError] = useState(null)
+  useEffect(() => { getMeta('lastOneDriveSyncError').then((v) => v && setLastOneDriveSyncError(v)) }, [])
 
   const handleExport = async () => {
     const data = await buildBackup()
@@ -459,6 +472,18 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                     const d = daysAgo(lastOneDriveSync)
                     return `Last auto-synced ${d === 0 ? 'today' : d === 1 ? '1 day ago' : `${d} days ago`}`
                   })()}
+                </div>
+              )}
+              {/* lastOneDriveSyncError is cleared on every genuine success
+                  (see autoSync.js), so it being set at all already means
+                  the most recent attempt is the one that failed - no
+                  separate "is this still current" check needed. */}
+              {lastOneDriveSyncError && (
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <TriangleAlert size={14} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 11.5, color: SEV.bad, lineHeight: 1.4 }}>
+                    Last auto-sync attempt failed: {lastOneDriveSyncError}
+                  </span>
                 </div>
               )}
             </>

@@ -115,12 +115,27 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
     await setMeta('lastOneDriveSyncAt', new Date().toISOString())
     try {
       await syncNewNightsFromOneDrive(oneDriveBasePath)
+      // AIRTRACE-FIX: lastOneDriveSyncAt (above) is stamped on every
+      // attempt, success or failure - that's deliberate, the cooldown
+      // needs it. But Settings' own "Last auto-synced" label was reading
+      // that same field as if it only meant success (its own comment said
+      // so outright), which is wrong - confirmed live: a genuine silent
+      // failure still showed "Last auto-synced today," with nothing
+      // actually imported and no way to tell why. A separate field for
+      // "last time this genuinely succeeded" is what that label should
+      // actually read.
+      await setMeta('lastOneDriveSyncSuccessAt', new Date().toISOString())
+      await setMeta('lastOneDriveSyncError', null)
     } catch (err) {
-      // Silently swallowed - no error UI on app open. The manual "Sync
-      // now" button on the Import screen remains the user-visible way to
-      // force/retry a sync right now regardless. Logged so it's still
-      // visible in devtools while debugging.
+      // AIRTRACE-FIX: previously silently swallowed to devtools-only
+      // console.error - no way to see it on a real device with no remote
+      // debugging attached. Still no intrusive error UI on app open (that
+      // stays a deliberate choice - a background check failing shouldn't
+      // interrupt opening the app), but now recorded somewhere Settings
+      // can actually show it, instead of only ever reaching a console
+      // nobody's watching.
       console.error('Auto-sync from OneDrive failed:', err)
+      await setMeta('lastOneDriveSyncError', err.message || String(err))
     }
   }
 
