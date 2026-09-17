@@ -130,7 +130,14 @@ its header), both easy to get wrong and both confirmed against real values:
   to 10 on/off slots at matching indices — a day can have several brief
   mask contacts (seconds-long, e.g. a fit check) alongside the real
   session, all as separate slots; `MaskEvents` is the count of populated
-  slots × 2 (on + off), not a clinical event count.
+  slots × 2 (on + off), not a clinical event count. **The same
+  noon-anchoring shows up at the filesystem level too**: confirmed via
+  a real WiFi-connected card (see `docs/wifi-sd-sync.md`, gitignored) —
+  each `DATALOG/YYYYMMDD/` folder's own "Date modified" timestamp is
+  local noon (13:00 during BST) on day `YYYYMMDD` itself, i.e. the
+  AirSense pre-creates that night's empty folder at noon, well before
+  the actual session starts around 1am — not retroactively once the
+  session begins, and not at midnight.
 - **`PatientHours` is a lifetime cumulative counter, not a daily value**
   — confirmed by real records increasing monotonically by single-digit
   amounts per day (0 → 6 → 15 → … → 2989 → 2994) rather than resetting.
