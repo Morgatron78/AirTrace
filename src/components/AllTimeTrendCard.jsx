@@ -116,8 +116,11 @@ export function AllTimeTrendCard({ nights, weightReadings, heightCm, weightUnit,
             matching "Individual channels"' own precedent) — onBareBg
             swaps the resting T.bg fill for T.surface+border, or these
             buttons disappear into the page's own T.bg background. */}
-        <ChartInfoButton show={showInfo} onToggle={() => setShowInfo((s) => !s)} onBareBg={!expanded} />
+        {/* Info button last (rightmost), matching every other chart's own
+            icon order on this page (e.g. Sleep architecture) - this was
+            the one place it sat before the expand button instead. */}
         <ChartExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} onBareBg={!expanded} />
+        <ChartInfoButton show={showInfo} onToggle={() => setShowInfo((s) => !s)} onBareBg={!expanded} />
       </div>
     </div>
   )
