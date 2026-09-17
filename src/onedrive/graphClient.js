@@ -8,6 +8,12 @@ import { msalConfig, graphScopes } from './msalConfig'
 const msalInstance = new PublicClientApplication(msalConfig)
 let initialized = false
 let redirectHandled = false
+// AIRTRACE-FEATURE: true only for the one load that's the actual return
+// trip from Microsoft (handleRedirectPromise() got a real result) - lets
+// a caller tell "just signed back in this exact load" apart from "was
+// already signed in from before," which autoSync.js's own cooldown needs
+// (see its own comment on completeSignIn()'s return value).
+let justCompletedRedirect = false
 
 // AIRTRACE-FIX: loginPopup() fails in some automated/sandboxed browser
 // contexts (confirmed: popup_window_error) - loginRedirect() instead
@@ -23,14 +29,20 @@ async function ensureInitialized() {
   if (!redirectHandled) {
     redirectHandled = true
     const result = await msalInstance.handleRedirectPromise()
-    if (result?.account) msalInstance.setActiveAccount(result.account)
+    if (result?.account) {
+      msalInstance.setActiveAccount(result.account)
+      justCompletedRedirect = true
+    }
   }
 }
 
 // Call once when the app/page loads, before checking isSignedIn() - this
 // is what actually completes the sign-in after Microsoft redirects back.
+// Returns whether THIS load is genuinely that return trip - see
+// autoSync.js for the one real consumer of this.
 export async function completeSignIn() {
   await ensureInitialized()
+  return justCompletedRedirect
 }
 
 export function isSignedIn() {

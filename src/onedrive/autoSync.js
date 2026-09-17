@@ -86,7 +86,7 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // Safe to call unconditionally - a no-op unless this load happens to be
   // the return trip from a Microsoft redirect (matches both screens' own
   // pattern for this).
-  await completeSignIn()
+  const justSignedIn = await completeSignIn()
 
   // Auto-sync must NEVER trigger signIn()'s full-page redirect on its own
   // - sending the user to a Microsoft login page the instant they open the
@@ -95,7 +95,19 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // the Import screen's own button.
   if (!isSignedIn()) return
 
-  if (!(await withinCooldown('lastOneDriveSyncAt', SYNC_COOLDOWN_MS))) {
+  // AIRTRACE-FIX: confirmed happening for real - the cooldown below is
+  // stamped *before* the attempt (see its own comment), so a session whose
+  // cached token had genuinely expired hits getAccessToken()'s own
+  // acquireTokenRedirect() fallback mid-attempt, which navigates the whole
+  // page away to Microsoft and back. lastOneDriveSyncAt survives that
+  // reload (it's in IndexedDB, not memory) even though the attempt itself
+  // never got anywhere near finishing, so the real retry on return found
+  // itself still "within cooldown" from the interrupted one and silently
+  // skipped - the user saw the Microsoft login flash by, the app reload,
+  // and then nothing. justSignedIn (this load IS that exact return trip)
+  // bypasses the cooldown for this one call, since it's the direct
+  // continuation of the attempt that got cut off, not a new trigger.
+  if (justSignedIn || !(await withinCooldown('lastOneDriveSyncAt', SYNC_COOLDOWN_MS))) {
     // Stamped before the attempt, not after - closes a real (if narrow)
     // window where a second rapid app open during a slow sync could start
     // a concurrent second one, and matches the "cooldown on attempt, not
