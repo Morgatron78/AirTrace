@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Check, RefreshCw, ChevronLeft, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse, FolderOpen, Cloud } from 'lucide-react'
+import { Check, RefreshCw, ChevronLeft, ChevronRight, Upload, TriangleAlert, Sparkles, HardDrive, Package, Clock, Calendar, HeartPulse, FolderOpen, Cloud } from 'lucide-react'
 import { T, C, SEV } from '../constants/theme'
 import { CardTitle } from '../components/CardTitle'
 import { StatRow } from '../components/StatRow'
@@ -58,6 +58,10 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
   // or so it's actually seen in testing so far.
   const HISTORY_PAGE_SIZE = 10
   const [historyShown, setHistoryShown] = useState(HISTORY_PAGE_SIZE)
+  // Collapsed by default, same reasoning as the Equipment screen's own
+  // Maintenance history card — a plain log kept out of the way so it
+  // doesn't compete with this screen's actual purpose (running an import).
+  const [historyOpen, setHistoryOpen] = useState(false)
   // How many nights currently have real waveform detail stored — not the
   // same as RETENTION_USED_NIGHTS (the cap), since a fresh install or one
   // with under 90 used nights ever will genuinely have fewer than that.
@@ -367,6 +371,34 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
           </div>
         )}
 
+        {/* APPLE-HEALTH — whole card is one self-contained block, listed
+            in docs/apple-health-integration.md's strip-out steps. Sits
+            directly below OneDrive Sync — the app's three data-source
+            cards read top to bottom as SD card, OneDrive, Apple Health,
+            rather than Apple Health being separated from its siblings by
+            the "What's kept" card below. */}
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Import sleep stages, heart rate and SpO2 from Apple Health data"
+            info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
+            Apple Health Data
+          </CardTitle>
+          <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
+            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
+            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Apple Health Data'}
+          </button>
+          <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
+
+          {healthImportState === 'done' && (
+            <div style={{ marginTop: 12, fontSize: 12.5, color: SEV.good, textAlign: 'center', fontWeight: 600 }}>{healthImportSummary}</div>
+          )}
+          {healthImportState === 'error' && (
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+              <TriangleAlert size={16} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
+              <span style={{ fontSize: 12.5, color: SEV.bad, lineHeight: 1.5 }}>{healthImportError}</span>
+            </div>
+          )}
+        </div>
+
         {/* Compact, shared between both sources rather than a separate
             full-screen replacement — the wake-lock caveat and cancel
             option matter most for the SD card's own potentially very
@@ -418,30 +450,6 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
             description="Flow, pressure, snore and the other per-second channels from DATALOG — the heavy data. Kept for your most recent 90 nights that actually have a session (not the last 90 calendar days, which would shrink below 90 real nights if you ever skip a night) and pruned automatically on each import; the summary for that night stays put either way, just without the full waveform to drill into. Fewer than 90 just means you haven't used the machine 90 times yet, or an older night's detail hasn't been imported at all." />
         </div>
 
-        {/* APPLE-HEALTH — whole card is one self-contained block, listed
-            in docs/apple-health-integration.md's strip-out steps. */}
-        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="Import sleep stages, heart rate and SpO2 from Apple Health data"
-            info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
-            Apple Health Data
-          </CardTitle>
-          <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
-            style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
-            <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Apple Health Data'}
-          </button>
-          <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
-
-          {healthImportState === 'done' && (
-            <div style={{ marginTop: 12, fontSize: 12.5, color: SEV.good, textAlign: 'center', fontWeight: 600 }}>{healthImportSummary}</div>
-          )}
-          {healthImportState === 'error' && (
-            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-              <TriangleAlert size={16} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
-              <span style={{ fontSize: 12.5, color: SEV.bad, lineHeight: 1.5 }}>{healthImportError}</span>
-            </div>
-          )}
-        </div>
-
         {!isActive && lastImport && (
           <>
             <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
@@ -464,27 +472,37 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
               const remaining = history.length - visibleHistory.length
               return (
                 <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-                  <CardTitle>Import history</CardTitle>
-                  {visibleHistory.map((h, i) => (
-                    <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted}
-                      label={h.automatic ? <>{h.date} <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>Auto</span></> : h.date}
-                      value={h.nights} last={remaining === 0 && i === visibleHistory.length - 1} />
-                  ))}
-                  {/* Repeatable "load more", not one "show all N" jump —
-                      only ever renders HISTORY_PAGE_SIZE additional rows
-                      per tap regardless of how large history has grown,
-                      so this stays reasonable at hundreds of imports. */}
-                  {remaining > 0 && (
-                    <button onClick={() => setHistoryShown((n) => n + HISTORY_PAGE_SIZE)} className="font-display"
-                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
-                      Load {Math.min(HISTORY_PAGE_SIZE, remaining)} more ({remaining} left)
-                    </button>
-                  )}
-                  {remaining === 0 && historyShown > HISTORY_PAGE_SIZE && (
-                    <button onClick={() => setHistoryShown(HISTORY_PAGE_SIZE)} className="font-display"
-                      style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
-                      Show fewer
-                    </button>
+                  <div onClick={() => setHistoryOpen((o) => !o)} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer' }}>
+                    <div style={{ display: 'flex', alignItems: 'baseline', gap: 8 }}>
+                      <span className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink }}>Import history</span>
+                      <span className="font-display" style={{ fontSize: 12, fontWeight: 600, color: T.muted }}>{history.length}</span>
+                    </div>
+                    <ChevronRight size={16} style={{ color: T.muted, transform: historyOpen ? 'rotate(90deg)' : 'none', transition: 'transform 0.15s' }} />
+                  </div>
+                  {historyOpen && (
+                    <div style={{ marginTop: 12 }}>
+                      {visibleHistory.map((h, i) => (
+                        <StatRow key={`${h.date}-${i}`} icon={Upload} iconColor={T.muted}
+                          label={h.automatic ? <>{h.date} <span style={{ fontSize: 11, fontWeight: 500, color: T.muted }}>Auto</span></> : h.date}
+                          value={h.nights} last={remaining === 0 && i === visibleHistory.length - 1} />
+                      ))}
+                      {/* Repeatable "load more", not one "show all N" jump —
+                          only ever renders HISTORY_PAGE_SIZE additional rows
+                          per tap regardless of how large history has grown,
+                          so this stays reasonable at hundreds of imports. */}
+                      {remaining > 0 && (
+                        <button onClick={() => setHistoryShown((n) => n + HISTORY_PAGE_SIZE)} className="font-display"
+                          style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
+                          Load {Math.min(HISTORY_PAGE_SIZE, remaining)} more ({remaining} left)
+                        </button>
+                      )}
+                      {remaining === 0 && historyShown > HISTORY_PAGE_SIZE && (
+                        <button onClick={() => setHistoryShown(HISTORY_PAGE_SIZE)} className="font-display"
+                          style={{ width: '100%', padding: '12px 0 2px', textAlign: 'center', fontSize: 13, fontWeight: 700, color: T.muted }}>
+                          Show fewer
+                        </button>
+                      )}
+                    </div>
                   )}
                 </div>
               )
