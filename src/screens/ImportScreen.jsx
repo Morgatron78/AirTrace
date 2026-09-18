@@ -106,12 +106,28 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
   // which button should show that shared progress inline on itself.
   const [importSource, setImportSource] = useState(null)
 
+  // APPLE-HEALTH: picks a whole folder rather than one file, same
+  // webkitdirectory mechanism as the SD card import above, so the daily
+  // routine is "tap the folder you already export into" instead of
+  // hunting for today's specific export among however many are in
+  // there. Same iOS Safari ordering as onFilesSelected below — snapshot
+  // the FileList into a real array before touching .value, which
+  // silently empties it out from under you otherwise. There's no
+  // reliable export-timestamp convention in the filename itself to sort
+  // by, so this uses each File's own OS-reported lastModified instead —
+  // the same signal Files/Finder show as "Date Modified", and robust to
+  // whatever the export app happens to name things.
   const handleHealthFileSelected = async (e) => {
-    // Same iOS Safari ordering as onFilesSelected below — capture the
-    // File before touching .value.
-    const file = e.target.files[0]
+    const files = Array.from(e.target.files || [])
     e.target.value = ''
-    if (!file) return
+    if (files.length === 0) return // picker cancelled, nothing to report
+    const jsonFiles = files.filter((f) => f.name.toLowerCase().endsWith('.json'))
+    if (jsonFiles.length === 0) {
+      setHealthImportError('No .json export found in that folder.')
+      setHealthImportState('error')
+      return
+    }
+    const file = jsonFiles.reduce((latest, f) => (f.lastModified > latest.lastModified ? f : latest))
     setHealthImportState('importing')
     try {
       const parsed = parseHealthExport(JSON.parse(await file.text()))
@@ -132,7 +148,11 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
       // Against the export's own actual date coverage, not the user's
       // whole therapy history — see countEligibleNights's own comment.
       const eligible = countEligibleNights(parsed, nights || [])
-      setHealthImportSummary(`Matched ${dates.length} of ${eligible} nights in this export's date range.`)
+      // Names the file picked, not just "done" — the choice is now
+      // automatic (newest by lastModified) rather than something the
+      // user explicitly confirmed by hand-picking it, so this is what
+      // lets them notice if the wrong export ever got picked.
+      setHealthImportSummary(`Imported ${file.name} — matched ${dates.length} of ${eligible} nights in this export's date range.`)
       setHealthImportState('done')
     } catch (err) {
       setHealthImportError(err.message)
@@ -379,14 +399,21 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
             the "What's kept" card below. */}
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
           <CardTitle sub="Import sleep stages, heart rate and SpO2 from Apple Health data"
-            info="Reads a JSON file from the Health Data Export app (Format: JSON, Aggregation: Raw), matches each sample to whichever CPAP night's own session it falls inside, and stores it locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
+            info="Pick the folder you export into from the Health Data Export app (Format: JSON, Aggregation: Raw) — the newest .json file in it is read automatically, matched to whichever CPAP night's own session it falls inside, and stored locally. Nothing is uploaded anywhere. Re-importing is always safe — it just overwrites matched nights with the newer file.">
             Apple Health Data
           </CardTitle>
           <button onClick={() => healthFileInputRef.current?.click()} disabled={healthImportState === 'importing'} className="font-display"
             style={{ width: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.bg, color: T.ink, fontSize: 13.5, fontWeight: 700, border: `1px solid ${T.line}`, opacity: healthImportState === 'importing' ? 0.6 : 1 }}>
             <HeartPulse size={15} /> {healthImportState === 'importing' ? 'Importing…' : 'Import Apple Health Data'}
           </button>
-          <input ref={healthFileInputRef} type="file" accept="application/json" onChange={handleHealthFileSelected} style={{ display: 'none' }} />
+          {/* webkitdirectory, not a single-file accept — see
+              handleHealthFileSelected's own comment. Hidden off-screen
+              rather than display:none, same reasoning as the SD card
+              input above: a display:none webkitdirectory input still
+              opens the picker via .click() on iOS Safari but silently
+              fails to populate .files on selection. */}
+          <input ref={healthFileInputRef} type="file" webkitdirectory="" directory="" multiple onChange={handleHealthFileSelected}
+            style={{ position: 'absolute', width: 1, height: 1, padding: 0, margin: -1, overflow: 'hidden', clip: 'rect(0,0,0,0)', whiteSpace: 'nowrap', border: 0 }} />
 
           {healthImportState === 'done' && (
             <div style={{ marginTop: 12, fontSize: 12.5, color: SEV.good, textAlign: 'center', fontWeight: 600 }}>{healthImportSummary}</div>
