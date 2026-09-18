@@ -27,6 +27,24 @@
 //   - it always has *something* to push (whatever the current local data
 //   is), so there's no "checked but found nothing" ambiguity the sync
 //   step has, and once-a-day is a perfectly reasonable cap for it.
+//
+// AIRTRACE-FEATURE: once a real night has actually been found and
+// imported today, the flat 5-minute cooldown above stops being useful -
+// the AirSense only ever produces one real DATALOG folder per calendar
+// day (see the noon-anchoring note in CLAUDE.md), so there's no
+// realistic chance of a second "new" night appearing before tomorrow's
+// session even starts. Confirmed as real clutter in practice: Import
+// history filling up with "0 nights" entries every 5 minutes for the
+// rest of a day that had already found its one real night hours
+// earlier. lastOneDriveNightsFoundAt is stamped only when a sync
+// actually adds ≥1 night, and gates on the same calendar-day comparison
+// (attemptedToday) already proven correct for the backup-push step
+// below - deliberately NOT a rolling 24-hour window, so a night found
+// at 7am doesn't keep blocking a genuine check at 7pm the same day, and
+// doesn't linger into the next morning either. The 5-minute cooldown
+// stays exactly as-is for a day nothing's been found yet - this snooze
+// only ever kicks in *after* a real success, never instead of the
+// existing fast-retry behavior on an empty day.
 import { isSignedIn, completeSignIn } from './graphClient.js'
 import { fetchOneDriveFiles } from './oneDriveImport.js'
 import { pushBackupToOneDrive } from './oneDriveBackup.js'
@@ -60,7 +78,11 @@ async function syncNewNightsFromOneDrive(oneDriveBasePath) {
   const storedSchemaVersion = await getMeta('detailSchemaVersion')
   const skipDates = storedSchemaVersion === DETAIL_SCHEMA_VERSION ? [...await getExistingDetailDates()] : []
   const files = await fetchOneDriveFiles(oneDriveBasePath, { skipDates })
-  await new Promise((resolve, reject) => {
+  // AIRTRACE-FEATURE: resolves with the real nightsAdded count now
+  // (previously just resolve(), the caller had no way to know whether
+  // anything was actually found) - the new next-calendar-day snooze
+  // below needs to know this to decide whether to stamp itself.
+  return new Promise((resolve, reject) => {
     runImportPipeline(files, {
       sourceLabel: 'your OneDrive sync folder',
       source: 'onedrive',
@@ -79,7 +101,7 @@ async function syncNewNightsFromOneDrive(oneDriveBasePath) {
         // files, no STR.edf, a worker-level error) call onError without
         // ever calling onComplete first, and those should genuinely count
         // as a failed attempt for gating purposes.
-        onComplete: () => resolve(),
+        onComplete: (record) => resolve(record.nightsAdded),
         onError: (message) => reject(new Error(message)),
       },
     })
@@ -101,6 +123,11 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // the Import screen's own button.
   if (!isSignedIn()) return
 
+  // See the top-of-file AIRTRACE-FEATURE note for why this comes first -
+  // once today's real night has already been found, nothing below this
+  // point should run at all, regardless of the cooldown.
+  const foundNightsToday = await attemptedToday('lastOneDriveNightsFoundAt')
+
   // AIRTRACE-FIX: confirmed happening for real - the cooldown below is
   // stamped *before* the attempt (see its own comment), so a session whose
   // cached token had genuinely expired hits getAccessToken()'s own
@@ -113,14 +140,14 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // and then nothing. justSignedIn (this load IS that exact return trip)
   // bypasses the cooldown for this one call, since it's the direct
   // continuation of the attempt that got cut off, not a new trigger.
-  if (justSignedIn || !(await withinCooldown('lastOneDriveSyncAt', SYNC_COOLDOWN_MS))) {
+  if (!foundNightsToday && (justSignedIn || !(await withinCooldown('lastOneDriveSyncAt', SYNC_COOLDOWN_MS)))) {
     // Stamped before the attempt, not after - closes a real (if narrow)
     // window where a second rapid app open during a slow sync could start
     // a concurrent second one, and matches the "cooldown on attempt, not
     // on outcome" reasoning above.
     await setMeta('lastOneDriveSyncAt', new Date().toISOString())
     try {
-      await syncNewNightsFromOneDrive(oneDriveBasePath)
+      const nightsAdded = await syncNewNightsFromOneDrive(oneDriveBasePath)
       // AIRTRACE-FIX: lastOneDriveSyncAt (above) is stamped on every
       // attempt, success or failure - that's deliberate, the cooldown
       // needs it. But Settings' own "Last auto-synced" label was reading
@@ -132,6 +159,7 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
       // actually read.
       await setMeta('lastOneDriveSyncSuccessAt', new Date().toISOString())
       await setMeta('lastOneDriveSyncError', null)
+      if (nightsAdded > 0) await setMeta('lastOneDriveNightsFoundAt', new Date().toISOString())
     } catch (err) {
       // AIRTRACE-FIX: previously silently swallowed to devtools-only
       // console.error - no way to see it on a real device with no remote
