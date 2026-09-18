@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { ChevronLeft, Minus, Plus, User, Hash, Phone, Download, Upload, TriangleAlert, Copy, Check } from 'lucide-react'
 import { T, SEV } from '../constants/theme'
-import { daysAgo, formatClock } from '../utils/dates'
+import { formatClock } from '../utils/dates'
 import { CardTitle } from '../components/CardTitle'
 import { TextEditRow } from '../components/TextEditRow'
 import { Segmented } from '../components/Segmented'
@@ -16,6 +16,28 @@ import { cmToFeetInches } from '../utils/units.js'
 // the actual sync action lives, so there's exactly one place that starts
 // it rather than two slightly different entry points that could drift.
 import { completeSignIn, getAccountEmail, signOut } from '../onedrive/graphClient.js'
+
+// AIRTRACE-FIX: daysAgo() (utils/dates.js) is a rolling 24-hour window —
+// correct for equipment-change reminders elsewhere, but genuinely
+// misleading for the two "Last synced/backed up" labels below. Confirmed
+// confusing in real use: "Last auto-synced today" kept showing even
+// before any auto-sync had actually run against a real new night that
+// calendar day — because "less than 24 hours ago" and "since today
+// started" aren't the same thing once you're more than a few hours into
+// the day. This compares real calendar dates instead (midnight to
+// midnight, not a rolling window), and adds the actual clock time so
+// "today"/"yesterday" carry real precision instead of a vague label a
+// user has to guess the meaning of.
+function formatSyncTimestamp(isoString) {
+  const d = new Date(isoString)
+  const now = new Date()
+  const startOfDay = (date) => new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  const dayDiff = Math.round((startOfDay(now) - startOfDay(d)) / 86400000)
+  const time = formatClock(d.getHours() + d.getMinutes() / 60)
+  if (dayDiff === 0) return `today at ${time}`
+  if (dayDiff === 1) return `yesterday at ${time}`
+  return `${dayDiff} days ago`
+}
 
 // Standard Web Push conversion — pushManager.subscribe wants the VAPID
 // public key as a raw Uint8Array, not the base64url string it's
@@ -468,10 +490,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   pushing local data OUT rather than pulling new nights IN. */}
               {lastOneDriveSync && (
                 <div style={{ marginTop: 10, fontSize: 11.5, color: T.muted }}>
-                  {(() => {
-                    const d = daysAgo(lastOneDriveSync)
-                    return `Last auto-synced ${d === 0 ? 'today' : d === 1 ? '1 day ago' : `${d} days ago`}`
-                  })()}
+                  Last auto-synced {formatSyncTimestamp(lastOneDriveSync)}
                 </div>
               )}
               {/* lastOneDriveSyncError is cleared on every genuine success
@@ -507,10 +526,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
             Backup
           </CardTitle>
           <div style={{ fontSize: 12, color: lastBackup ? T.muted : SEV.fair, marginBottom: 14, fontWeight: lastBackup ? 400 : 600 }}>
-            {lastBackup ? (() => {
-              const d = daysAgo(lastBackup)
-              return `Last backed up ${d === 0 ? 'today' : d === 1 ? '1 day ago' : `${d} days ago`}`
-            })() : 'Never backed up'}
+            {lastBackup ? `Last backed up ${formatSyncTimestamp(lastBackup)}` : 'Never backed up'}
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button onClick={handleExport} className="font-display" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7, padding: '11px 14px', borderRadius: 12, background: T.ink, color: T.bg, fontSize: 13.5, fontWeight: 700 }}>
