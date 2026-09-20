@@ -140,7 +140,9 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   // the last 30 nights, not every night ever imported.
   const totalMaskOff = last30.reduce((s, n) => s + n.maskOff, 0)
 
-  const tagInsights = Object.keys(TAG_LABEL).map((tk) => {
+  // 'alcohol' excluded here — it gets its own graded comparison below
+  // instead of one flat card, see alcoholInsights.
+  const tagInsights = Object.keys(TAG_LABEL).filter((tk) => tk !== 'alcohol').map((tk) => {
     // Same last30 scope as `overall` above — both sides of the
     // comparison need to come from the same window, not just the
     // baseline.
@@ -153,6 +155,25 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
     const diff = overall ? Math.round(((a - overall) / overall) * 100) : 0
     if (Math.abs(diff) < 10) return null
     return { tk, diff, n: withTag.length }
+  }).filter(Boolean)
+
+  // Alcohol dose-response: light and heavy nights are always logged as
+  // two genuinely distinct levels (never a plain undifferentiated "yes"
+  // — see TagEntryScreen), matching CLAUDE.md's own stated intent that
+  // this tag is dose-dependent. A single flat "Alcohol" average silently
+  // blends what could be two very different effect sizes together, so
+  // this compares each grade against the same last30 baseline
+  // separately instead — same n>=3/±10% thresholds as every card above,
+  // so the two read consistently alongside them. `alcoholLevel` is
+  // exhaustive (light ∪ heavy covers every alcohol-tagged night), so
+  // nothing is lost by excluding the flat 'alcohol' key above.
+  const alcoholInsights = ['light', 'heavy'].map((grade) => {
+    const withGrade = last30.filter((n) => !n.noUsage && n.alcoholLevel === grade)
+    if (withGrade.length < 3) return null
+    const a = avg(withGrade, 'ahi')
+    const diff = overall ? Math.round(((a - overall) / overall) * 100) : 0
+    if (Math.abs(diff) < 10) return null
+    return { grade, diff, n: withGrade.length }
   }).filter(Boolean)
 
   // Trajectory: recent window (last ~60 nights), first half vs second —
@@ -232,6 +253,11 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
         <NavCard key={ti.tk} icon={TAG_ICON[ti.tk]} dot={TAG_GRADIENT[ti.tk]}
           title={`${TAG_LABEL[ti.tk]} ${ti.diff > 0 ? 'raises' : 'lowers'} your AHI`}
           subtitle={`${ti.diff > 0 ? '+' : ''}${ti.diff}% vs. baseline, based on ${ti.n} nights${AUTO_TAGS.has(ti.tk) ? ' · auto-detected' : ''}`} onClick={() => onNavigate('stats')} />
+      ))}
+      {alcoholInsights.map((ai) => (
+        <NavCard key={`alcohol-${ai.grade}`} icon={TAG_ICON.alcohol} dot={TAG_GRADIENT.alcohol}
+          title={`${ai.grade === 'heavy' ? 'Heavy' : 'Light'} drinking ${ai.diff > 0 ? 'raises' : 'lowers'} your AHI`}
+          subtitle={`${ai.diff > 0 ? '+' : ''}${ai.diff}% vs. baseline, based on ${ai.n} nights`} onClick={() => onNavigate('stats')} />
       ))}
       {weekendHigherShowing && (
         <NavCard icon={Calendar} dot={`linear-gradient(135deg,${C.blue},${C.pink})`} title="Weekends run higher"
