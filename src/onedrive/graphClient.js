@@ -159,8 +159,8 @@ async function graphFetch(url, options = {}) {
   return graphFetchWithRetry(url, options)
 }
 
-// path is relative to the OneDrive root, e.g. "CPAP backup" or
-// "CPAP backup/DATALOG/20260913" - matches CardSync's own folder layout
+// path is relative to the OneDrive root, e.g. "CPAP Data" or
+// "CPAP Data/DATALOG/20260913" - matches CardSync's own folder layout
 // exactly, since it's the same folder CardSync writes into.
 //
 // AIRTRACE-FIX: Graph API pages /children at a server-chosen size (seen:

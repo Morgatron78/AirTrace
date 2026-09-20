@@ -96,7 +96,7 @@ export default function App() {
   // OneDrive Sync card), which is the actual point of a settings-driven
   // toggle rather than a purely cosmetic one.
   const [oneDriveSyncEnabled, setOneDriveSyncEnabled] = useState(false)
-  const [oneDriveBasePath, setOneDriveBasePath] = useState('CPAP backup')
+  const [oneDriveBasePath, setOneDriveBasePath] = useState('CPAP Data')
   const updateOneDriveSyncEnabled = (next) => { setOneDriveSyncEnabled(next); setMeta('oneDriveSyncEnabled', next) }
   const updateOneDriveBasePath = (next) => { setOneDriveBasePath(next); setMeta('oneDriveBasePath', next) }
   // targets/equipment/profile previously lived only in memory — any change
@@ -121,7 +121,7 @@ export default function App() {
     // through avoids that entirely.
     Promise.all([getMeta('oneDriveSyncEnabled'), getMeta('oneDriveBasePath')]).then(([enabled, basePath]) => {
       const resolvedEnabled = enabled != null ? enabled : false
-      const resolvedBasePath = basePath || 'CPAP backup'
+      const resolvedBasePath = basePath || 'CPAP Data'
       if (enabled != null) setOneDriveSyncEnabled(enabled)
       if (basePath) setOneDriveBasePath(basePath)
       // Fire-and-forget, deliberately not awaited - a background network
