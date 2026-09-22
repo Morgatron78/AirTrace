@@ -140,11 +140,22 @@ export function ImportScreen({ onBack, nights, oneDriveSyncEnabled, oneDriveBase
       // every few days at most, unrelated to any specific session), so
       // bucketing it against night windows doesn't make sense. Stored
       // whole under its own meta key instead, same generic getMeta/setMeta
-      // pattern `profile`/`themeMode` already use elsewhere. This is a
-      // whole-array replace, not a merge — a smaller re-import will
-      // shrink the stored history, an accepted tradeoff matching this
-      // function's existing no-confirm-before-write stance.
-      if (parsed.weightReadings.length) await setMeta('weightReadings', parsed.weightReadings)
+      // pattern `profile`/`themeMode` already use elsewhere.
+      // AIRTRACE-FIX: this used to be a whole-array replace, not a merge —
+      // confirmed live as a real problem, not just a theoretical one: a
+      // smaller/partial re-export (e.g. "just the last month" rather than
+      // full history) silently wiped the entire stored weight history down
+      // to whatever that one export happened to contain, visible as the
+      // All Time Weight chart on Trends losing every earlier point. Now
+      // merges with whatever's already stored, keyed on each reading's own
+      // timestamp — an overlapping re-export re-adds the same readings
+      // rather than duplicating them, and a reading from a smaller export
+      // never displaces one from a larger import that came before it.
+      if (parsed.weightReadings.length) {
+        const existing = (await getMeta('weightReadings')) || []
+        const byTs = new Map([...existing, ...parsed.weightReadings].map((r) => [r.ts, r]))
+        await setMeta('weightReadings', [...byTs.values()].sort((a, b) => a.ts - b.ts))
+      }
       // Against the export's own actual date coverage, not the user's
       // whole therapy history — see countEligibleNights's own comment.
       const eligible = countEligibleNights(parsed, nights || [])
