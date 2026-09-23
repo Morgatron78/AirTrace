@@ -152,7 +152,14 @@ async function graphFetchWithRetry(url, options, attempt = 0) {
     await waitOutSharedThrottle()
     return graphFetchWithRetry(url, options, attempt + 1)
   }
-  throw new Error(`Graph API error: ${res.status} ${res.statusText}`)
+  // AIRTRACE-FEATURE: .status attached (not just baked into the message
+  // string) so a caller that genuinely needs to tell "this specific
+  // resource doesn't exist" (404) apart from any other failure can do so
+  // without parsing text - see oneDriveHealthImport.js's own use of this,
+  // where only a 404 (the Health Exports folder never having been
+  // created) should be treated as "nothing to do yet" rather than a real
+  // error worth surfacing.
+  throw Object.assign(new Error(`Graph API error: ${res.status} ${res.statusText}`), { status: res.status })
 }
 
 async function graphFetch(url, options = {}) {

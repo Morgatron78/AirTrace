@@ -139,6 +139,14 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
   // see on a real device with no remote debugging attached.
   const [lastOneDriveSyncError, setLastOneDriveSyncError] = useState(null)
   useEffect(() => { getMeta('lastOneDriveSyncError').then((v) => v && setLastOneDriveSyncError(v)) }, [])
+  // Same attempt-vs-success shape as the CPAP fields just above, for the
+  // separate Health data auto-sync (onedrive/autoSync.js's own
+  // syncHealthDataFromOneDrive) - its own independent cooldown/error, not
+  // to be confused with the CPAP sync's.
+  const [lastHealthAutoSync, setLastHealthAutoSync] = useState(null)
+  useEffect(() => { getMeta('lastHealthAutoSyncSuccessAt').then((v) => v && setLastHealthAutoSync(v)) }, [])
+  const [lastHealthAutoSyncError, setLastHealthAutoSyncError] = useState(null)
+  useEffect(() => { getMeta('lastHealthAutoSyncError').then((v) => v && setLastHealthAutoSyncError(v)) }, [])
 
   const handleExport = async () => {
     const data = await buildBackup()
@@ -502,6 +510,26 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   <TriangleAlert size={14} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
                   <span style={{ fontSize: 11.5, color: SEV.bad, lineHeight: 1.4 }}>
                     Last auto-sync attempt failed: {lastOneDriveSyncError}
+                  </span>
+                </div>
+              )}
+              {/* Same pair, for the separate Health data auto-sync - its
+                  own cooldown/success/error, see autoSync.js. Silent
+                  (both null) for the large majority of installs that
+                  never create an AirTrace Health Exports folder at all -
+                  see oneDriveHealthImport.js's own 404-is-not-an-error
+                  handling for why that stays quiet rather than showing as
+                  a permanent, misleading "failed" line. */}
+              {lastHealthAutoSync && (
+                <div style={{ marginTop: 8, fontSize: 11.5, color: T.muted }}>
+                  Last health data auto-imported {formatSyncTimestamp(lastHealthAutoSync)}
+                </div>
+              )}
+              {lastHealthAutoSyncError && (
+                <div style={{ marginTop: 8, display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                  <TriangleAlert size={14} style={{ color: SEV.bad, flexShrink: 0, marginTop: 1 }} />
+                  <span style={{ fontSize: 11.5, color: SEV.bad, lineHeight: 1.4 }}>
+                    Last health data auto-import failed: {lastHealthAutoSyncError}
                   </span>
                 </div>
               )}

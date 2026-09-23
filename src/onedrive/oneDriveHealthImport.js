@@ -17,17 +17,23 @@ import { parseHealthExport } from '../health/parseHealthExport.js'
 const HEALTH_SUBFOLDER = 'AirTrace Health Exports'
 
 // Returns null for "nothing to import right now" - the folder not
-// existing yet (the upload tool has never run) and the folder being empty
-// are both that, not errors. A real Graph/parse failure still throws, so
-// the caller's own try/catch can distinguish "quietly nothing yet" from
-// "something's actually wrong."
+// existing yet (the upload tool has never run, or this install never uses
+// Health data at all) and the folder being empty are both that, not
+// errors. Any OTHER failure (a real network/auth problem, a genuine Graph
+// outage) still throws, so the caller's own try/catch surfaces it as a
+// real error instead of it being silently indistinguishable from "not set
+// up yet" - confirmed worth being this precise: an earlier version of
+// this caught every listFolder failure the same way, which would have
+// hidden a genuine ongoing failure from ever reaching
+// lastHealthAutoSyncError once this feature is actually in real use.
 export async function fetchLatestHealthExport(basePath) {
   const path = `${basePath}/${HEALTH_SUBFOLDER}`
   let entries
   try {
     entries = await listFolder(path)
-  } catch {
-    return null
+  } catch (err) {
+    if (err.status === 404) return null
+    throw err
   }
   const jsonFiles = entries.filter((e) => e.file && e.name.toLowerCase().endsWith('.json'))
   if (!jsonFiles.length) return null

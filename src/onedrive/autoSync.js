@@ -228,6 +228,13 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
     await setMeta('lastHealthAutoSyncAt', new Date().toISOString())
     try {
       await syncHealthDataFromOneDrive(oneDriveBasePath)
+      // Same "attempt vs. success" distinction as lastOneDriveSyncAt/
+      // lastOneDriveSyncSuccessAt above - lastHealthAutoSyncAt alone is
+      // stamped on every attempt (needed for the cooldown), so Settings'
+      // own "last synced" label needs a separate field that only moves on
+      // a genuine success, or it could read "synced just now" on an
+      // attempt that actually failed.
+      await setMeta('lastHealthAutoSyncSuccessAt', new Date().toISOString())
       await setMeta('lastHealthAutoSyncError', null)
     } catch (err) {
       // Same "record it somewhere Settings can show, don't interrupt app
