@@ -47,10 +47,14 @@
 // existing fast-retry behavior on an empty day.
 import { isSignedIn, completeSignIn } from './graphClient.js'
 import { fetchOneDriveFiles } from './oneDriveImport.js'
+import { fetchLatestHealthExport } from './oneDriveHealthImport.js'
 import { pushBackupToOneDrive } from './oneDriveBackup.js'
 import { runImportPipeline } from '../import/runImportPipeline.js'
 import { getMeta, setMeta } from '../db/meta.js'
 import { getExistingDetailDates, DETAIL_SCHEMA_VERSION } from '../db/detail.js'
+import { getAllSummaries } from '../db/nights.js'
+import { setHealthEntry } from '../db/health.js'
+import { matchHealthDataToNights } from '../health/matchNights.js'
 import { toDateStr } from '../utils/dates.js'
 
 // Deliberately short - real-world data volumes here are tiny (a night or
@@ -106,6 +110,49 @@ async function syncNewNightsFromOneDrive(oneDriveBasePath) {
       },
     })
   })
+}
+
+// AIRTRACE-FEATURE: the Health Data counterpart to syncNewNightsFromOneDrive
+// above - a separate personal upload tool, unrelated to CardSync, writes a
+// Health-Data-Export-shaped JSON into OneDrive (see
+// oneDriveHealthImport.js). Deliberately does NOT track "have I already
+// processed this file" (by Graph item id, lastModifiedDateTime, or
+// anything else) and just re-parses + re-matches on every cooldown-gated
+// call - the obvious-looking "skip an unchanged file" optimization is
+// actually unsafe here: a health export can land before that night's own
+// CPAP data has been imported yet (the two automations run on
+// independent schedules), and matchHealthDataToNights below silently
+// finds nothing for a night it doesn't know about yet. Marking that
+// file's identity as "done" at that point would permanently lose the
+// health data for that night once the CPAP side finally catches up,
+// since it would never be reconsidered. Safe to just redo the work every
+// time instead: setHealthEntry overwrites idempotently by date, and the
+// weight merge (matchNights.js/ImportScreen.jsx) is idempotent by
+// timestamp, so reprocessing the same unchanged file repeatedly has no
+// effect beyond one small, cheap Graph list+download - the same "re-derive
+// what's new from current state, never from file identity" shape the CPAP
+// sync above already relies on.
+//
+// getAllSummaries() (not App.jsx's own tag-enriched `nights`) is
+// sufficient - matchHealthDataToNights only ever reads each night's
+// date/noUsage/startHour/usage, all present on these raw rows, so there's
+// no need to replicate App.jsx's tag-enrichment logic in this background
+// context.
+async function syncHealthDataFromOneDrive(oneDriveBasePath) {
+  const result = await fetchLatestHealthExport(oneDriveBasePath)
+  if (!result) return
+  const nights = await getAllSummaries()
+  const matched = matchHealthDataToNights(result.parsed, nights)
+  await Promise.all(Object.entries(matched).map(([date, entry]) =>
+    setHealthEntry(date, { ...entry, importedAt: new Date().toISOString() })))
+  // Same whole-history-merge-by-timestamp fix as the manual Import Health
+  // Data flow (ImportScreen.jsx) - a smaller/partial export landing here
+  // must not silently shrink whatever weight history is already stored.
+  if (result.parsed.weightReadings.length) {
+    const existing = (await getMeta('weightReadings')) || []
+    const byTs = new Map([...existing, ...result.parsed.weightReadings].map((r) => [r.ts, r]))
+    await setMeta('weightReadings', [...byTs.values()].sort((a, b) => a.ts - b.ts))
+  }
 }
 
 export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveBasePath }) {
@@ -170,6 +217,23 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
       // nobody's watching.
       console.error('Auto-sync from OneDrive failed:', err)
       await setMeta('lastOneDriveSyncError', err.message || String(err))
+    }
+  }
+
+  // Own independent cooldown, not shared with lastOneDriveSyncAt above -
+  // this is a completely separate Graph list+download against a different
+  // folder, for a different purpose, and shouldn't gate (or be gated by)
+  // the CPAP sync's own timing.
+  if (!(await withinCooldown('lastHealthAutoSyncAt', SYNC_COOLDOWN_MS))) {
+    await setMeta('lastHealthAutoSyncAt', new Date().toISOString())
+    try {
+      await syncHealthDataFromOneDrive(oneDriveBasePath)
+      await setMeta('lastHealthAutoSyncError', null)
+    } catch (err) {
+      // Same "record it somewhere Settings can show, don't interrupt app
+      // open" stance as the CPAP sync's own error handling above.
+      console.error('Auto-sync of Health data from OneDrive failed:', err)
+      await setMeta('lastHealthAutoSyncError', err.message || String(err))
     }
   }
 
