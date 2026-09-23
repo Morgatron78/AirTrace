@@ -50,6 +50,21 @@ export function matchHealthDataToNights(parsed, nights) {
 // range a given export actually covers (permission-limited or not), the
 // denominator here should reflect that real range, not the full
 // therapy history.
+//
+// AIRTRACE-FIX: confirmed live against a real export — "eligible" used to
+// require a night's own *startMs* to fall on or after minMs (the export's
+// very first sample), which is stricter than what matchHealthDataToNights
+// above actually requires (any overlap between the night's window and the
+// export's data). A session that starts a few minutes before the export's
+// first captured reading — e.g. the Watch takes a few minutes after
+// mask-on to register its first sleep stage, as a real export showed
+// (session started 22:07, first stage sample at 22:13) — was wrongly
+// excluded here even though it had real matched data, producing a
+// nonsensical "matched 2 of 1 nights" (more matches than the denominator
+// they're supposedly drawn from). Now tests genuine interval overlap
+// (does this night's own window intersect [minMs, maxMs] at all) instead
+// of point-containment of just its start, matching what "did this night
+// have a real chance to match" actually means.
 export function countEligibleNights(parsed, nights) {
   const bounds = []
   if (parsed.stages.length) bounds.push(parsed.stages[0].startMs, parsed.stages[parsed.stages.length - 1].endMs)
@@ -59,7 +74,7 @@ export function countEligibleNights(parsed, nights) {
   const minMs = Math.min(...bounds), maxMs = Math.max(...bounds)
   return nights.filter((n) => {
     if (n.noUsage) return false
-    const { startMs } = getNightWindowMs(n)
-    return startMs >= minMs && startMs <= maxMs
+    const { startMs, endMs } = getNightWindowMs(n)
+    return startMs < maxMs && endMs > minMs
   }).length
 }

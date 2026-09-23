@@ -27,6 +27,12 @@ docs/wifi-sd-sync.md
 # user's request rather than committed to the public repo's history.
 docs/trends-all-time-chart-spec.md
 
+# Spec for a personal side-tool (a REST API utility that produces Health
+# Data Export-compatible JSON, replacing the manual export app) that
+# doesn't live in this repo — kept local at the user's request, same
+# status as the two docs above.
+docs/health-export-json-format.md
+
 # WiFi SD sync sub-project: a personal fork of the FYSETC SD-WiFi card's
 # stock ESPWebDAV firmware (adds CORS headers), built/flashed locally.
 # Not part of AirTrace itself, same "personal, never distributed" status
