@@ -187,7 +187,7 @@ export function freezesUsedThisMonth(nights, targets) {
 
 // The single most relevant thing to surface right now — used for Today's
 // proactive banner. Insights itself shows the fuller list.
-export function getPrimaryInsight(nights, targets, equipment, lastBackupExport) {
+export function getPrimaryInsight(nights, targets, equipment, lastBackupExport, lastOneDriveBackupPush) {
   const avgUsed = (arr, k) => {
     const used = arr.filter((n) => !n.noUsage)
     return used.length ? used.reduce((s, n) => s + n[k], 0) / used.length : 0
@@ -267,19 +267,31 @@ export function getPrimaryInsight(nights, targets, equipment, lastBackupExport) 
     return { icon: Wind, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Filter overdue for replacement', subtitle: `${filterDays} days since it was last changed`, target: 'equipment' }
   }
   // Data-loss risk, not a therapy/comfort one — deliberately ranked below
-  // every equipment check above, not above them. !lastBackupExport (never
-  // backed up at all) counts as overdue too, not just a stale date: by
-  // the time this function runs there's real data worth protecting
-  // already (the last.noUsage guard above only returns for "nothing
-  // imported for today", not "nothing imported ever"), so "never" is a
-  // real case to nag about, not a first-run artifact to special-case
-  // away. daysAgo(undefined) is NaN, which every >= comparison silently
-  // treats as false — the explicit !lastBackupExport check is what
-  // actually catches that case, not a gap in daysAgo.
-  if (!lastBackupExport || daysAgo(lastBackupExport) >= BACKUP_REMINDER_DAYS) {
+  // every equipment check above, not above them.
+  //
+  // AIRTRACE-FIX: this used to check lastBackupExport alone (the manual
+  // Export button), completely blind to the automatic daily push
+  // onedrive/autoSync.js already does whenever OneDrive sync is enabled -
+  // confirmed live, this nagged "20 days since your last export" for a
+  // user whose data was in fact being backed up to OneDrive every single
+  // day, just never via the manual button. SettingsScreen.jsx's own "Last
+  // backup" line already correctly treats an automatic push as just as
+  // real a backup as a manual export (see its own comment) - this now
+  // applies that exact same policy here instead of silently diverging
+  // from it. !lastBackup (never backed up at all, by either route) counts
+  // as overdue too, not just a stale date: by the time this function runs
+  // there's real data worth protecting already (the last.noUsage guard
+  // above only returns for "nothing imported for today", not "nothing
+  // imported ever"), so "never" is a real case to nag about, not a
+  // first-run artifact to special-case away. daysAgo(undefined) is NaN,
+  // which every >= comparison silently treats as false — the explicit
+  // !lastBackup check is what actually catches that case, not a gap in
+  // daysAgo.
+  const lastBackup = [lastBackupExport, lastOneDriveBackupPush].filter(Boolean).sort().at(-1)
+  if (!lastBackup || daysAgo(lastBackup) >= BACKUP_REMINDER_DAYS) {
     return {
       icon: Download, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Backup overdue',
-      subtitle: lastBackupExport ? `${daysAgo(lastBackupExport)} days since your last export` : "You haven't exported a backup yet", target: 'settings',
+      subtitle: lastBackup ? `${daysAgo(lastBackup)} days since your last backup` : "You haven't backed up your data yet", target: 'settings',
     }
   }
   if (trajDiff < -5) {

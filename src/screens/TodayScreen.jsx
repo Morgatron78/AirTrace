@@ -35,11 +35,17 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
   const week = nights.slice(-7)
   const streak = computeStreak(nights, targets)
   // Same screen-local read-on-mount pattern SettingsScreen already uses
-  // for this exact meta key — nothing else needs it threaded through
-  // App.jsx.
+  // for these two meta keys — nothing else needs them threaded through
+  // App.jsx. Both a manual export and an automatic OneDrive push count as
+  // a real backup (see getPrimaryInsight's own comment) — fetched
+  // separately since they're independent meta keys, combined inside
+  // getPrimaryInsight itself so the "what counts as backed up" policy
+  // lives in one place, not duplicated at every call site.
   const [lastBackupExport, setLastBackupExport] = useState(null)
+  const [lastOneDriveBackupPush, setLastOneDriveBackupPush] = useState(null)
   useEffect(() => { getMeta('lastBackupExport').then((v) => v && setLastBackupExport(v)) }, [])
-  const insight = getPrimaryInsight(nights, targets, equipment, lastBackupExport)
+  useEffect(() => { getMeta('lastOneDriveBackupPush').then((v) => v && setLastOneDriveBackupPush(v)) }, [])
+  const insight = getPrimaryInsight(nights, targets, equipment, lastBackupExport, lastOneDriveBackupPush)
   const setPressure = currentSetPressure(nights, EQUIPMENT.fixedPressure)
   // prevVal == null means "no previous night to compare" (already
   // guarded separately at each call site below) or "no previous data at
