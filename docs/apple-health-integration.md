@@ -37,6 +37,22 @@ iOS app (Format: JSON, Aggregation: Raw) — overlaid on Night View:
   once a night's CPAP waveform detail has aged out of the last-90-used-
   nights retention window — it only needs the permanent `nightSummaries`
   fields and `healthData`, neither of which is pruned.
+- An "SpO₂" card directly under Sleep stages on Night View
+  (`components/charts/Spo2Chart.jsx`): each Watch reading is a labelled dot
+  on the same hour axis as the stage band, a dashed line marks the 90% flag,
+  and Lowest/Average/Readings tiles sit below. Deliberately dots and not a
+  line/channel: the Watch takes roughly one reading an hour, so a line would
+  imply continuous data (and the "nearest raw sample, no interpolation" rule
+  above would be broken), and percentiles over a handful of points mean
+  nothing. It is not in `CHANNEL_REGISTRY`, same precedent as the Sleep
+  stages and Events cards. Hourly spot checks cannot see short desaturation
+  dips, so the card never claims a desaturation count — its ⓘ description
+  (the same single-button-plus-bordered-panel treatment as the Synchronized
+  view card) says so. No data, no card, and like Sleep stages it also shows
+  once waveform detail has aged out. The 90% threshold and its rounded-value
+  comparison live in `health/spo2.js`, shared with the event popover so the
+  two can't disagree about the same reading. Night View only for now — no
+  Trends/Stats aggregate.
 - A "Sleep architecture" card on Trends, deliberately built to operate
   exactly like the existing Events chart above it rather than a bespoke
   design (confirmed against that chart's own `stack`/`dataKey`/`eventType`
@@ -131,7 +147,9 @@ grep -rn "APPLE-HEALTH" src/
 - `src/health/architectureTrend.js`
 - `src/constants/sleepStages.js`
 - `src/db/health.js`
+- `src/health/spo2.js` (also revert `EventsChart.jsx`'s `isLowSpo2` import back to a local threshold constant — see below)
 - `src/components/charts/HypnogramChart.jsx`
+- `src/components/charts/Spo2Chart.jsx`
 - `src/components/SleepArchDetailPanel.jsx`
 - `docs/apple-health-integration.md` (this file)
 
@@ -139,8 +157,8 @@ grep -rn "APPLE-HEALTH" src/
 - `src/db/schema.js` — remove the whole `if (oldVersion < 2) { ... }` block (leave the `if (oldVersion < 1) { ... }` block for the original four stores untouched — it's now load-bearing, not just historical: a real bug surfaced during this feature's own build was `upgrade()` unconditionally recreating the original four stores on every version bump, which throws `ConstraintError` on any browser that already has them. The version-gating fixes that permanently, not just for this feature). **Do not decrement `DB_VERSION`** — any browser that has already opened the DB at version 2 throws a `VersionError` if the app later requests version 1. The version number stays at 2 forever, whether or not this feature exists.
 - `src/App.jsx` — remove the `nights={nights}` prop passed to `<ImportScreen>`.
 - `src/screens/ImportScreen.jsx` — remove the `nights` prop from the component signature, the `parseHealthExport`/`matchHealthDataToNights`/`countEligibleNights`/`setHealthEntry` imports, the `HeartPulse` icon import, the health-import state/handler block (including the `weightReadings`/`setMeta('weightReadings', ...)` write added for Trends' All Time weight/BMI panel — deliberately not routed through `matchHealthDataToNights`, see that call site's own comment), and the whole "Health data" card.
-- `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, **both** `<HypnogramChart>` render blocks (the one gated on `detailStatus === 'unavailable'` before the ternary, and the one inside the `ready` branch — including the `events={events}`/`hasEventDetail` props, which this file already has `events` for its own purposes — only the prop values themselves are APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
-- `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading` imports, the `HeartPulse`/`Droplet` lucide-react icon imports, the `C` theme import (if unused elsewhere in the file), the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
+- `src/screens/DrillDownScreen.jsx` — remove the `HypnogramChart`/`Spo2Chart`/`useHealthEntry` imports, the `useHealthEntry(night.date)` call, **both** `<Spo2Chart>` render blocks (one beside each `<HypnogramChart>` block, same gating), **both** `<HypnogramChart>` render blocks (the one gated on `detailStatus === 'unavailable'` before the ternary, and the one inside the `ready` branch — including the `events={events}`/`hasEventDetail` props, which this file already has `events` for its own purposes — only the prop values themselves are APPLE-HEALTH's), and the `date`/`healthEntry` props passed into both `<EventsChart>` call sites (the inline card and the fullscreen modal).
+- `src/components/charts/EventsChart.jsx` — remove the `STAGE_LABEL`/`getNightWindowMs`/`stageAt`/`nearestReading`/`isLowSpo2` imports (the popover's SpO₂ flag would then need its own `< 90` comparison back — it used one before `health/spo2.js` existed), the `HeartPulse`/`Droplet` lucide-react icon imports, the `C` theme import (if unused elsewhere in the file), the `date`/`healthEntry` props, the `healthNightStartMs` computed value, and the corroboration-rows block inside the popover's `openCluster.items.map(...)`.
 - `src/screens/TrendsScreen.jsx` — remove the `getAllHealthData`/`stageMinutes`/`architectureTrend`/`STAGE_COLOR`/`STAGE_LABEL`/`SleepArchDetailPanel` imports, the `healthData`/`archNightIdx`/`archFocus`/`showArchInfo`/`showArchStats` state and their effects (the fetch effect and the two reset effects mirroring `chartDetailIdx`/`eventType`), the `archTitle`/`archInfoDesc`/`handleArchBarClick`/`archDataAll`/`archDataWithHealth`/`archStageKey`/`archTrend`/`archStatRows`/`archFocusTrendSentence` computed values, and the whole "Sleep architecture" card. `ChevronLeft`/`ChartInfoButton`/`ChartStatsButton`/`ChartStatsPanel`/`FlatBarChart`/`BarChartLabels` stay — every other chart on this screen already imports them. Also remove the `weightReadings` state/fetch effect and the `weightReadings`/`weightUnit` props passed to `<AllTimeTrendCard>` — the card itself stays (AHI-only is its non-Apple-Health baseline), just drop back to `hasWeight` always false.
 - `src/screens/StatsScreen.jsx` — remove the `getAllHealthData`/`stageMinutes` imports, the `healthData` state and its fetch effect, the `avgSleepEfficiency` computed value, and its conditional "Avg sleep efficiency" `StatRow`. Nothing else on this screen (the "This month"/"All-time" split, `computeBestStreak`, tag-correlation ranking) is Apple-Health-specific — those stay untouched, they're plain CPAP-data reworks that happened in the same pass.
 - `src/utils/weeklyTrend.js` — remove `bucketWeightWeekly` and its `median` helper (only used by it). `getAnchorMs`/`bucketAhiWeekly` stay — AHI's own weekly trend has nothing to do with Apple Health.

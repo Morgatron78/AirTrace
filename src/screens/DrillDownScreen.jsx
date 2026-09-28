@@ -20,6 +20,7 @@ import { BigChannelChart } from '../components/charts/BigChannelChart'
 import { EventsChart } from '../components/charts/EventsChart'
 // APPLE-HEALTH: see docs/apple-health-integration.md for the full strip-out list.
 import { HypnogramChart } from '../components/charts/HypnogramChart'
+import { Spo2Chart } from '../components/charts/Spo2Chart'
 import { DEFAULT_CHANNEL_ORDER, EVENT_COLOR, hourTicks, bandPath, makePanHandlers, jumpToEvent, computeStats, hexA, ZOOM_PRESETS } from '../components/charts/chartHelpers'
 import { useNightDetail } from '../db/detail.js'
 import { useHealthEntry } from '../db/health.js' // APPLE-HEALTH
@@ -887,6 +888,11 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
       {detailStatus === 'unavailable' && healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
         <HypnogramChart night={night} stages={healthEntry.stages} events={events} hasEventDetail={false} />
       )}
+      {/* APPLE-HEALTH: same independence from nightDetail as Sleep stages
+          above — SpO2 readings live in the same permanent health store. */}
+      {detailStatus === 'unavailable' && healthStatus === 'ready' && healthEntry?.spo2?.length > 0 && (
+        <Spo2Chart night={night} readings={healthEntry.spo2} />
+      )}
 
       {detailStatus !== 'ready' ? (
         <div style={{ background: T.surface, borderRadius: 22, padding: 32, textAlign: 'center' }}>
@@ -921,6 +927,11 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           gate elsewhere in this app. See docs/apple-health-integration.md. */}
       {healthStatus === 'ready' && healthEntry?.stages?.length > 0 && (
         <HypnogramChart night={night} stages={healthEntry.stages} events={events} hasEventDetail={true} />
+      )}
+
+      {/* APPLE-HEALTH: same no-data-no-card rule as Sleep stages above. */}
+      {healthStatus === 'ready' && healthEntry?.spo2?.length > 0 && (
+        <Spo2Chart night={night} readings={healthEntry.spo2} />
       )}
 
       <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>

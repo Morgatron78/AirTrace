@@ -8,12 +8,7 @@ import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRES
 import { STAGE_LABEL, STAGE_COLOR, STAGE_ICON } from '../../constants/sleepStages'
 import { getNightWindowMs } from '../../health/nightWindow'
 import { stageAt, nearestReading } from '../../health/lookupAtTime'
-
-// A real, recognized desaturation threshold (not this app's own guess) —
-// below this, SpO2 gets flagged the same way other real concerns already
-// are elsewhere (isConcern's red), not just reported as a plain number
-// indistinguishable from a healthy reading.
-const SPO2_LOW_THRESHOLD = 90
+import { isLowSpo2 } from '../../health/spo2'
 
 // Same Description affordance every other channel chart offers (the "..."
 // menu in MiniChart/BigChannelChart) — this chart doesn't come from
@@ -232,7 +227,7 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                     const spo2 = nearestReading(healthEntry.spo2, ms, 60 * 60000)
                     if (!stage && !hr && !spo2) return null
                     const StageIcon = stage ? STAGE_ICON[stage] : null
-                    const spo2Low = spo2 && spo2.pct < SPO2_LOW_THRESHOLD
+                    const spo2Low = spo2 && isLowSpo2(spo2.pct)
                     return (
                       <div style={{ marginTop: 3, marginLeft: 16 }}>
                         {stage && (
