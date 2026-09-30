@@ -51,6 +51,22 @@ export function parseEdfHeader(arrayBuffer) {
     sig.samplesPerRecord = parseInt(sig.samplesPerRecord, 10)
   }
 
+  // AIRTRACE-FIX: confirmed live - a torn read of a file still being
+  // written/synced elsewhere (OneDrive auto-sync raced CardSync rewriting
+  // STR.edf in place, mid-upload) can leave a signal's own header field
+  // garbled, parsing to NaN here rather than throwing anywhere obvious.
+  // `new Float32Array(numDataRecords * NaN)` silently becomes a
+  // *zero-length* array - JS coerces a NaN typed-array length to 0 rather
+  // than throwing - so every later `signalArr[r]` for any record reads
+  // back `undefined`, and a caller's own `.toFixed()` on that crashes deep
+  // inside a Web Worker with an unhelpful "undefined is not an object."
+  // Caught here instead, at the one place that actually knows why: a
+  // genuinely malformed header, not a bug in whatever code reads it.
+  const badSignal = signals.find((s) => !Number.isFinite(s.samplesPerRecord) || s.samplesPerRecord <= 0)
+  if (badSignal) {
+    throw new Error(`This file looks incomplete or corrupted (bad header for signal "${badSignal.label}") - it may still be syncing. This should resolve on the next automatic check.`)
+  }
+
   const recordBytes = signals.reduce((s, sig) => s + sig.samplesPerRecord * 2, 0)
 
   // -1 is the EDF+ spec's documented sentinel for "record count unknown at
@@ -58,9 +74,15 @@ export function parseEdfHeader(arrayBuffer) {
   // real count, e.g. a brief session interrupted before it finalized (seen
   // on a real ResMed card: a few-second mask-contact file after the main
   // night's session). Derive the true count from the file's actual size
-  // instead of trusting the header in that case.
-  if (numDataRecords < 0) {
+  // instead of trusting the header in that case. A garbled (NaN) count -
+  // same torn-read cause as the per-signal check above, just hitting the
+  // general header region instead - gets the exact same treatment: it
+  // isn't negative, so the old check alone would have missed it.
+  if (!Number.isFinite(numDataRecords) || numDataRecords < 0) {
     numDataRecords = Math.floor((arrayBuffer.byteLength - headerBytes) / recordBytes)
+  }
+  if (!Number.isFinite(numDataRecords) || numDataRecords < 0) {
+    throw new Error('This file looks incomplete or corrupted (no readable data records) - it may still be syncing. This should resolve on the next automatic check.')
   }
 
   return {

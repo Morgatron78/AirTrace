@@ -240,7 +240,19 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
       // Same "record it somewhere Settings can show, don't interrupt app
       // open" stance as the CPAP sync's own error handling above.
       console.error('Auto-sync of Health data from OneDrive failed:', err)
-      await setMeta('lastHealthAutoSyncError', err.message || String(err))
+      // AIRTRACE-FIX: MSAL's own block_iframe_reload was showing its raw,
+      // technical message here ("block_iframe_reload: See
+      // https://aka.ms/msal.js.errors#block_iframe_reload for details") -
+      // a known, harmless, self-correcting condition (the hidden
+      // silent-refresh iframe re-mounting the whole app, which MSAL blocks
+      // to prevent a redirect loop - see graphClient.js/msalConfig.js's own
+      // notes), not a real failure worth alarming the user with raw SDK
+      // text. Every other error still shows its real message unchanged, so
+      // a genuinely new problem is never hidden behind reassuring copy.
+      const friendly = err.errorCode === 'block_iframe_reload' || err.message?.startsWith('block_iframe_reload')
+        ? 'An automatic import delay has occurred - this will clear itself on next retry.'
+        : (err.message || String(err))
+      await setMeta('lastHealthAutoSyncError', friendly)
     }
   }
 
