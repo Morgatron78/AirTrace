@@ -40,4 +40,14 @@ export let currentMode = 'light'
 export function applyTheme(mode) {
   currentMode = mode === 'dark' ? 'dark' : 'light'
   Object.assign(T, mode === 'dark' ? DARK_T : LIGHT_T)
+  // The screens paint T.bg on their own wrapper div, leaving the page canvas
+  // itself white. iOS 26+ samples the canvas for the top-edge blur/tint, so
+  // a dark app got a grey smear under the status bar. Match it to the theme.
+  if (typeof document !== 'undefined') {
+    const root = document.documentElement
+    root.style.background = T.bg
+    root.style.colorScheme = currentMode
+    document.body.style.background = T.bg
+    document.querySelector('meta[name="theme-color"]')?.setAttribute('content', T.bg)
+  }
 }
