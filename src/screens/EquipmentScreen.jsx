@@ -254,11 +254,11 @@ export function EquipmentScreen({ equipment, onChange, nights, profile }) {
         <SelectRow icon={Ruler} iconColor={T.muted} label="Cushion size" value={equipment.cushionSize}>
           <Segmented options={[{ key: 'Small', label: 'S' }, { key: 'Medium', label: 'M' }, { key: 'Large', label: 'L' }]} active={equipment.cushionSize} onChange={set('cushionSize')} />
         </SelectRow>
-        <MaintenanceRow icon={RefreshCw} label="Cushion changed" dateStr={equipment.cushionChanged} onChange={setMaintenance('cushionChanged')} intervalDays={90}
+        <MaintenanceRow icon={RefreshCw} label="Cushion changed" dateStr={equipment.cushionChanged} onChange={setMaintenance('cushionChanged')} intervalDays={365}
           description="Cushions lose their seal over time as the silicone breaks down. Most manufacturers suggest replacing every 2-3 months — sooner if you're noticing rising leak rates." />
         <MaintenanceRow icon={Droplets} label="Last cleaned" dateStr={equipment.lastCleaned} onChange={setMaintenance('lastCleaned')} intervalDays={7}
           description="A daily rinse and a weekly proper wash keeps the silicone supple and free of skin oils, which extends the cushion's actual seal life — not just hygiene." />
-        <MaintenanceRow icon={Droplets} label="Headgear washed" dateStr={equipment.headgearWashed} onChange={setMaintenance('headgearWashed')} intervalDays={14} last
+        <MaintenanceRow icon={Droplets} label="Headgear washed" dateStr={equipment.headgearWashed} onChange={setMaintenance('headgearWashed')} intervalDays={90} last
           description="Headgear straps lose elasticity with sweat and oils over time, which can show up as a gradually worsening seal even with a fresh cushion. Most guidance suggests washing every 1-2 weeks." />
       </div>
 

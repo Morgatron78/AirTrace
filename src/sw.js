@@ -27,8 +27,8 @@ const daysAgo = (dateStr) => Math.floor((Date.now() - new Date(dateStr)) / 86400
 // there too, duplicated here rather than imported since EquipmentScreen
 // itself isn't safe to pull into a service worker (React component,
 // lucide-react icons, DOM).
-const CUSHION_INTERVAL_DAYS = 90
-const HEADGEAR_INTERVAL_DAYS = 14
+const CUSHION_INTERVAL_DAYS = 365
+const HEADGEAR_INTERVAL_DAYS = 90
 const EQUIPMENT_NAG_COOLDOWN_DAYS = 7
 
 // The GitHub Actions cron trigger sends a push carrying, at most, a
