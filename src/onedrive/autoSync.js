@@ -156,6 +156,24 @@ async function syncHealthDataFromOneDrive(oneDriveBasePath) {
 }
 
 export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveBasePath }) {
+  // AIRTRACE-FIX: the real fix for the long-standing block_iframe_reload
+  // error (previously just given a friendlier message in Settings, not
+  // actually fixed - see that AIRTRACE-FIX note below). msalConfig.js's
+  // redirectUri points at this app's own URL, so MSAL's acquireTokenSilent
+  // loads a *hidden iframe running this entire app a second time* to do
+  // its silent token refresh. That inner copy mounts normally, and
+  // App.jsx's own mount effect used to call this function unconditionally
+  // - which called back into MSAL from inside the very iframe MSAL was
+  // already using for the refresh, and MSAL blocks exactly that to avoid
+  // an infinite loop. The fix isn't a dedicated redirect page (scoped once
+  // before, never built, and not something testable here without a live
+  // OAuth round-trip) - it's simpler: that hidden iframe copy has no
+  // reason to ever run a sync at all, its only job is to let MSAL finish
+  // and disappear. window.self !== window.top is the standard way to
+  // detect exactly that case, so the recursive call into MSAL never
+  // happens in the first place, rather than happening and then being
+  // caught and relabeled.
+  if (window.self !== window.top) return
   if (!oneDriveSyncEnabled) return
 
   // Safe to call unconditionally - a no-op unless this load happens to be
