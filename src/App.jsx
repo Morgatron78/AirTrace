@@ -113,25 +113,48 @@ export default function App() {
     getMeta('themeMode').then((v) => v && setThemeMode(v))
     getMeta('heightUnit').then((v) => v && setHeightUnit(v))
     getMeta('weightUnit').then((v) => v && setWeightUnit(v))
-    // AIRTRACE-FEATURE: resolved together (not two independent .then()
-    // calls like the rest of this effect) because maybeAutoSyncFromOneDrive
-    // needs both values at once, and reading them back off React state
-    // right after setState would risk the stale-closure value rather than
-    // what was actually just loaded - passing the resolved values straight
-    // through avoids that entirely.
-    Promise.all([getMeta('oneDriveSyncEnabled'), getMeta('oneDriveBasePath')]).then(([enabled, basePath]) => {
-      const resolvedEnabled = enabled != null ? enabled : false
-      const resolvedBasePath = basePath || 'CPAP Data'
-      if (enabled != null) setOneDriveSyncEnabled(enabled)
-      if (basePath) setOneDriveBasePath(basePath)
-      // Fire-and-forget, deliberately not awaited - a background network
-      // operation that shouldn't block or delay anything else on this
-      // mount effect (splash timing included). Always safe to call
-      // unconditionally - see autoSync.js's own comments for why it no-ops
-      // immediately when the feature's off or nothing's signed in.
-      maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled: resolvedEnabled, oneDriveBasePath: resolvedBasePath })
-    })
-  }, [])
+
+    // AIRTRACE-FIX: extracted so it can run both on mount (as before) and
+    // again whenever the app comes back to the foreground (below) -
+    // confirmed live, this used to only ever run once per actual page
+    // load. Backgrounding and reopening an installed iOS PWA does NOT
+    // remount React or re-run this effect, so data that landed in
+    // OneDrive while the app just sat open in the background never got
+    // picked up until a genuine force-quit-and-reopen gave this effect a
+    // fresh mount to run on - which is why "exit and restart" looked like
+    // the fix. Paired with a second, independent gap fixed at the same
+    // time: maybeAutoSyncFromOneDrive now reports back whether it
+    // actually added nights, so this calls refresh() when it does -
+    // previously even a fully successful sync never told useStoredNights
+    // to re-read IndexedDB at all (see that hook's own comment), so an
+    // already-open Today screen could stay stale regardless of how the
+    // sync was triggered.
+    //
+    // Resolved together (not two independent .then() calls like the rest
+    // of this effect) because maybeAutoSyncFromOneDrive needs both values
+    // at once, and reading them back off React state right after setState
+    // would risk the stale-closure value rather than what was actually
+    // just loaded - passing the resolved values straight through avoids
+    // that entirely. Always safe to call unconditionally - see
+    // autoSync.js's own comments for why it no-ops immediately when the
+    // feature's off, nothing's signed in, or it's running inside MSAL's
+    // own hidden refresh iframe.
+    const runOneDriveAutoSync = () => {
+      Promise.all([getMeta('oneDriveSyncEnabled'), getMeta('oneDriveBasePath')]).then(([enabled, basePath]) => {
+        const resolvedEnabled = enabled != null ? enabled : false
+        const resolvedBasePath = basePath || 'CPAP Data'
+        if (enabled != null) setOneDriveSyncEnabled(enabled)
+        if (basePath) setOneDriveBasePath(basePath)
+        maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled: resolvedEnabled, oneDriveBasePath: resolvedBasePath })
+          .then((result) => { if (result?.nightsAdded) refresh() })
+      })
+    }
+    runOneDriveAutoSync()
+
+    const onVisibility = () => { if (document.visibilityState === 'visible') runOneDriveAutoSync() }
+    document.addEventListener('visibilitychange', onVisibility)
+    return () => document.removeEventListener('visibilitychange', onVisibility)
+  }, [refresh])
   const updateTargets = (next) => { setTargets(next); setMeta('targets', next) }
   const updateEquipment = (next) => { setEquipment(next); setMeta('equipment', next) }
   const updateProfile = (next) => { setProfile(next); setMeta('profile', next) }

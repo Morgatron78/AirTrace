@@ -173,8 +173,15 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // detect exactly that case, so the recursive call into MSAL never
   // happens in the first place, rather than happening and then being
   // caught and relabeled.
-  if (window.self !== window.top) return
-  if (!oneDriveSyncEnabled) return
+  // AIRTRACE-FIX: every early exit below returns the same {nightsAdded: 0}
+  // shape as the real end of this function now does, not a bare `return`
+  // (confirmed live: the not-signed-in path was still returning undefined
+  // here) - functionally harmless today since the caller uses `result?.
+  // nightsAdded`, but worth keeping one honest contract rather than some
+  // paths matching the comment on this function's real return and others
+  // silently not.
+  if (window.self !== window.top) return { nightsAdded: 0 }
+  if (!oneDriveSyncEnabled) return { nightsAdded: 0 }
 
   // Safe to call unconditionally - a no-op unless this load happens to be
   // the return trip from a Microsoft redirect (matches both screens' own
@@ -186,7 +193,7 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // app, unprompted, would be a genuinely bad surprise. If the session's
   // expired, this just quietly skips until they next sign in manually via
   // the Import screen's own button.
-  if (!isSignedIn()) return
+  if (!isSignedIn()) return { nightsAdded: 0 }
 
   // See the top-of-file AIRTRACE-FEATURE note for why this comes first -
   // once today's real night has already been found, nothing below this
@@ -205,6 +212,10 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
   // and then nothing. justSignedIn (this load IS that exact return trip)
   // bypasses the cooldown for this one call, since it's the direct
   // continuation of the attempt that got cut off, not a new trigger.
+  // AIRTRACE-FEATURE: reported back to the caller (App.jsx) so it knows
+  // whether to tell useStoredNights to refresh - see this function's own
+  // return statement below for why that matters.
+  let nightsAdded = 0
   if (!foundNightsToday && (justSignedIn || !(await withinCooldown('lastOneDriveSyncAt', SYNC_COOLDOWN_MS)))) {
     // Stamped before the attempt, not after - closes a real (if narrow)
     // window where a second rapid app open during a slow sync could start
@@ -212,7 +223,7 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
     // on outcome" reasoning above.
     await setMeta('lastOneDriveSyncAt', new Date().toISOString())
     try {
-      const nightsAdded = await syncNewNightsFromOneDrive(oneDriveBasePath)
+      nightsAdded = await syncNewNightsFromOneDrive(oneDriveBasePath)
       // AIRTRACE-FIX: lastOneDriveSyncAt (above) is stamped on every
       // attempt, success or failure - that's deliberate, the cooldown
       // needs it. But Settings' own "Last auto-synced" label was reading
@@ -282,4 +293,17 @@ export async function maybeAutoSyncFromOneDrive({ oneDriveSyncEnabled, oneDriveB
       console.error('Auto-backup push to OneDrive failed:', err)
     }
   }
+
+  // AIRTRACE-FIX: this used to be fire-and-forget with no return value at
+  // all - confirmed live, that left a real gap: useStoredNights.js's own
+  // comment already says outright it "has no way to know" an import
+  // happened outside its own hook, and nothing here ever called its
+  // refresh(). So even a fully successful sync that added new nights to
+  // IndexedDB would leave an already-open Today screen showing stale data
+  // indefinitely - only a much later, unrelated remount (reading
+  // IndexedDB fresh on its own initial load) would ever surface it,
+  // which is most of why "exit and restart" looked like the fix rather
+  // than a workaround for this gap. The caller (App.jsx) uses this to
+  // call refresh() exactly when something actually changed.
+  return { nightsAdded }
 }
