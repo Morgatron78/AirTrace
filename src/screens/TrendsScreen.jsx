@@ -156,12 +156,22 @@ export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUn
   // `totalHr` (a direct product decision): this chart answers "how much
   // did I actually sleep," not "how much time was I in bed." See
   // docs/apple-health-integration.md.
+  // AIRTRACE-FIX: confirmed live - stageMinutes clips Watch data to the
+  // CPAP session's own window (getNightWindowMs), and a no-CPAP-usage
+  // night's window is startHour:22/usage:0 placeholders, which collapse
+  // to zero duration - stageMinutes therefore returns null for EVERY
+  // no-usage night regardless of whether real Watch data exists for that
+  // calendar date. This field's own `noUsage` below (whether to draw a
+  // bar or the red-X NoUsageMarker) has to keep meaning "nothing to
+  // chart," so it can't be un-overwritten - but the detail panel needs
+  // the real distinction to pick the right message, so the *original*
+  // CPAP-side reason is preserved separately rather than lost.
   const archDataAll = data.map((n) => {
     const minutes = stageMinutes(healthData[n.date], n)
     return minutes
       ? { ...n, coreHr: (minutes.core ?? 0) / 60, deepHr: (minutes.deep ?? 0) / 60, remHr: (minutes.rem ?? 0) / 60,
           totalHr: ((minutes.core ?? 0) + (minutes.deep ?? 0) + (minutes.rem ?? 0)) / 60, noUsage: false }
-      : { ...n, coreHr: 0, deepHr: 0, remHr: 0, totalHr: 0, noUsage: true }
+      : { ...n, coreHr: 0, deepHr: 0, remHr: 0, totalHr: 0, noUsage: true, cpapNoUsage: n.noUsage }
   })
   const archDataWithHealth = archDataAll.filter((n) => !n.noUsage)
   // Mirrors the AHI chart's own dataKey/eventType pattern: no stage

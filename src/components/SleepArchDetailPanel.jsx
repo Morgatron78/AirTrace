@@ -30,10 +30,18 @@ export function SleepArchDetailPanel({ night, healthEntry, focus, onSelectStage,
   const hasEventDetail = status === 'ready'
 
   if (night.noUsage) {
+    // AIRTRACE-FIX: night.noUsage here means "nothing to chart" (see
+    // TrendsScreen.jsx's own comment on archDataAll) - that collapses two
+    // genuinely different real causes into one, and this used to always
+    // show the Watch-data wording even when the actual reason was simply
+    // no CPAP session that night. cpapNoUsage (the original, un-overwritten
+    // reason) picks the right one.
     return (
       <div style={{ background: T.bg, borderRadius: 14, padding: 14, marginTop: 12 }}>
         <div className="font-display" style={{ fontSize: 13, fontWeight: 700, color: T.ink, marginBottom: 6 }}>{night.fullLabel}</div>
-        <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.4 }}>No Watch data this night — nothing to break down.</div>
+        <div style={{ fontSize: 12.5, color: T.muted, lineHeight: 1.4 }}>
+          {night.cpapNoUsage ? 'No CPAP session this night — nothing to correlate.' : 'No Watch data this night — nothing to break down.'}
+        </div>
       </div>
     )
   }
