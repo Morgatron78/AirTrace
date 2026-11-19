@@ -107,7 +107,13 @@ export default function App() {
   // value (if any) arrives, same brief-flash-then-settle pattern as the
   // rest of the app's IndexedDB-backed state.
   useEffect(() => {
-    getMeta('targets').then((v) => v && setTargets(v))
+    // AIRTRACE-FIX: merged over DEFAULT_TARGETS, not set as-is — a
+    // targets record saved before the maintenance-interval fields
+    // existed would otherwise load with cushionIntervalDays/
+    // headgearIntervalDays/lastCleanedIntervalDays all undefined (every
+    // isOverdue check below them silently false) until the user happens
+    // to touch one of the new steppers and re-saves the whole object.
+    getMeta('targets').then((v) => v && setTargets({ ...DEFAULT_TARGETS, ...v }))
     getMeta('equipment').then((v) => v && setEquipment(v))
     getMeta('profile').then((v) => v && setProfile(v))
     getMeta('themeMode').then((v) => v && setThemeMode(v))
@@ -320,7 +326,7 @@ export default function App() {
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate}
           showJump={showJumpToDate} onCloseJump={() => setShowJumpToDate(false)} />}
         {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
-        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} profile={profile} />}
+        {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} profile={profile} targets={targets} />}
       </main>
 
       {tagEntryDate && (

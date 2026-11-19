@@ -257,10 +257,10 @@ export function getPrimaryInsight(nights, targets, equipment, lastBackupExport, 
     }
   }
   // Overdue equipment — same thresholds MaintenanceRow uses to show its own triangle
-  if (cushionDays >= 365) {
+  if (cushionDays >= targets.cushionIntervalDays) {
     return { icon: RefreshCw, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Cushion overdue for replacement', subtitle: `${cushionDays} days since it was last changed`, target: 'equipment' }
   }
-  if (headgearDays >= 90) {
+  if (headgearDays >= targets.headgearIntervalDays) {
     return { icon: Droplets, dot: `linear-gradient(135deg,${C.orange},${C.red})`, title: 'Headgear overdue for a wash', subtitle: `${headgearDays} days since it was last washed`, target: 'equipment' }
   }
   if (filterDays >= filterIntervalDays(nights)) {

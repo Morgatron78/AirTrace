@@ -22,13 +22,12 @@ const SCOPE = self.registration.scope // e.g. https://morgatron78.github.io/AirT
 const iconUrl = new URL('icons/icon-192.png', SCOPE).href
 const daysAgo = (dateStr) => Math.floor((Date.now() - new Date(dateStr)) / 86400000)
 
-// Fixed thresholds matching MaintenanceRow's own (EquipmentScreen.jsx) —
-// filter's is dynamic (filterIntervalDays), the other two are constants
-// there too, duplicated here rather than imported since EquipmentScreen
-// itself isn't safe to pull into a service worker (React component,
-// lucide-react icons, DOM).
-const CUSHION_INTERVAL_DAYS = 365
-const HEADGEAR_INTERVAL_DAYS = 90
+// Cushion/headgear intervals are user-configurable (Settings →
+// Maintenance Intervals, stored on the same `targets` meta record as
+// everything else there) — read via getMeta('targets') below, falling
+// back to DEFAULT_TARGETS the same way handleWeeklySummary already
+// does. Filter's stays dynamic (filterIntervalDays), not part of
+// `targets` at all.
 const EQUIPMENT_NAG_COOLDOWN_DAYS = 7
 
 // The GitHub Actions cron trigger sends a push carrying, at most, a
@@ -70,9 +69,16 @@ async function checkTagging(copy, notifTag) {
 }
 
 async function handleMorningCheck() {
-  const [equipment, summaries, lastEquipmentNag] = await Promise.all([
-    getMeta('equipment'), getAllSummaries(), getMeta('lastEquipmentNagDate'),
+  const [equipment, summaries, lastEquipmentNag, targets] = await Promise.all([
+    getMeta('equipment'), getAllSummaries(), getMeta('lastEquipmentNagDate'), getMeta('targets'),
   ])
+  // Merged, not `targets || DEFAULT_TARGETS` — a targets record saved
+  // before the maintenance-interval fields existed would otherwise
+  // supply cushionIntervalDays/headgearIntervalDays as undefined here
+  // (isOverdue(d, undefined) is always false, silently disabling both
+  // nags) rather than falling back to their real defaults. Same fix as
+  // App.jsx's own targets load.
+  const t = { ...DEFAULT_TARGETS, ...targets }
 
   // --- Tagging nag: every day it's true, no cooldown — a day you
   // haven't tagged yesterday is worth a nudge every single time, not
@@ -96,11 +102,11 @@ async function handleMorningCheck() {
     const overdue = []
     if (equipment.cushionChanged) {
       const d = daysAgo(equipment.cushionChanged)
-      if (isOverdue(d, CUSHION_INTERVAL_DAYS)) overdue.push({ label: 'Cushion', overBy: d - CUSHION_INTERVAL_DAYS })
+      if (isOverdue(d, t.cushionIntervalDays)) overdue.push({ label: 'Cushion', overBy: d - t.cushionIntervalDays })
     }
     if (equipment.headgearWashed) {
       const d = daysAgo(equipment.headgearWashed)
-      if (isOverdue(d, HEADGEAR_INTERVAL_DAYS)) overdue.push({ label: 'Headgear', overBy: d - HEADGEAR_INTERVAL_DAYS })
+      if (isOverdue(d, t.headgearIntervalDays)) overdue.push({ label: 'Headgear', overBy: d - t.headgearIntervalDays })
     }
     if (equipment.filterChanged) {
       const d = daysAgo(equipment.filterChanged)

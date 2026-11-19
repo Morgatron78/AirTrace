@@ -317,6 +317,16 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="Drives the overdue warning triangle on Equipment, Today's own banner, and the equipment push nag"
+            info="How long after a maintenance date before it's flagged overdue. Filter changes aren't here — that interval is read straight from your device's own recorded filter type (reusable vs. disposable) rather than being a fixed number.">
+            Maintenance intervals
+          </CardTitle>
+          <StepperRow label="Cushion changed" value={targets.cushionIntervalDays} unit="days" step={30} min={30} max={730} onChange={set('cushionIntervalDays')} />
+          <StepperRow label="Last cleaned" value={targets.lastCleanedIntervalDays} unit="days" step={1} min={1} max={30} onChange={set('lastCleanedIntervalDays')} />
+          <StepperRow label="Headgear washed" value={targets.headgearIntervalDays} unit="days" step={7} min={7} max={365} onChange={set('headgearIntervalDays')} last />
+        </div>
+
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
           <CardTitle sub="Used only for the automatic 'Late start' tag"
             info={'A session starting more than 2 hours after this is tagged "Late start" automatically — no logging needed, since your machine already records when a session began.'}>
             Tagging

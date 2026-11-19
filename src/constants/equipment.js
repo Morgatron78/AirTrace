@@ -19,4 +19,10 @@ export const EQUIPMENT = {
   fixedPressure: 10,
 }
 
-export const DEFAULT_TARGETS = { ahi: 5, leak: 24, usage: 4, compliance: 70, maskOff: 2, bedtime: 22.5 }
+export const DEFAULT_TARGETS = {
+  ahi: 5, leak: 24, usage: 4, compliance: 70, maskOff: 2, bedtime: 22.5,
+  // Maintenance overdue thresholds — filter's own interval stays
+  // computed dynamically from the device's recorded filter type
+  // (filterIntervalDays), not user-configurable like these three.
+  cushionIntervalDays: 365, headgearIntervalDays: 90, lastCleanedIntervalDays: 7,
+}
