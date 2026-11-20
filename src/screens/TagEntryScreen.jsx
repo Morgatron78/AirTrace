@@ -97,7 +97,10 @@ export function TagEntryScreen({ date, initialEntry, onSave, onClose }) {
             style={{
               width: '100%', minHeight: 64, marginTop: 6, padding: '10px 12px', borderRadius: 12,
               border: `1px solid ${T.line}`, background: T.bg, color: T.ink, resize: 'none',
-              fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", fontSize: 13, lineHeight: 1.4, boxSizing: 'border-box',
+              // 16px, not 13 — iOS Safari auto-zooms the whole page on focus of any
+              // text input under 16px, and as an installed Home Screen PWA there's no
+              // address bar to tap to zoom back out, so it stays stuck zoomed in.
+              fontFamily: "'Plus Jakarta Sans', ui-sans-serif, system-ui", fontSize: 16, lineHeight: 1.4, boxSizing: 'border-box',
             }} />
           <div style={{ fontSize: 10.5, color: T.muted, textAlign: 'right', marginTop: 4 }}>{note.length}/240</div>
         </div>

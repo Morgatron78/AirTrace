@@ -485,7 +485,7 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
                   value={oneDriveBasePath}
                   onChange={(e) => onChangeOneDriveBasePath(e.target.value)}
                   className="font-display"
-                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: T.bg, color: T.ink, fontSize: 14, border: `1px solid ${T.line}` }}
+                  style={{ width: '100%', boxSizing: 'border-box', padding: '10px 12px', borderRadius: 10, background: T.bg, color: T.ink, fontSize: 16, border: `1px solid ${T.line}` }}
                 />
               </div>
 

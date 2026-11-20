@@ -31,7 +31,7 @@ export function TextEditRow({ icon: Icon, iconColor, label, value, onChange, pla
         <div style={{ paddingBottom: 14, display: 'flex', gap: 8 }}>
           <input type={type} value={draft} placeholder={placeholder} onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') save() }}
-            style={{ flex: 1, padding: '9px 10px', borderRadius: 10, border: `1px solid ${T.line}`, fontFamily: "'Plus Jakarta Sans'", fontSize: 13, color: T.ink, background: T.bg }} />
+            style={{ flex: 1, padding: '9px 10px', borderRadius: 10, border: `1px solid ${T.line}`, fontFamily: "'Plus Jakarta Sans'", fontSize: 16, color: T.ink, background: T.bg }} />
           <button onClick={save} className="font-display"
             style={{ padding: '9px 14px', borderRadius: 10, background: C.blue, color: '#FFFFFF', fontSize: 13, fontWeight: 700, whiteSpace: 'nowrap' }}>
             Save
