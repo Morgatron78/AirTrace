@@ -13,7 +13,7 @@ import { LeakIcon } from '../components/icons/LeakIcon'
 import { getAllHealthData } from '../db/health.js'
 import { stageMinutes } from '../health/stageMinutes.js'
 
-export function StatsScreen({ nights, targets }) {
+export function StatsScreen({ nights, targets, tagsEnabled = true }) {
   // Everything under "This month" claims "30-night" — actually slicing
   // to the last 30 nights here, rather than using the full (potentially
   // 18-month) history passed in, is what makes that true. "All-time"
@@ -148,15 +148,17 @@ export function StatsScreen({ nights, targets }) {
           description={`Share of every night you've logged at or above your ${targets.usage}h usage target — the same target as "Current streak" above, but over your whole history instead of the last 30 nights.`} />
       </div>
 
-      <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-        <CardTitle sub="vs. your 30-night baseline">Tag correlation</CardTitle>
-        {sortedRows.map((r, i) => (
-          <StatRow key={r.tk} icon={TAG_ICON[r.tk]} iconColor={TAG_COLOR[r.tk]}
-            label={AUTO_TAGS.has(r.tk) ? `${TAG_LABEL[r.tk]} (auto · ${r.n})` : `${TAG_LABEL[r.tk]} (${r.n})`}
-            value={r.ahiPct === null ? 'AHI —' : r.n < MIN_NIGHTS_FOR_RANKING ? 'Not enough nights yet' : `AHI ${r.ahiPct > 0 ? '+' : ''}${r.ahiPct}%`}
-            last={i === sortedRows.length - 1} />
-        ))}
-      </div>
+      {tagsEnabled && (
+        <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
+          <CardTitle sub="vs. your 30-night baseline">Tag correlation</CardTitle>
+          {sortedRows.map((r, i) => (
+            <StatRow key={r.tk} icon={TAG_ICON[r.tk]} iconColor={TAG_COLOR[r.tk]}
+              label={AUTO_TAGS.has(r.tk) ? `${TAG_LABEL[r.tk]} (auto · ${r.n})` : `${TAG_LABEL[r.tk]} (${r.n})`}
+              value={r.ahiPct === null ? 'AHI —' : r.n < MIN_NIGHTS_FOR_RANKING ? 'Not enough nights yet' : `AHI ${r.ahiPct > 0 ? '+' : ''}${r.ahiPct}%`}
+              last={i === sortedRows.length - 1} />
+          ))}
+        </div>
+      )}
     </div>
   )
 }

@@ -31,7 +31,7 @@ import { StatRow } from '../components/StatRow'
 import { CardTitle } from '../components/CardTitle'
 import { LeakIcon } from '../components/icons/LeakIcon'
 
-export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUnit }) {
+export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUnit, tagsEnabled = true }) {
   const [range, setRange] = useState('month')
   const [metric, setMetric] = useState('ahi')
   const [chartDetailIdx, setChartDetailIdx] = useState(null)
@@ -124,7 +124,7 @@ export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUn
   // weekly-summary push, which must never disagree with what this screen
   // says about the same nights.
   const { diffPct: summaryDiff, tagShift, insufficientData } = ahiTrend(firstHalf, secondHalf)
-  const tagShiftClause = tagShift ? (() => {
+  const tagShiftClause = tagsEnabled && tagShift ? (() => {
     const label = TAG_LABEL[tagShift.tk] + (AUTO_TAGS.has(tagShift.tk) ? ' (auto-detected)' : '')
     return ` ${label} came up on ${tagShift.c2} of ${secondHalf.length} nights this half vs ${tagShift.c1} of ${firstHalf.length} last half — may be part of it.`
   })() : ''
@@ -305,7 +305,7 @@ export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUn
               <span style={{ fontSize: 12, color: T.muted }}>AHI</span>
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{best.label}</div>
-            {best.tags.length > 0 && (
+            {tagsEnabled && best.tags.length > 0 && (
               <div style={{ fontSize: 11, color: T.muted, marginTop: 6 }}>{best.tags.map((tk) => TAG_LABEL[tk]).join(', ')}</div>
             )}
           </button>
@@ -319,7 +319,7 @@ export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUn
               <span style={{ fontSize: 12, color: T.muted }}>AHI</span>
             </div>
             <div style={{ fontSize: 12, color: T.muted, marginTop: 2 }}>{worst.label}</div>
-            {worst.tags.length > 0 && (
+            {tagsEnabled && worst.tags.length > 0 && (
               <div style={{ fontSize: 11, color: T.muted, marginTop: 6 }}>{worst.tags.map((tk) => TAG_LABEL[tk]).join(', ')}</div>
             )}
           </button>
@@ -385,7 +385,7 @@ export function TrendsScreen({ nights, onSelectNight, targets, profile, weightUn
           {chartDetailIdx != null && (
             <NightDetailPanel night={data[chartDetailIdx]} metric={metric} targets={targets}
               activeEventType={eventType} onSelectEventType={setEventType}
-              onViewNight={() => viewNight(chartDetailIdx)} />
+              onViewNight={() => viewNight(chartDetailIdx)} tagsEnabled={tagsEnabled} />
           )}
         </div>
       </div>

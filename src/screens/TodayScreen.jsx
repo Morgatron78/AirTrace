@@ -14,7 +14,7 @@ import { useNightDetail } from '../db/detail.js'
 import { getMeta } from '../db/meta.js'
 import { formatDuration, formatClock, formatDurationSec } from '../utils/dates'
 
-export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport, onOpenSettings }) {
+export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipment, untaggedDates, onOpenTagEntry, onOpenImport, onOpenSettings, tagsEnabled = true }) {
   const last = nights[nights.length - 1]
   const prev = nights[nights.length - 2]
   // Same useNightDetail hook Night View uses (db/detail.js) — "last
@@ -125,7 +125,7 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
         </button>
       </div>
 
-      {untaggedDates.length > 0 && (
+      {tagsEnabled && untaggedDates.length > 0 && (
         <NavCard icon={Pencil} dot={untaggedDates.length > 1 ? `linear-gradient(135deg,${C.orange},${C.red})` : `linear-gradient(135deg,${C.blue},${C.purple})`}
           title={untaggedDates.length === 1 ? 'Tag last night' : `${untaggedDates.length} nights untagged`}
           subtitle={untaggedDates.length === 1 ? 'What happened? Takes a few seconds' : 'Catch up before you forget what happened'}
@@ -137,7 +137,7 @@ export function TodayScreen({ nights, onNavigate, onSelectNight, targets, equipm
         <MiniDots nights={week} allNights={nights} targets={targets} onSelect={onSelectNight} />
       </div>
 
-      <NavCard icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title="Tag correlation" subtitle="See what's actually driving your AHI" onClick={() => onNavigate('stats')} />
+      {tagsEnabled && <NavCard icon={Sparkles} dot={`linear-gradient(135deg,${C.blue},${C.purple})`} title="Tag correlation" subtitle="See what's actually driving your AHI" onClick={() => onNavigate('stats')} />}
       <NavCard icon={Flame} dot={`linear-gradient(135deg,${C.orange},${C.red})`} title={streak > 0 ? `${streak}-night streak` : 'No active streak'}
         subtitle={streak > 0 ? 'Consistency is the biggest lever you have' : `${targets.usage}+ hours is what builds a streak — tonight's a good night to start one`} onClick={() => onNavigate('trends')} />
     </div>

@@ -12,7 +12,7 @@ import { ViewNightButton } from './ViewNightButton'
 // Trends. Content is metric-specific: each tab surfaces the numbers a flat
 // bar can't show on its own. "View night detail" is the deliberate way to
 // still reach the full Night View for that date.
-export function NightDetailPanel({ night, metric, targets, onViewNight, activeEventType, onSelectEventType }) {
+export function NightDetailPanel({ night, metric, targets, onViewNight, activeEventType, onSelectEventType, tagsEnabled = true }) {
   if (night.noUsage) {
     return (
       <div style={{ background: T.bg, borderRadius: 14, padding: 14, marginTop: 12 }}>
@@ -65,7 +65,7 @@ export function NightDetailPanel({ night, metric, targets, onViewNight, activeEv
               </div>
             )
           })}
-          {night.tags.length > 0 && (
+          {tagsEnabled && night.tags.length > 0 && (
             <div style={{ fontSize: 11, color: T.muted, marginTop: 10, paddingTop: 10, borderTop: `1px solid ${T.line}` }}>
               Tagged: {night.tags.map((tk) => TAG_LABEL[tk]).join(', ')}
             </div>

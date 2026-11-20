@@ -288,7 +288,7 @@ function NightDatePicker({ nights, idx, setIdx, targets, showJump, onCloseJump }
   )
 }
 
-function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
+function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump, tagsEnabled = true }) {
   const night = nights[idx]
   // This night's own real prescribed pressure, or (for a night that
   // predates this field, or a no-usage placeholder) the most recent real
@@ -874,7 +874,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
             : "Per-event detail isn't stored for this night — waveform detail is only kept for your last 90 used nights, while the AHI above comes from your device's own permanent nightly summary, so it's still accurate."} />
       </div>
 
-      <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
+      {tagsEnabled && <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />}
 
       {/* APPLE-HEALTH: Sleep stages only needs night.usage/startHour
           (permanent, from nightSummaries) and healthEntry.stages (its own
@@ -1147,7 +1147,7 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
 // rather than as no data at all. This wrapper decides before any hooks run,
 // so the two very different render paths (full charts vs. a plain message)
 // never conflict with React's rules of hooks.
-function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
+function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump, tagsEnabled = true }) {
   const night = nights[idx]
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -1176,7 +1176,7 @@ function DrillDownScreenNight_NotUsed({ nights, idx, setIdx, targets, onOpenTagE
         <div className="font-display" style={{ fontSize: 15, fontWeight: 700, color: T.ink, marginBottom: 6 }}>Not used this night</div>
         <div style={{ fontSize: 13, color: T.muted, lineHeight: 1.5 }}>No session was recorded — nothing to show for AHI, leak, pressure, or waveform detail.</div>
       </div>
-      <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />
+      {tagsEnabled && <TagsCard night={night} onOpenTagEntry={onOpenTagEntry} />}
     </div>
   )
 }
@@ -1227,7 +1227,7 @@ function TagsCard({ night, onOpenTagEntry }) {
     </div>
   )
 }
-export function DrillDownScreen({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump }) {
-  if (nights[idx].noUsage) return <DrillDownScreenNight_NotUsed nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} />
-  return <DrillDownScreenNight nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} />
+export function DrillDownScreen({ nights, idx, setIdx, targets, onOpenTagEntry, showJump, onCloseJump, tagsEnabled = true }) {
+  if (nights[idx].noUsage) return <DrillDownScreenNight_NotUsed nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} tagsEnabled={tagsEnabled} />
+  return <DrillDownScreenNight nights={nights} idx={idx} setIdx={setIdx} targets={targets} onOpenTagEntry={onOpenTagEntry} showJump={showJump} onCloseJump={onCloseJump} tagsEnabled={tagsEnabled} />
 }

@@ -83,7 +83,7 @@ function ReportLegendDot({ color, label }) {
   )
 }
 
-export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
+export function ClinicianReportScreen({ nights, onBack, equipment, profile, tagsEnabled = true }) {
   // window.print() is a real no-op in an installed Home Screen PWA on
   // iOS — standalone mode strips the browser chrome print/share depends
   // on entirely (same failure class already documented for Wake Lock in
@@ -239,12 +239,12 @@ export function ClinicianReportScreen({ nights, onBack, equipment, profile }) {
           )
         })}
 
-        <ReportHeading>Tag correlation (last 90 days)</ReportHeading>
-        {tagRows.length ? tagRows.map((r) => (
+        {tagsEnabled && <ReportHeading>Tag correlation (last 90 days)</ReportHeading>}
+        {tagsEnabled && (tagRows.length ? tagRows.map((r) => (
           <ReportRow key={r.tk} label={`${TAG_LABEL[r.tk]}${AUTO_TAGS.has(r.tk) ? ' (auto-detected)' : ''} (${r.n} nights)`} value={`AHI ${r.diff > 0 ? '+' : ''}${r.diff}%`} />
         )) : (
           <ReportRow label="No tagged nights yet" value="—" />
-        )}
+        ))}
 
         <ReportHeading>Event breakdown (avg/hr, last 90 days)</ReportHeading>
         <ReportRow label="Obstructive" value={obs.toFixed(1)} />

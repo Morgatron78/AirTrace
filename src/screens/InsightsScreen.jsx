@@ -94,7 +94,7 @@ function Troubleshooter({ nights, equipment }) {
   )
 }
 
-export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight, targets, equipment }) {
+export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight, targets, equipment, tagsEnabled = true }) {
   // Every "recent"/"this month" claim on this screen needs an actual
   // recent window behind it, not the full (potentially 18-month)
   // history — the exact bug already found and fixed once on Stats (see
@@ -142,7 +142,9 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
 
   // 'alcohol' excluded here — it gets its own graded comparison below
   // instead of one flat card, see alcoholInsights.
-  const tagInsights = Object.keys(TAG_LABEL).filter((tk) => tk !== 'alcohol').map((tk) => {
+  // Skipped entirely (not just hidden at render) when tagging's off —
+  // there's nothing in `nights.tags` to read at that point anyway.
+  const tagInsights = !tagsEnabled ? [] : Object.keys(TAG_LABEL).filter((tk) => tk !== 'alcohol').map((tk) => {
     // Same last30 scope as `overall` above — both sides of the
     // comparison need to come from the same window, not just the
     // baseline.
@@ -167,7 +169,7 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   // so the two read consistently alongside them. `alcoholLevel` is
   // exhaustive (light ∪ heavy covers every alcohol-tagged night), so
   // nothing is lost by excluding the flat 'alcohol' key above.
-  const alcoholInsights = ['light', 'heavy'].map((grade) => {
+  const alcoholInsights = !tagsEnabled ? [] : ['light', 'heavy'].map((grade) => {
     const withGrade = last30.filter((n) => !n.noUsage && n.alcoholLevel === grade)
     if (withGrade.length < 3) return null
     const a = avg(withGrade, 'ahi')
@@ -211,7 +213,7 @@ export function InsightsScreen({ nights, onOpenReport, onNavigate, onSelectNight
   for (let i = 0; i < TAG_KEYS.length; i++) {
     for (let j = i + 1; j < TAG_KEYS.length; j++) tagPairs.push([TAG_KEYS[i], TAG_KEYS[j]])
   }
-  const comboInsights = tagPairs.map(([a, b]) => {
+  const comboInsights = !tagsEnabled ? [] : tagPairs.map(([a, b]) => {
     const aOnly = nights.filter((n) => !n.noUsage && n.tags.includes(a) && !n.tags.includes(b))
     const bOnly = nights.filter((n) => !n.noUsage && n.tags.includes(b) && !n.tags.includes(a))
     const both = nights.filter((n) => !n.noUsage && n.tags.includes(a) && n.tags.includes(b))

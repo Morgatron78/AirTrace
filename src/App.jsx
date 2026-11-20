@@ -99,6 +99,16 @@ export default function App() {
   const [oneDriveBasePath, setOneDriveBasePath] = useState('CPAP Data')
   const updateOneDriveSyncEnabled = (next) => { setOneDriveSyncEnabled(next); setMeta('oneDriveSyncEnabled', next) }
   const updateOneDriveBasePath = (next) => { setOneDriveBasePath(next); setMeta('oneDriveBasePath', next) }
+  // TAGGING — on by default (existing installs keep today's behavior
+  // unchanged until someone actively opts out in Settings). A reversible
+  // hide-everything switch, not a delete: already-logged tags/notes stay
+  // in IndexedDB untouched, so turning this back on later picks up right
+  // where it left off. Read by every screen that renders a tag entry
+  // point or a tag-derived card/sentence, and by sw.js (its own
+  // independent getMeta read, since a service worker can't read React
+  // state) to stop sending the tagging-specific push nags.
+  const [tagsEnabled, setTagsEnabledState] = useState(true)
+  const updateTagsEnabled = (next) => { setTagsEnabledState(next); setMeta('tagsEnabled', next) }
   // targets/equipment/profile previously lived only in memory — any change
   // (a custom AHI target, a logged filter-change date) was silently lost
   // on every reload. All three persist via the same generic meta store
@@ -119,6 +129,9 @@ export default function App() {
     getMeta('themeMode').then((v) => v && setThemeMode(v))
     getMeta('heightUnit').then((v) => v && setHeightUnit(v))
     getMeta('weightUnit').then((v) => v && setWeightUnit(v))
+    // Not `v && ...` like the string-valued loads above — that would skip
+    // applying an explicitly-saved `false`, since false is itself falsy.
+    getMeta('tagsEnabled').then((v) => { if (v !== undefined) setTagsEnabledState(v) })
 
     // AIRTRACE-FIX: extracted so it can run both on mount (as before) and
     // again whenever the app comes back to the foreground (below) -
@@ -266,7 +279,7 @@ export default function App() {
     return <SplashScreen fadingOut={splashStage === 'fading'} />
   }
   if (showReport) {
-    return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} />
+    return <ClinicianReportScreen nights={nights} onBack={() => setShowReport(false)} equipment={equipment} profile={profile} tagsEnabled={tagsEnabled} />
   }
   if (showImport) {
     return <ImportScreen key={resolvedTheme} onBack={closeImport} nights={nights} /* APPLE-HEALTH — see docs/apple-health-integration.md */
@@ -277,7 +290,8 @@ export default function App() {
       themeMode={themeMode} onChangeThemeMode={updateThemeMode}
       heightUnit={heightUnit} onChangeHeightUnit={updateHeightUnit} weightUnit={weightUnit} onChangeWeightUnit={updateWeightUnit}
       oneDriveSyncEnabled={oneDriveSyncEnabled} onChangeOneDriveSyncEnabled={updateOneDriveSyncEnabled}
-      oneDriveBasePath={oneDriveBasePath} onChangeOneDriveBasePath={updateOneDriveBasePath} />
+      oneDriveBasePath={oneDriveBasePath} onChangeOneDriveBasePath={updateOneDriveBasePath}
+      tagsEnabled={tagsEnabled} onChangeTagsEnabled={updateTagsEnabled} />
   }
   if (status === 'empty') {
     return (
@@ -320,12 +334,12 @@ export default function App() {
       </header>
 
       <main style={{ maxWidth: 448, margin: '0 auto', padding: '12px 18px 0' }}>
-        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} onOpenSettings={() => setShowSettings(true)} />}
-        {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} profile={profile} weightUnit={weightUnit} />}
-        {tab === 'stats' && <StatsScreen nights={nights} targets={targets} />}
+        {tab === 'today' && <TodayScreen nights={nights} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} untaggedDates={untaggedDates} onOpenTagEntry={setTagEntryDate} onOpenImport={() => setShowImport(true)} onOpenSettings={() => setShowSettings(true)} tagsEnabled={tagsEnabled} />}
+        {tab === 'trends' && <TrendsScreen nights={nights} onSelectNight={goToNight} targets={targets} profile={profile} weightUnit={weightUnit} tagsEnabled={tagsEnabled} />}
+        {tab === 'stats' && <StatsScreen nights={nights} targets={targets} tagsEnabled={tagsEnabled} />}
         {tab === 'night' && <DrillDownScreen nights={nights} idx={nightIdx} setIdx={setNightIdx} targets={targets} onOpenTagEntry={setTagEntryDate}
-          showJump={showJumpToDate} onCloseJump={() => setShowJumpToDate(false)} />}
-        {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} />}
+          showJump={showJumpToDate} onCloseJump={() => setShowJumpToDate(false)} tagsEnabled={tagsEnabled} />}
+        {tab === 'insights' && <InsightsScreen nights={nights} onOpenReport={() => setShowReport(true)} onNavigate={setTab} onSelectNight={goToNight} targets={targets} equipment={equipment} tagsEnabled={tagsEnabled} />}
         {tab === 'equipment' && <EquipmentScreen equipment={equipment} onChange={updateEquipment} nights={nights} profile={profile} targets={targets} />}
       </main>
 

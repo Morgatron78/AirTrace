@@ -58,6 +58,13 @@ const EQUIPMENT_NAG_COOLDOWN_DAYS = 7
 // evening nag doesn't silently replace an unread morning one) differ
 // between the two callers.
 async function checkTagging(copy, notifTag) {
+  // Single choke point for both the morning and evening tagging nags —
+  // covers suppression once rather than duplicating the check at each
+  // call site. `!== false` (not a truthy check) so an unset/undefined
+  // flag — every install before this setting existed — keeps nagging
+  // exactly as before.
+  const tagsEnabled = await getMeta('tagsEnabled')
+  if (tagsEnabled === false) return
   const [tagsMap, tagStartDate] = await Promise.all([getAllTags(), getMeta('tagStartDate')])
   const untagged = getUntaggedDates(tagsMap, tagStartDate)
   if (untagged.length === 0) return
@@ -160,8 +167,8 @@ async function handleEveningCheck() {
 // push has no equivalent fallback, so it degrades to a "not enough
 // nights yet" clause rather than suppressing the whole notification.
 async function handleWeeklySummary() {
-  const [summaries, tagsMap, targets, tagStartDate] = await Promise.all([
-    getAllSummaries(), getAllTags(), getMeta('targets'), getMeta('tagStartDate'),
+  const [summaries, tagsMap, targets, tagStartDate, tagsEnabled] = await Promise.all([
+    getAllSummaries(), getAllTags(), getMeta('targets'), getMeta('tagStartDate'), getMeta('tagsEnabled'),
   ])
   const t = targets || DEFAULT_TARGETS
 
@@ -189,7 +196,11 @@ async function handleWeeklySummary() {
     : diffPct < -8
     ? `AHI down ${Math.abs(diffPct)}% vs last week.`
     : 'AHI held steady vs last week.'
-  const tagClause = tagShift
+  // Both clauses below are tagging-derived, so both drop out entirely
+  // (not just the entry point nags) when tagging's off — `!== false`,
+  // same reasoning as checkTagging's own check, so pre-existing installs
+  // with no stored flag yet keep today's behavior.
+  const tagClause = tagsEnabled !== false && tagShift
     ? ` ${TAG_LABEL[tagShift.tk]}${AUTO_TAGS.has(tagShift.tk) ? ' (auto-detected)' : ''} came up ${tagShift.ptDiff > 0 ? 'more' : 'less'} often — may be part of it.`
     : ''
   // Same exemption App.jsx and getUntaggedDates already apply — a night
@@ -198,7 +209,7 @@ async function handleWeeklySummary() {
   // this week's completion any more than it counts toward the daily nag.
   // Omitted entirely, not "0 of 0", if the whole week happens to predate
   // tagStartDate (or nothing's been imported yet at all).
-  const taggedEligible = thisWeek.filter((n) => tagStartDate && n.date >= tagStartDate)
+  const taggedEligible = tagsEnabled !== false ? thisWeek.filter((n) => tagStartDate && n.date >= tagStartDate) : []
   const tagCompletionClause = taggedEligible.length > 0
     ? ` Tagged ${taggedEligible.filter((n) => tagsMap[n.date]).length} of ${taggedEligible.length} nights.`
     : ''

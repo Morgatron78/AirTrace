@@ -69,7 +69,8 @@ function StepperRow({ label, value, unit, onChange, step, min, max, last, format
 }
 
 export function SettingsScreen({ onBack, targets, onChange, profile, onChangeProfile, themeMode, onChangeThemeMode, heightUnit, onChangeHeightUnit, weightUnit, onChangeWeightUnit,
-  oneDriveSyncEnabled, onChangeOneDriveSyncEnabled, oneDriveBasePath, onChangeOneDriveBasePath }) {
+  oneDriveSyncEnabled, onChangeOneDriveSyncEnabled, oneDriveBasePath, onChangeOneDriveBasePath,
+  tagsEnabled, onChangeTagsEnabled }) {
   const set = (key) => (val) => onChange({ ...targets, [key]: val })
   const setProfile = (key) => (val) => onChangeProfile({ ...profile, [key]: val })
 
@@ -327,12 +328,31 @@ export function SettingsScreen({ onBack, targets, onChange, profile, onChangePro
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
-          <CardTitle sub="Used only for the automatic 'Late start' tag"
-            info={'A session starting more than 2 hours after this is tagged "Late start" automatically — no logging needed, since your machine already records when a session began.'}>
+          <CardTitle sub={tagsEnabled ? "Used only for the automatic 'Late start' tag" : 'Hidden everywhere — Today, Night View, Insights, Stats, and the Clinician report'}
+            info={tagsEnabled
+              ? 'A session starting more than 2 hours after this is tagged "Late start" automatically — no logging needed, since your machine already records when a session began.'
+              : "Turning this off hides every tag entry point and tag-derived card, and stops the tagging push nags (morning + evening). Nothing already logged is deleted — turning it back on picks up right where it left off."}>
             Tagging
           </CardTitle>
-          <StepperRow label="Target bedtime" value={targets.bedtime} step={0.25} min={19} max={26} onChange={set('bedtime')}
-            formatValue={(v) => <>{formatClock(v)}</>} last />
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', height: 44, borderBottom: tagsEnabled ? `1px solid ${T.line}` : 'none' }}>
+            <span className="font-display" style={{ fontSize: 14.5, color: T.ink }}>Enable tagging</span>
+            <button
+              onClick={() => onChangeTagsEnabled(!tagsEnabled)}
+              className="font-display"
+              style={{
+                padding: '8px 16px', borderRadius: 20, fontSize: 13, fontWeight: 700,
+                background: tagsEnabled ? T.bg : T.ink,
+                color: tagsEnabled ? T.ink : T.bg,
+                border: tagsEnabled ? `1px solid ${T.line}` : 'none',
+              }}
+            >
+              {tagsEnabled ? 'On' : 'Turn on'}
+            </button>
+          </div>
+          {tagsEnabled && (
+            <StepperRow label="Target bedtime" value={targets.bedtime} step={0.25} min={19} max={26} onChange={set('bedtime')}
+              formatValue={(v) => <>{formatClock(v)}</>} last />
+          )}
         </div>
 
         <div style={{ background: T.surface, borderRadius: 22, padding: 20 }}>
