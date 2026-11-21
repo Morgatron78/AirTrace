@@ -2,7 +2,8 @@ import { useState, useRef } from 'react'
 import { ZoomOut, Maximize2, MoreHorizontal, Info, HeartPulse, Droplet } from 'lucide-react'
 import { T, C, SEV } from '../../constants/theme'
 import { formatClock } from '../../utils/dates'
-import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS } from './chartHelpers'
+import { hourTicks, makePanHandlers, EVENT_COLOR, formatEventDuration, ZOOM_PRESETS, hexA } from './chartHelpers'
+import { analyzeEvent } from '../../utils/eventAnalysis'
 // APPLE-HEALTH: additive corroborating-context rows in the popover below —
 // see docs/apple-health-integration.md for the full strip-out list.
 import { STAGE_LABEL, STAGE_COLOR, STAGE_ICON } from '../../constants/sleepStages'
@@ -41,12 +42,19 @@ const EVENTS_SUB = "Every obstructive, central, and hypopnea event during the ni
 // events are genuinely seconds apart, not just visually close because
 // we're zoomed out — opens a small stacked list of every event in it.
 // A single (unclustered) dot always just opens that one event's detail.
-export function EventsChart({ events, usageHours, startHour, onExpand, onSelectEvent, big = false, date, healthEntry }) {
+export function EventsChart({ events, usageHours, startHour, onExpand, onSelectEvent, big = false, date, healthEntry, detail, totalNightSec, targets }) {
   const [zoom, setZoom] = useState(1)
   const [panStart, setPanStart] = useState(0)
   const [openCluster, setOpenCluster] = useState(null) // { px, items } | null
   const [showMore, setShowMore] = useState(false)
   const [showInfo, setShowInfo] = useState(false)
+  // Which open popover row(s) have their analysis drill-down expanded —
+  // keyed by index within openCluster.items, reset whenever a different
+  // event/cluster opens so a stale expanded state can't leak onto the next
+  // one. Per CLAUDE.md's own real-finding ("the real new info needs to earn
+  // its place and not over-dominate") this is deliberately a second tap, not
+  // shown alongside type/time/duration by default.
+  const [analysisShown, setAnalysisShown] = useState({})
   const dragRef = useRef(null)
   const isZoomedIn = zoom < 0.999
   const atDeepestZoom = zoom <= ZOOM_PRESETS[ZOOM_PRESETS.length - 1] + 0.001
@@ -79,6 +87,9 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
       clusters.push({ px: e.px, items: [e] })
     }
   }
+  function toggleAnalysis(i) {
+    setAnalysisShown((s) => ({ ...s, [i]: !s[i] }))
+  }
   function dominantColor(items) {
     if (items.length === 1) return EVENT_COLOR[items[0].type]
     const counts = {}
@@ -96,11 +107,13 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
       // deepest zoom (the branch below) — several events seconds apart
       // is still genuinely ambiguous about which one is meant.
       setOpenCluster(c)
+      setAnalysisShown({})
       onSelectEvent?.(c.items[0])
       return
     }
     if (atDeepestZoom) {
       setOpenCluster(c)
+      setAnalysisShown({})
       return
     }
     // Zoom in centered on the cluster — same "jump to the deepest preset"
@@ -194,7 +207,15 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
               position: 'fixed', bottom: 'calc(96px + 12px)', left: '50%', transform: 'translateX(-50%)', zIndex: 55,
               background: T.surface, borderRadius: 12, boxShadow: '0 6px 20px rgba(0,0,0,0.18)', padding: 8, width: 'calc(100% - 32px)', maxWidth: 260,
             }}>
-              {openCluster.items.map((it, i) => (
+              {openCluster.items.map((it, i) => {
+                // Null when there's no waveform detail to analyze at all
+                // (pruned past the 90-used-nights retention window) — the
+                // info toggle itself only renders when there's something
+                // real behind it. Per [[airtrace-waveform-insights-triage]]
+                // this is a genuine second step, not shown by default
+                // alongside the device's own type/time/duration above.
+                const analysis = analyzeEvent(it, events, detail, totalNightSec, targets?.leak)
+                return (
                 // Two events close enough in time to still overlap into one
                 // cluster even at this chart's own deepest zoom (rare, but
                 // real — events seconds apart) previously had no way to
@@ -215,6 +236,15 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                   <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                     <span style={{ width: 10, height: 10, borderRadius: 5, background: EVENT_COLOR[it.type], flexShrink: 0 }} />
                     <span className="font-display" style={{ fontSize: 12, fontWeight: 700, color: T.ink, textTransform: 'capitalize' }}>{it.type}</span>
+                    {analysis && (
+                      <button onPointerDown={(ev) => ev.stopPropagation()} onClick={(ev) => { ev.stopPropagation(); toggleAnalysis(i) }}
+                        style={{
+                          marginLeft: 'auto', width: 20, height: 20, borderRadius: '50%', flexShrink: 0,
+                          background: analysisShown[i] ? T.ink : T.bg, display: 'flex', alignItems: 'center', justifyContent: 'center',
+                        }}>
+                        <Info size={11} style={{ color: analysisShown[i] ? T.bg : T.muted }} />
+                      </button>
+                    )}
                   </div>
                   <div style={{ fontSize: 11, color: T.muted, marginLeft: 16, marginTop: 1 }}>{formatClock(startHour + it.x * usageHours)} · {formatEventDuration(it.durationSec)}</div>
                   {/* APPLE-HEALTH: corroborating context from Apple
@@ -256,8 +286,40 @@ export function EventsChart({ events, usageHours, startHour, onExpand, onSelectE
                       </div>
                     )
                   })()}
+                  {analysis && analysisShown[i] && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: `1px solid ${T.line}` }}>
+                      <div style={{ display: 'flex', gap: 4 }}>
+                        <div style={{ flex: 1, background: T.bg, borderRadius: 8, padding: '5px 2px', textAlign: 'center' }}>
+                          <div className="font-display" style={{ fontSize: 12, fontWeight: 800, color: EVENT_COLOR[it.type] }}>{analysis.flowDropPct}%</div>
+                          <div style={{ fontSize: 8, color: T.muted, marginTop: 1, lineHeight: 1.2 }}>Flow drop<br />at trough</div>
+                        </div>
+                        <div style={{ flex: 1, background: T.bg, borderRadius: 8, padding: '5px 2px', textAlign: 'center' }}>
+                          <div className="font-display" style={{ fontSize: 12, fontWeight: 800, color: T.ink }}>{formatEventDuration(it.durationSec)}</div>
+                          <div style={{ fontSize: 8, color: T.muted, marginTop: 1, lineHeight: 1.2 }}>Scored<br />duration</div>
+                        </div>
+                        <div style={{ flex: 1, background: T.bg, borderRadius: 8, padding: '5px 2px', textAlign: 'center' }}>
+                          <div className="font-display" style={{ fontSize: 12, fontWeight: 800, color: T.ink }}>{analysis.recoveryPct > 0 ? '+' : ''}{analysis.recoveryPct}%</div>
+                          <div style={{ fontSize: 8, color: T.muted, marginTop: 1, lineHeight: 1.2 }}>Recovery<br />surge</div>
+                        </div>
+                      </div>
+                      {analysis.clusterNote && (
+                        <div style={{ fontSize: 10, color: T.muted, marginTop: 6 }}>&#8226; {analysis.clusterNote}</div>
+                      )}
+                      {analysis.rankNote && (
+                        <div style={{ fontSize: 10, color: T.muted, marginTop: 3 }}>&#8226; <span style={{ color: T.ink, fontWeight: 700 }}>{analysis.rankNote}</span></div>
+                      )}
+                      {analysis.leakFlagged ? (
+                        <div style={{ marginTop: 6, padding: '7px 8px', borderRadius: 8, background: hexA(SEV.bad, 0.12), fontSize: 10.5, color: T.ink, lineHeight: 1.4 }}>
+                          <span style={{ color: SEV.bad, fontWeight: 700 }}>&#9888; Leak was elevated throughout</span> — averaged {analysis.leakAvg} L/min, above your {targets.leak} L/min target. A dislodged mask can register as a flow drop just like a real obstruction; worth treating this one with suspicion.
+                        </div>
+                      ) : (
+                        <div style={{ fontSize: 10.5, color: T.muted, marginTop: 6, lineHeight: 1.4 }}>{analysis.patternText}</div>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                )
+              })}
             </div>
           </>
         )}

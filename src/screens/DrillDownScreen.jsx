@@ -920,7 +920,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
           you just look at; Synchronized view/Individual channels/
           Statistics are the tools for exploring further yourself. */}
       <EventsChart events={events} usageHours={chartHours} startHour={chartStartHour} onExpand={() => setExpandedChart('events')} onSelectEvent={handleSelectEvent}
-        date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
+        date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */
+        detail={nightData?.detail} totalNightSec={nightData?.totalNightSec} targets={targets} />
 
       {/* APPLE-HEALTH: only renders when a matched entry actually exists —
           no data, no card, same pattern as Time in apnea's detailStatus
@@ -1122,7 +1123,8 @@ function DrillDownScreenNight({ nights, idx, setIdx, targets, onOpenTagEntry, sh
                 ) : expandedChart === 'events' ? (
                   <div style={{ flex: 1, minHeight: 0 }}>
                     <EventsChart events={events} usageHours={chartHours} startHour={chartStartHour} big onSelectEvent={handleSelectEvent}
-                      date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */ />
+                      date={night.date} healthEntry={healthEntry} /* APPLE-HEALTH */
+                      detail={nightData?.detail} totalNightSec={nightData?.totalNightSec} targets={targets} />
                   </div>
                 ) : (
                   <div style={{ flex: 1, minHeight: 0 }}>
